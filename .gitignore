@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# Next.js
+.next/
+**/.next/
+
+# Environment variables
+.env
+**/.env
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
