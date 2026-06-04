@@ -1,9 +1,39 @@
 const pool = require('../config/db');
 
+const ensureFreeStandsColumn = () => pool.query(
+  "ALTER TABLE matches ADD COLUMN IF NOT EXISTS free_stands text[] DEFAULT '{}'::text[]"
+);
+
+const STAND_PRICES = {
+  A: 100000,
+  B: 50000,
+  C: 20000,
+  D: 20000,
+};
+
+const normalizeFreeStands = (freeStands) => {
+  if (!Array.isArray(freeStands)) return [];
+  return [...new Set(freeStands.filter((stand) => Object.prototype.hasOwnProperty.call(STAND_PRICES, stand)))];
+};
+
+const syncAvailableTicketPrices = async (matchId, freeStands) => {
+  for (const [stand, price] of Object.entries(STAND_PRICES)) {
+    await pool.query(
+      `UPDATE tickets
+       SET price = $1
+       WHERE match_id = $2
+       AND sector LIKE $3
+       AND status = 'AVAILABLE'`,
+      [freeStands.includes(stand) ? 0 : price, matchId, `${stand}%`]
+    );
+  }
+};
+
 // 1. LẤY DANH SÁCH TẤT CẢ TRẬN ĐẤU (Cả User và Admin đều dùng)
 const getMatches = async (req, res) => {
   const { scope } = req.query;
   try {
+    await ensureFreeStandsColumn();
     let whereClause = '';
     let orderClause = 'ORDER BY match_date ASC';
     let limitClause = '';
@@ -23,7 +53,8 @@ const getMatches = async (req, res) => {
         id, opponent, opponent_logo AS "opponentLogo", 
         match_date AS "matchDate", stadium, description, 
         ticket_price_min AS "ticketPriceMin", banner_image AS "bannerImage", 
-        status, home_score AS "homeScore", away_score AS "awayScore"
+        status, home_score AS "homeScore", away_score AS "awayScore",
+        free_stands AS "freeStands"
       FROM matches
       ${whereClause}
       ${orderClause}
@@ -40,12 +71,14 @@ const getMatches = async (req, res) => {
 const getMatchById = async (req, res) => {
   const { id } = req.params;
   try {
+    await ensureFreeStandsColumn();
     const query = `
       SELECT 
         id, opponent, opponent_logo AS "opponentLogo", 
         match_date AS "matchDate", stadium, description, 
         ticket_price_min AS "ticketPriceMin", banner_image AS "bannerImage", 
-        status, home_score AS "homeScore", away_score AS "awayScore"
+        status, home_score AS "homeScore", away_score AS "awayScore",
+        free_stands AS "freeStands"
       FROM matches
       WHERE id = $1
     `;
@@ -61,14 +94,16 @@ const getMatchById = async (req, res) => {
 
 // 3. ADMIN TẠO TRẬN ĐẤU MỚI
 const createMatch = async (req, res) => {
-  const { opponent, opponentLogo, matchDate, stadium, description, ticketPriceMin, bannerImage, status, homeScore, awayScore } = req.body;
+  const { opponent, opponentLogo, matchDate, stadium, description, ticketPriceMin, bannerImage, status, homeScore, awayScore, freeStands } = req.body;
   try {
+    await ensureFreeStandsColumn();
+    const normalizedFreeStands = normalizeFreeStands(freeStands);
     const query = `
-      INSERT INTO matches (opponent, opponent_logo, match_date, stadium, description, ticket_price_min, banner_image, status, home_score, away_score)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-      RETURNING id, opponent, opponent_logo AS "opponentLogo", match_date AS "matchDate", stadium, description, ticket_price_min AS "ticketPriceMin", banner_image AS "bannerImage", status, home_score AS "homeScore", away_score AS "awayScore"
+      INSERT INTO matches (opponent, opponent_logo, match_date, stadium, description, ticket_price_min, banner_image, status, home_score, away_score, free_stands)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING id, opponent, opponent_logo AS "opponentLogo", match_date AS "matchDate", stadium, description, ticket_price_min AS "ticketPriceMin", banner_image AS "bannerImage", status, home_score AS "homeScore", away_score AS "awayScore", free_stands AS "freeStands"
     `;
-    const result = await pool.query(query, [opponent, opponentLogo || null, matchDate, stadium, description || null, ticketPriceMin, bannerImage || null, status, homeScore ?? null, awayScore ?? null]);
+    const result = await pool.query(query, [opponent, opponentLogo || null, matchDate, stadium, description || null, ticketPriceMin, bannerImage || null, status, homeScore ?? null, awayScore ?? null, normalizedFreeStands]);
     res.status(201).json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -78,8 +113,10 @@ const createMatch = async (req, res) => {
 // 4. ADMIN CẬP NHẬT TRẬN ĐẤU / CẬP NHẬT TỶ SỐ
 const updateMatch = async (req, res) => {
   const { id } = req.params;
-  const { opponent, opponentLogo, matchDate, stadium, description, ticketPriceMin, bannerImage, status, homeScore, awayScore } = req.body;
+  const { opponent, opponentLogo, matchDate, stadium, description, ticketPriceMin, bannerImage, status, homeScore, awayScore, freeStands } = req.body;
   try {
+    await ensureFreeStandsColumn();
+    const normalizedFreeStands = normalizeFreeStands(freeStands);
     const query = `
       UPDATE matches 
       SET 
@@ -92,17 +129,19 @@ const updateMatch = async (req, res) => {
         banner_image = $7,
         status = $8,
         home_score = $9,
-        away_score = $10
-      WHERE id = $11
-      RETURNING id, opponent, opponent_logo AS "opponentLogo", match_date AS "matchDate", stadium, description, ticket_price_min AS "ticketPriceMin", banner_image AS "bannerImage", status, home_score AS "homeScore", away_score AS "awayScore"
+        away_score = $10,
+        free_stands = $11
+      WHERE id = $12
+      RETURNING id, opponent, opponent_logo AS "opponentLogo", match_date AS "matchDate", stadium, description, ticket_price_min AS "ticketPriceMin", banner_image AS "bannerImage", status, home_score AS "homeScore", away_score AS "awayScore", free_stands AS "freeStands"
     `;
     const result = await pool.query(query, [
-      opponent, opponentLogo || null, matchDate, stadium, description || null, ticketPriceMin, bannerImage || null, status, homeScore ?? null, awayScore ?? null, id
+      opponent, opponentLogo || null, matchDate, stadium, description || null, ticketPriceMin, bannerImage || null, status, homeScore ?? null, awayScore ?? null, normalizedFreeStands, id
     ]);
     
     if (result.rowCount === 0) {
       return res.status(404).json({ message: 'Không tìm thấy trận đấu cần sửa!' });
     }
+    await syncAvailableTicketPrices(id, normalizedFreeStands);
     res.json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ error: err.message });

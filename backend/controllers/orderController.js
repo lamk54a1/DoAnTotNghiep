@@ -52,6 +52,16 @@ const createOrder = async (req, res) => {
             });
         }
 
+        const inventoryResult = await client.query(
+            'SELECT COUNT(*)::int AS ticket_count FROM tickets WHERE match_id = $1',
+            [matchId]
+        );
+
+        if (Number(inventoryResult.rows[0].ticket_count || 0) === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Kho vé của trận này chưa được khởi tạo. Vui lòng chờ admin sinh vé trước khi đặt.' });
+        }
+
         const ticketPrices = await client.query(
             `SELECT seat_code, price
              FROM tickets
@@ -65,7 +75,17 @@ const createOrder = async (req, res) => {
         }
 
         const totalAmount = ticketPrices.rows.reduce((sum, ticket) => sum + Number(ticket.price), 0);
-        const normalizedPaymentMethod = paymentMethod === 'bank' ? 'BANK_TRANSFER' : paymentMethod;
+        const paymentMethodMap = {
+            bank: 'BANK_TRANSFER',
+            BANK_TRANSFER: 'BANK_TRANSFER',
+            momo: 'MOMO',
+            MOMO: 'MOMO',
+            vnpay: 'VNPAY',
+            VNPAY: 'VNPAY',
+            cash: 'CASH',
+            CASH: 'CASH'
+        };
+        const normalizedPaymentMethod = paymentMethodMap[paymentMethod] || 'BANK_TRANSFER';
 
         // 1. Tạo QR Code đơn hàng
         const orderQrCode = `ORDER-${uuidv4().substring(0, 8).toUpperCase()}`;

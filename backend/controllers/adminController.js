@@ -1,15 +1,45 @@
 const pool = require('../config/db');
 
+const ensureUserIdentityColumns = () => pool.query(`
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd varchar(12);
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS address text;
+  CREATE UNIQUE INDEX IF NOT EXISTS users_cccd_unique_idx ON users (cccd) WHERE cccd IS NOT NULL;
+`);
+
 const getDashboardStats = async (req, res) => {
+  const { year, matchId } = req.query;
+  const filters = ["o.status = 'SUCCESS'"];
+  const params = [];
+
+  if (year) {
+    params.push(Number(year));
+    filters.push(`EXTRACT(YEAR FROM o.created_at) = $${params.length}`);
+  }
+
+  if (matchId) {
+    params.push(Number(matchId));
+    filters.push(`EXISTS (SELECT 1 FROM tickets tx WHERE tx.order_id = o.id AND tx.match_id = $${params.length})`);
+  }
+
+  const whereClause = filters.join(' AND ');
+
   try {
     // 1. Tính tổng doanh thu từ các đơn hàng thành công
     const revenueResult = await pool.query(
-      "SELECT SUM(total_amount) as total_revenue FROM orders WHERE status = 'SUCCESS'"
+      `SELECT COALESCE(SUM(o.total_amount), 0) as total_revenue
+       FROM orders o
+       WHERE ${whereClause}`,
+      params
     );
     
     // 2. Đếm tổng số vé đã bán thành công
     const ticketsResult = await pool.query(
-      "SELECT COUNT(*) as total_tickets_sold FROM tickets WHERE status = 'SOLD'"
+      `SELECT COUNT(t.id) as total_tickets_sold
+       FROM tickets t
+       JOIN orders o ON o.id = t.order_id
+       WHERE ${whereClause}
+       ${matchId ? `AND t.match_id = $${params.length}` : ''}`,
+      params
     );
 
     // 3. Đếm tổng số cổ động viên đăng ký tài khoản
@@ -119,12 +149,15 @@ const updateOrderStatus = async (req, res) => {
 
 const getUsers = async (req, res) => {
   try {
+    await ensureUserIdentityColumns();
     const result = await pool.query(`
       SELECT
         id,
         email,
         full_name AS "fullName",
         phone_number AS "phoneNumber",
+        cccd,
+        address,
         role,
         status,
         created_at AS "createdAt"
