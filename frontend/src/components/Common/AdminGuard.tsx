@@ -9,25 +9,27 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const userInfo = localStorage.getItem('user_info');
-    if (!userInfo) {
-      router.push('/login');
-      return;
-    }
+    queueMicrotask(() => {
+      const userInfo = localStorage.getItem('user_info');
+      if (!userInfo) {
+        router.push('/login');
+        return;
+      }
 
-    const user = JSON.parse(userInfo);
-    if (user.role === 'ADMIN') {
-      setIsAdmin(true);
-    } else {
-      router.push('/'); // Không phải Admin thì đá về trang chủ công cộng
-    }
-    setLoading(false);
+      const user = JSON.parse(userInfo);
+      if (user.role === 'ADMIN') {
+        setIsAdmin(true);
+      } else {
+        router.push('/'); // Không phải Admin thì đá về trang chủ công cộng
+      }
+      setLoading(false);
+    });
   }, [router]);
 
   if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-gray-50">
-        <Spin size="large" tip="Đang kiểm tra quyền quản trị..." />
+        <Spin size="large" description="Đang kiểm tra quyền quản trị..." />
       </div>
     );
   }

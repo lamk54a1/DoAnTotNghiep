@@ -1,13 +1,15 @@
 'use client';
-import AdminGuard from '../../../components/Common/AdminGuard';
-import { Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, notification, Row, Col, Popconfirm } from 'antd';
-import { PlusOutlined, EditOutlined, RetweetOutlined } from '@ant-design/icons';
+import AdminPageShell from '../../../components/Admin/AdminPageShell';
+import { App as AntApp, Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, Row, Col, Popconfirm, Avatar, Tag } from 'antd';
+import { PlusOutlined, EditOutlined, RetweetOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 import axiosClient from '../../../api/axiosClient';
 import { IMatch } from '../../../interfaces/IMatch'; 
 import dayjs from 'dayjs';
 
 export default function AdminMatchesPage() {
+  const { notification } = AntApp.useApp();
   const [matches, setMatches] = useState<IMatch[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -26,9 +28,7 @@ export default function AdminMatchesPage() {
   };
 
   useEffect(() => {
-    let isMounted = true;
-    if (isMounted) fetchMatches();
-    return () => { isMounted = false; };
+    void Promise.resolve().then(fetchMatches);
   }, []);
 
   const openModal = (match: IMatch | null = null) => {
@@ -48,15 +48,15 @@ export default function AdminMatchesPage() {
     try {
       const payload = {
         ...values,
-        matchDate: (values.matchDate as any).toISOString ? (values.matchDate as any).toISOString() : values.matchDate,
+        matchDate: dayjs(values.matchDate).toISOString(),
       };
 
       if (editingMatch) {
         await axiosClient.put(`/matches/${editingMatch.id}`, payload);
-        notification.success({ message: 'Cập nhật trận đấu thành công!' });
+        notification.success({ title: 'Cập nhật trận đấu thành công!' });
       } else {
         await axiosClient.post('/matches', payload);
-        notification.success({ message: 'Thêm trận đấu mới thành công!' });
+        notification.success({ title: 'Thêm trận đấu mới thành công!' });
       }
       
       setIsModalOpen(false);
@@ -71,29 +71,50 @@ export default function AdminMatchesPage() {
   const handleGenerateTickets = async (matchId: number) => {
     try {
       notification.info({ 
-        message: 'Đang khởi tạo...', 
+        title: 'Đang khởi tạo...',
         description: 'Hệ thống đang nạp hơn 2000 ghế vào CSDL, vui lòng chờ 1-2 giây.',
         duration: 2
       });
       
       // Gọi API POST tới Backend
-      const res: any = await axiosClient.post(`/tickets/generate/${matchId}`);
+      const res = await axiosClient.post<{ message?: string }>(`/tickets/generate/${matchId}`) as unknown as { message?: string };
       
       notification.success({ 
-        message: 'Thành công!', 
+        title: 'Thành công!',
         description: res.message || `Đã tạo kho vé thành công cho trận đấu #${matchId}` 
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       notification.error({ 
-        message: 'Lỗi khởi tạo', 
-        description: error.response?.data?.message || 'Không thể tạo kho vé, vui lòng kiểm tra lại server!' 
+        title: 'Lỗi khởi tạo',
+        description: axios.isAxiosError(error) ? error.response?.data?.message : 'Không thể tạo kho vé, vui lòng kiểm tra lại server!'
       });
+    }
+  };
+
+  const handleDelete = async (matchId: number) => {
+    try {
+      await axiosClient.delete(`/matches/${matchId}`);
+      notification.success({ title: 'Đã xóa trận đấu!' });
+      setLoading(true);
+      fetchMatches();
+    } catch (error) {
+      console.error(error);
     }
   };
 
   const columns = [
     { title: 'ID', dataIndex: 'id', key: 'id', width: 60 },
-    { title: 'Đối thủ', dataIndex: 'opponent', key: 'opponent', className: 'font-bold' },
+    {
+      title: 'Đối thủ',
+      dataIndex: 'opponent',
+      key: 'opponent',
+      render: (opponent: string, record: IMatch) => (
+        <Space>
+          <Avatar src={record.opponentLogo} size={36}>{opponent.charAt(0)}</Avatar>
+          <span className="font-bold">{opponent}</span>
+        </Space>
+      )
+    },
     { 
       title: 'Ngày thi đấu', 
       dataIndex: 'matchDate', 
@@ -101,6 +122,15 @@ export default function AdminMatchesPage() {
       render: (date: string) => dayjs(date).format('DD/MM/YYYY HH:mm') 
     },
     { title: 'Sân vận động', dataIndex: 'stadium', key: 'stadium' },
+    {
+      title: 'Tỷ số',
+      key: 'score',
+      render: (_: unknown, record: IMatch) => (
+        record.homeScore != null && record.awayScore != null
+          ? <Tag color="blue">SLNA {record.homeScore} - {record.awayScore} {record.opponent}</Tag>
+          : <span className="text-gray-400">Chưa cập nhật</span>
+      )
+    },
     { 
       title: 'Trạng thái', 
       dataIndex: 'status', 
@@ -129,9 +159,18 @@ export default function AdminMatchesPage() {
             cancelText="Hủy bỏ"
             okButtonProps={{ className: 'bg-green-600' }}
           >
-            <Button icon={<RetweetOutlined />} className="text-green-600 border-green-600 hover:bg-green-50 font-bold">
+          <Button icon={<RetweetOutlined />} className="text-green-600 border-green-600 hover:bg-green-50 font-bold">
               Sinh vé
             </Button>
+          </Popconfirm>
+          <Popconfirm
+            title="Xóa trận đấu này?"
+            description="Chỉ có thể xóa trận chưa có vé được đặt hoặc bán."
+            onConfirm={() => handleDelete(record.id)}
+            okText="Xóa"
+            cancelText="Hủy"
+          >
+            <Button danger icon={<DeleteOutlined />}>Xóa</Button>
           </Popconfirm>
         </Space>
       ),
@@ -139,14 +178,15 @@ export default function AdminMatchesPage() {
   ];
 
   return (
-    <AdminGuard>
-      <div className="p-8 bg-gray-50 min-h-screen">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl font-black text-[#003078] uppercase">Quản lý lịch thi đấu SLNA</h1>
+    <AdminPageShell
+      title="Quản lý lịch thi đấu SLNA"
+      subtitle="Thêm lịch, logo đội khách, banner, tỷ số và khởi tạo kho vé."
+      extra={
           <Button type="primary" icon={<PlusOutlined />} className="bg-[#003078]" onClick={() => openModal(null)}>
             Thêm trận đấu mới
           </Button>
-        </div>
+      }
+    >
 
         <Table dataSource={matches} columns={columns} rowKey="id" loading={loading} className="shadow-md bg-white rounded-xl overflow-hidden" />
 
@@ -155,12 +195,27 @@ export default function AdminMatchesPage() {
           open={isModalOpen}
           onCancel={() => setIsModalOpen(false)}
           footer={null}
-          destroyOnClose
+          destroyOnHidden
+          forceRender
+          width={760}
         >
           <Form form={form} layout="vertical" onFinish={handleSave} className="mt-4">
             <Form.Item name="opponent" label="Tên đội đối thủ" rules={[{ required: true, message: 'Vui lòng nhập tên đối thủ!' }]}>
               <Input placeholder="Ví dụ: Hà Nội FC, Nam Định FC..." />
             </Form.Item>
+
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="opponentLogo" label="Logo đội khách (URL)">
+                  <Input placeholder="https://.../logo.png" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="bannerImage" label="Ảnh banner trận đấu (URL)">
+                  <Input placeholder="https://.../banner.jpg" />
+                </Form.Item>
+              </Col>
+            </Row>
 
             <Row gutter={16}>
               <Col span={12}>
@@ -174,6 +229,10 @@ export default function AdminMatchesPage() {
                 </Form.Item>
               </Col>
             </Row>
+
+            <Form.Item name="description" label="Mô tả trận đấu">
+              <Input.TextArea rows={2} placeholder="Ví dụ: Vòng 15 V-League" />
+            </Form.Item>
 
             <Row gutter={16}>
               <Col span={12}>
@@ -193,6 +252,19 @@ export default function AdminMatchesPage() {
               </Col>
             </Row>
 
+            <Row gutter={16}>
+              <Col span={12}>
+                <Form.Item name="homeScore" label="Tỷ số SLNA">
+                  <InputNumber className="w-full" min={0} placeholder="Để trống nếu chưa thi đấu" />
+                </Form.Item>
+              </Col>
+              <Col span={12}>
+                <Form.Item name="awayScore" label="Tỷ số đội khách">
+                  <InputNumber className="w-full" min={0} placeholder="Để trống nếu chưa thi đấu" />
+                </Form.Item>
+              </Col>
+            </Row>
+
             <Form.Item className="text-right mb-0 mt-4">
               <Space>
                 <Button onClick={() => setIsModalOpen(false)}>Hủy</Button>
@@ -201,7 +273,6 @@ export default function AdminMatchesPage() {
             </Form.Item>
           </Form>
         </Modal>
-      </div>
-    </AdminGuard>
+    </AdminPageShell>
   );
 }

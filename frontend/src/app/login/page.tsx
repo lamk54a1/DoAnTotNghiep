@@ -3,7 +3,7 @@ import { Form, Input, Button, Card, notification } from 'antd'; // Giữ nguyên
 import { authApi } from '../../api/authApi';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ILoginPayload, IAuthResponse } from '../../types/IUser';
+import { ILoginPayload, IAuthResponse } from '../../interfaces/IUser';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -20,7 +20,7 @@ export default function LoginPage() {
       // 2. Thay notification.success bằng api.success 
       // Sửa luôn chữ 'message' thành 'description' hoặc 'message' của api chuẩn (bỏ cảnh báo deprecated)
       api.success({ 
-        message: 'Thành công', // 'message' ở đây đóng vai trò là Tiêu đề chính trong Antd Hook
+        title: 'Thành công',
         description: res.message 
       });
 
@@ -70,7 +70,7 @@ export default function LoginPage() {
               htmlType="submit" 
               className="w-full h-10 bg-[#003078] hover:bg-[#edbb00] font-bold rounded-lg transition-all"
             >
-              ĐĂNG NẬP
+              ĐĂNG NHẬP
             </Button>
           </Form.Item>
 

@@ -22,10 +22,12 @@ const Header = () => {
 
     // Xử lý lấy thông tin đăng nhập từ LocalStorage
     // Dùng trong useEffect để tránh lỗi Hydration của Next.js
-    const userInfo = localStorage.getItem('user_info');
-    if (userInfo) {
-      setUser(JSON.parse(userInfo));
-    }
+    queueMicrotask(() => {
+      const userInfo = localStorage.getItem('user_info');
+      if (userInfo) {
+        setUser(JSON.parse(userInfo));
+      }
+    });
 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
@@ -90,6 +92,7 @@ const Header = () => {
             <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#edbb00] transition-all group-hover:w-full"></span>
           </Link>
           <Link href="/matches" className="text-white hover:text-[#edbb00] transition-all">Lịch thi đấu</Link>
+          <Link href="/results" className="text-white hover:text-[#edbb00] transition-all">Kết quả</Link>
           <Link href="/news" className="text-white hover:text-[#edbb00] transition-all">Tin tức</Link>
           <Link href="/my-tickets" className="text-[#edbb00] hover:text-white transition-all italic underline underline-offset-4">
             Vé của tôi
@@ -98,7 +101,7 @@ const Header = () => {
 
         {/* ACTIONS: GIỎ HÀNG & PROFILE */}
         <div className="flex items-center gap-6">
-          <Link href={`/booking/current`}>
+          <Link href={selectedSeats.length > 0 ? '/checkout' : '/matches'}>
             <Badge count={selectedSeats?.length || 0} offset={[5, 0]} color="#edbb00" size="small">
               <ShoppingCartOutlined className={`text-2xl cursor-pointer transition-colors ${
                 isScrolled ? 'text-white' : 'text-[#edbb00]'

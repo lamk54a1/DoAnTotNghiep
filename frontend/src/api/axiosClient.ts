@@ -1,5 +1,4 @@
 import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { notification } from 'antd';
 
 const axiosClient = axios.create({
   baseURL:  'http://localhost:5000/api',
@@ -29,15 +28,8 @@ axiosClient.interceptors.response.use(
     return response.data;
   },
   (error) => {
-    // Xử lý lỗi chung bằng Ant Design
-    const message = error.response?.data?.message || 'Lỗi kết nối máy chủ!';
-    
     if (error.response?.status === 401) {
-       // Xử lý khi hết hạn đăng nhập
-       notification.warning({ message: 'Phiên đăng nhập hết hạn', description: 'Vui lòng đăng nhập lại!' });
-       // window.location.href = '/login';
-    } else {
-       notification.error({ message: 'Lỗi API', description: message });
+      console.warn('Phiên đăng nhập hết hạn hoặc không hợp lệ.');
     }
 
     return Promise.reject(error);

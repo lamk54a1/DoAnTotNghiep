@@ -1,16 +1,24 @@
 'use client';
-import AdminGuard from '../../../components/Common/AdminGuard';
-import { Card, Row, Col, Statistic, Table, Spin, Button, Space, notification, Popconfirm } from 'antd';
-import { DollarOutlined, UserOutlined, TagOutlined, LoadingOutlined, PlusOutlined, EditOutlined, RetweetOutlined } from '@ant-design/icons';
+import AdminPageShell from '../../../components/Admin/AdminPageShell';
+import { App as AntApp, Card, Row, Col, Statistic, Table, Button, Space, Popconfirm } from 'antd';
+import { DollarOutlined, UserOutlined, TagOutlined, PlusOutlined, RetweetOutlined, ShoppingOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import axiosClient from '../../../api/axiosClient';
+import { IMatch } from '../../../interfaces/IMatch';
 import dayjs from 'dayjs';
 
+interface DashboardStats {
+  totalRevenue: number;
+  totalTicketsSold: number;
+  totalUsers: number;
+  pendingOrders: number;
+}
+
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<any>({ totalRevenue: 0, totalTicketsSold: 0, totalUsers: 0 });
-  const [matches, setMatches] = useState<any[]>([]);
+  const { notification } = AntApp.useApp();
+  const [stats, setStats] = useState<DashboardStats>({ totalRevenue: 0, totalTicketsSold: 0, totalUsers: 0, pendingOrders: 0 });
+  const [matches, setMatches] = useState<IMatch[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isMounted, setIsMounted] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -19,8 +27,8 @@ export default function AdminDashboard() {
         axiosClient.get('/admin/stats'),
         axiosClient.get('/matches')
       ]);
-      setStats(statsRes);
-      setMatches(matchesRes as any);
+      setStats(statsRes as unknown as DashboardStats);
+      setMatches(matchesRes as unknown as IMatch[]);
     } catch (err) {
       console.error(err);
     } finally {
@@ -29,31 +37,26 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    setIsMounted(true);
-    fetchData();
+    void Promise.resolve().then(fetchData);
   }, []);
 
   const handleGenerateTickets = async (matchId: number) => {
     try {
       await axiosClient.post(`/tickets/generate/${matchId}`);
-      notification.success({ message: `Đã khởi tạo xong kho vé cho trận #${matchId}` });
-    } catch (err) {
-      notification.error({ message: 'Lỗi khởi tạo vé' });
+      notification.success({ title: `Đã khởi tạo xong kho vé cho trận #${matchId}` });
+    } catch {
+      notification.error({ title: 'Lỗi khởi tạo vé' });
     }
   };
 
-  if (!isMounted) return <div className="flex justify-center items-center h-screen"><Spin /></div>;
-
   return (
-    <AdminGuard>
-      <div className="p-8 bg-gray-50 min-h-screen">
-        <h1 className="text-2xl font-black text-[#003078] mb-8 uppercase tracking-tight">Bảng Điều Khiển Quản Trị</h1>
-
+    <AdminPageShell title="Bảng điều khiển quản trị" subtitle="Theo dõi nhanh hoạt động bán vé của câu lạc bộ.">
         {/* PHẦN THỐNG KÊ */}
         <Row gutter={16} className="mb-8">
-          <Col span={8}><Card className="shadow-md border-t-4 border-blue-600"><Statistic title="Doanh Thu" value={stats.totalRevenue} prefix={<DollarOutlined />} suffix="VND" valueStyle={{color: '#3f8600'}} /></Card></Col>
-          <Col span={8}><Card className="shadow-md border-t-4 border-yellow-500"><Statistic title="Vé Đã Bán" value={stats.totalTicketsSold} prefix={<TagOutlined />} suffix="Vé" /></Card></Col>
-          <Col span={8}><Card className="shadow-md border-t-4 border-green-500"><Statistic title="Người Dùng" value={stats.totalUsers} prefix={<UserOutlined />} suffix="User" /></Card></Col>
+          <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-blue-600 shadow-md"><Statistic title="Doanh Thu" value={stats.totalRevenue} prefix={<DollarOutlined />} suffix="VND" styles={{ content: { color: '#3f8600' } }} /></Card></Col>
+          <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-yellow-500 shadow-md"><Statistic title="Vé Đã Bán" value={stats.totalTicketsSold} prefix={<TagOutlined />} suffix="Vé" /></Card></Col>
+          <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-green-500 shadow-md"><Statistic title="Người Dùng" value={stats.totalUsers} prefix={<UserOutlined />} suffix="User" /></Card></Col>
+          <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-orange-500 shadow-md"><Statistic title="Đơn Chờ Xử Lý" value={stats.pendingOrders} prefix={<ShoppingOutlined />} suffix="Đơn" /></Card></Col>
         </Row>
 
         {/* PHẦN DANH SÁCH TRẬN ĐẤU (TÍCH HỢP NGAY TẠI DASHBOARD) */}
@@ -69,7 +72,7 @@ export default function AdminDashboard() {
             columns={[
               { title: 'Đối thủ', dataIndex: 'opponent' },
               { title: 'Ngày', dataIndex: 'matchDate', render: (d) => dayjs(d).format('DD/MM/YYYY') },
-              { title: 'Hành động', render: (_, record: any) => (
+              { title: 'Hành động', render: (_, record: IMatch) => (
                 <Space>
                   <Popconfirm title="Sinh vé cho trận này?" onConfirm={() => handleGenerateTickets(record.id)}>
                     <Button icon={<RetweetOutlined />} size="small">Sinh vé</Button>
@@ -79,7 +82,6 @@ export default function AdminDashboard() {
             ]}
           />
         </div>
-      </div>
-    </AdminGuard>
+    </AdminPageShell>
   );
 }

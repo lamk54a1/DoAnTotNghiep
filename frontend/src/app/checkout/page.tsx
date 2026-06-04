@@ -1,5 +1,7 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import Image from 'next/image';
+import axios from 'axios';
 import { useBooking } from '../../hooks/useBooking';
 import { Card, Steps, Radio, Button, Divider, App, Tag, QRCode, Result, Spin } from 'antd';
 import { UserOutlined, CreditCardOutlined, CheckCircleOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
@@ -14,16 +16,11 @@ const CheckoutPage = () => {
   const { selectedSeats, totalPrice, confirmPayment } = useBooking();
   const { message } = App.useApp();
   
-  const [isMounted, setIsMounted] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('bank');
   const [ticketCode, setTicketCode] = useState('');
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const BANK_ID = "vietcombank";
   const ACCOUNT_NO = "1027799416";
@@ -60,15 +57,15 @@ const CheckoutPage = () => {
       setIsSuccess(true);
       setCurrentStep(2);
       message.success('Thanh toán thành công!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      message.error(error.response?.data?.message || 'Giao dịch thất bại, ghế không tồn tại hoặc đã có người mua!');
+      message.error(axios.isAxiosError(error) && error.response?.data?.message
+        ? error.response.data.message
+        : 'Giao dịch thất bại, ghế không tồn tại hoặc đã có người mua!');
     } finally {
       setIsVerifying(false);
     }
   };
-
-  if (!isMounted) return null;
 
   if (isSuccess) {
     return (
@@ -129,7 +126,7 @@ const CheckoutPage = () => {
               {paymentMethod === 'bank' && (
                 <div className="mt-6 flex flex-col items-center bg-white border border-dashed border-gray-200 rounded-[40px] p-8 relative overflow-hidden">
                   <div className="relative p-3 bg-white border-4 border-[#003078] rounded-[32px] mb-6 shadow-2xl">
-                    <img src={vietQrUrl} alt="QR Ngân hàng" className="w-64 h-64 object-contain" />
+                    <Image src={vietQrUrl} alt="QR Ngân hàng" width={256} height={256} unoptimized className="h-64 w-64 object-contain" />
                     {isVerifying && (
                       <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center rounded-[28px] backdrop-blur-sm">
                         <Spin indicator={<LoadingOutlined style={{ fontSize: 42, color: '#003078' }} spin />} />

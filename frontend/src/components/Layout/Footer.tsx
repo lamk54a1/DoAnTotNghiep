@@ -31,7 +31,8 @@ const Footer = () => {
           <h4 className="text-[#edbb00] font-black mb-8 uppercase text-xs tracking-[0.2em]">Khám phá</h4>
           <ul className="space-y-4 text-sm font-bold text-gray-400 p-0 list-none">
             <li><Link href="/matches" className="hover:text-white transition-all flex items-center gap-2"><SendOutlined className="text-[10px]" /> Lịch thi đấu</Link></li>
-            <li><Link href="/booking/1" className="hover:text-white transition-all flex items-center gap-2"><SendOutlined className="text-[10px]" /> Sơ đồ sân Vinh</Link></li>
+            <li><Link href="/results" className="hover:text-white transition-all flex items-center gap-2"><SendOutlined className="text-[10px]" /> Kết quả thi đấu</Link></li>
+            <li><Link href="/stadium" className="hover:text-white transition-all flex items-center gap-2"><SendOutlined className="text-[10px]" /> Sơ đồ sân Vinh</Link></li>
             <li><Link href="/news" className="hover:text-white transition-all flex items-center gap-2"><SendOutlined className="text-[10px]" /> Tin tức đội bóng</Link></li>
             <li><Link href="/membership" className="hover:text-white transition-all flex items-center gap-2"><SendOutlined className="text-[10px]" /> Hội cổ động viên</Link></li>
           </ul>

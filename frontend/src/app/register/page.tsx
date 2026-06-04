@@ -1,26 +1,28 @@
 'use client';
-import { Form, Input, Button, Card, notification } from 'antd';
+import { Form, Input, Button, Card, App as AntApp } from 'antd';
 import { authApi } from '../../api/authApi';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
-import { IRegisterPayload } from '../../types/IUser'; // Đảm bảo đường dẫn interface chính xác
+import { IRegisterPayload } from '../../interfaces/IUser';
 
 function RegisterPage() {
   const router = useRouter();
   const [form] = Form.useForm();
+  const { notification } = AntApp.useApp();
 
   // Khử sạch kiểu any bằng cách ép kiểu IRegisterPayload kết hợp thuộc tính confirmPassword phụ trợ
   const onFinish = async (values: IRegisterPayload & { confirmPassword?: string }) => {
     try {
       // Loại bỏ trường confirmPassword trước khi gửi lên API Backend
       const { confirmPassword, ...payload } = values;
+      void confirmPassword;
       
       // Gọi API đăng ký từ authApi 
       const res = await authApi.register(payload) as unknown as { message: string };
       
       notification.success({
-        message: 'Đăng ký thành công',
+        title: 'Đăng ký thành công',
         description: res.message || 'Tài khoản của bạn đã được tạo, hãy đăng nhập ngay!',
       });
 

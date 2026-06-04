@@ -8,6 +8,15 @@ interface Props {
 }
 
 const MatchCard = ({ match }: Props) => {
+  const canBook = match.status === 'ON_SALE';
+  const statusLabel = match.status === 'ON_SALE'
+    ? '• ĐANG BÁN VÉ'
+    : match.status === 'UPCOMING'
+      ? 'SẮP MỞ BÁN'
+      : match.status === 'FINISHED'
+        ? 'ĐÃ KẾT THÚC'
+        : 'HẾT VÉ';
+
   return (
     <div className="bg-white rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100 group">
       
@@ -15,9 +24,9 @@ const MatchCard = ({ match }: Props) => {
       <div className="bg-[#003078] p-6 relative">
         {/* Badge Trạng thái */}
         <div className={`absolute top-4 right-4 text-[10px] font-black px-3 py-1 rounded-full z-20 shadow-lg ${
-          match.status === 'ON_SALE' ? 'bg-[#FFD700] text-[#003078]' : 'bg-red-600 text-white'
+          canBook ? 'bg-[#FFD700] text-[#003078]' : 'bg-red-600 text-white'
         }`}>
-          {match.status === 'ON_SALE' ? '• ĐANG BÁN VÉ' : 'HẾT VÉ'}
+          {statusLabel}
         </div>
 
         {/* Khu vực đối đầu (Matchup) */}
@@ -41,7 +50,9 @@ const MatchCard = ({ match }: Props) => {
           <div className="flex flex-col items-center">
             <span className="text-[#FFD700] font-black text-3xl italic drop-shadow-md">VS</span>
             <div className="bg-white/10 px-3 py-1 rounded mt-2">
-               <span className="text-white text-[10px] font-bold">18:00</span>
+               <span className="text-white text-[10px] font-bold">
+                 {new Date(match.matchDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+               </span>
             </div>
           </div>
 
@@ -49,10 +60,11 @@ const MatchCard = ({ match }: Props) => {
           <div className="flex flex-col items-center gap-3">
             <div className="w-20 h-20 bg-white rounded-full p-2 shadow-inner border-4 border-gray-300 transform group-hover:-rotate-6 transition-transform">
               <Image 
-                src={match.opponentLogo || "/images/logos/default-team.png"} 
+                src={match.opponentLogo || "/images/logo.png"}
                 alt={match.opponent} 
                 width={80} 
-                height={80} 
+                height={80}
+                unoptimized
                 className="object-contain"
               />
             </div>
@@ -95,15 +107,21 @@ const MatchCard = ({ match }: Props) => {
             <p className="text-[#003078] font-black text-2xl">{match.ticketPriceMin?.toLocaleString('en-US')}đ</p>
           </div>
           
+          {canBook ? (
           <Link href={`/booking/${match.id}`}>
             <button className={`px-6 py-3 rounded-xl font-black text-sm transition-all shadow-md ${
-              match.status === 'ON_SALE' 
+              canBook
               ? 'bg-[#FFD700] text-[#003078] hover:bg-[#003078] hover:text-[#FFD700]' 
               : 'bg-gray-100 text-gray-400 cursor-not-allowed'
             }`}>
-              {match.status === 'ON_SALE' ? 'MUA VÉ NGAY' : 'HẾT VÉ'}
+              MUA VÉ NGAY
             </button>
           </Link>
+          ) : (
+            <button disabled className="cursor-not-allowed rounded-xl bg-gray-100 px-6 py-3 text-sm font-black text-gray-400 shadow-md">
+              {match.status === 'UPCOMING' ? 'SẮP MỞ BÁN' : 'HẾT VÉ'}
+            </button>
+          )}
         </div>
       </div>
     </div>

@@ -1,9 +1,10 @@
 import { useAppDispatch } from './useAppDispatch';
 import { useAppSelector } from './useAppSelector';
 import { toggleSeatSelection, resetBooking, confirmPaymentSuccess } from '../store/slices/bookingSlice';
-import { message } from 'antd';
+import { App as AntApp } from 'antd';
 
 export const useBooking = () => {
+  const { message } = AntApp.useApp();
   const dispatch = useAppDispatch();
   const { selectedSeats, soldSeats, totalPrice } = useAppSelector((state) => state.booking);
 

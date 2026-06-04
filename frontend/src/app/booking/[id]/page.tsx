@@ -2,9 +2,10 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useBooking } from '../../../hooks/useBooking';
-import { Button, Card, Statistic, Divider, Modal, Tag, Tabs, App as AntApp } from 'antd';
+import { Button, Card, Statistic, Divider, Modal, Tag, Tabs, App as AntApp, Result, Spin } from 'antd';
 import { ShoppingCartOutlined, InfoCircleOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import axiosClient from '../../../api/axiosClient';
+import { IMatch } from '../../../interfaces';
 
 interface StandDetail {
   name: string;
@@ -27,10 +28,9 @@ const BookingPage = () => {
   const [localSoldSeats, setLocalSoldSeats] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<string>('A');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
-
-  // Khắc phục lỗi Hydration Error của Next.js
-  const [isMounted, setIsMounted] = useState(false);
-  useEffect(() => { setIsMounted(true); }, []);
+  const [match, setMatch] = useState<IMatch | null>(null);
+  const [loadingMatch, setLoadingMatch] = useState(true);
+  const [purchasedTicketCount, setPurchasedTicketCount] = useState(0);
 
   const standConfigs: StandMap = {
     A: { name: 'Khán đài A', rows: 20, seatsPerRow: 40, price: 100000, color: '#003078' },
@@ -44,25 +44,47 @@ const BookingPage = () => {
   const fetchSoldSeats = useCallback(async () => {
     if (!id) return;
     try {
-      // Backend giờ trả về mảng gốc ['A1-03'] -> Nhận trực tiếp không cần dịch
-      const data = await axiosClient.get<string[]>(`/tickets/sold/${id}`);
+      const matchData = await axiosClient.get<IMatch>(`/matches/${id}`) as unknown as IMatch;
+      setMatch(matchData);
+      if (matchData.status !== 'ON_SALE') return;
+
+      const token = localStorage.getItem('access_token');
+      const [data, countData] = await Promise.all([
+        axiosClient.get<string[]>(`/tickets/sold/${id}`),
+        token
+          ? axiosClient.get<{ ticketCount: number }>(`/orders/match/${id}/count`)
+          : Promise.resolve({ ticketCount: 0 }),
+      ]);
       setLocalSoldSeats(data as unknown as string[]);
+      setPurchasedTicketCount(Number((countData as { ticketCount: number }).ticketCount || 0));
     } catch (error) {
       console.error('Lỗi khi tải danh sách ghế đã bán:', error);
+    } finally {
+      setLoadingMatch(false);
     }
   }, [id]);
 
   useEffect(() => {
-    if (isMounted) {
-      fetchSoldSeats();
-    }
-  }, [fetchSoldSeats, isMounted]);
+    void Promise.resolve().then(fetchSoldSeats);
+  }, [fetchSoldSeats]);
 
   const rows = useMemo(() => {
     return Array.from({ length: current.rows }, (_, i) => String.fromCharCode(65 + i));
   }, [current.rows]);
 
+  const remainingTicketQuota = Math.max(0, 4 - purchasedTicketCount);
+
   const handlePayment = () => {
+    if (match?.status !== 'ON_SALE') {
+      message.error('Trận đấu này hiện không mở bán vé.');
+      return;
+    }
+
+    if (selectedSeats.length > remainingTicketQuota) {
+      message.warning(`Bạn chỉ còn được mua thêm ${remainingTicketQuota} vé cho trận này.`);
+      return;
+    }
+
     message.loading('Đang khởi tạo đơn hàng...', 1).then(() => {
       setIsModalOpen(false);
       localStorage.setItem('current_match_id', id as string); 
@@ -70,11 +92,19 @@ const BookingPage = () => {
     });
   };
 
-  // Nếu chưa mounted xong dưới client thì hiện màn hình chờ, tránh lệch HTML với Server
-  if (!isMounted) {
+  if (loadingMatch) {
+    return <div className="flex min-h-screen items-center justify-center"><Spin size="large" /></div>;
+  }
+
+  if (!match || match.status !== 'ON_SALE') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#f8fafc]">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#003078] border-t-transparent"></div>
+      <div className="min-h-screen bg-gray-50 pt-24">
+        <Result
+          status="warning"
+          title="Trận đấu hiện không mở bán vé"
+          subTitle="Trận đấu có thể đã hết vé, chưa mở bán hoặc đã kết thúc."
+          extra={<Button type="primary" onClick={() => router.push('/matches')}>Xem lịch thi đấu</Button>}
+        />
       </div>
     );
   }
@@ -142,12 +172,17 @@ const BookingPage = () => {
 
                           const isSelected = selectedSeats.includes(seatId);
                           const isSold = localSoldSeats.includes(seatId);
+                          const isQuotaReached = !isSelected && selectedSeats.length >= remainingTicketQuota;
                           
                           return (
                             <button
                               key={seatId}
-                              disabled={isSold}
+                              disabled={isSold || isQuotaReached}
                               onClick={() => {
+                                if (isQuotaReached) {
+                                  message.warning(`Bạn chỉ còn được mua thêm ${remainingTicketQuota} vé cho trận này.`);
+                                  return;
+                                }
                                 if (!isSold) handleToggleSeat(seatId);
                               }}
                               className={`flex h-8 w-8 items-center justify-center rounded-lg border text-[9px] font-black transition-all duration-200 ${
@@ -155,6 +190,8 @@ const BookingPage = () => {
                                   ? 'bg-gray-200 border-gray-100 text-gray-400 cursor-not-allowed opacity-40 line-through' 
                                   : isSelected 
                                     ? 'z-10 scale-110 border-[#FFD700] bg-[#FFD700] text-[#003078] shadow-lg shadow-yellow-200' 
+                                    : isQuotaReached
+                                      ? 'border-gray-100 bg-gray-100 text-gray-300 cursor-not-allowed opacity-60'
                                     : 'border-gray-100 bg-white text-gray-400 hover:border-[#003078] hover:text-[#003078]'
                               }`}
                             >
@@ -182,7 +219,10 @@ const BookingPage = () => {
               <div className="space-y-8">
                 <div>
                   <p className="mb-4 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">
-                    Ghế đã chọn ({selectedSeats.length}/4)
+                    Ghế đã chọn ({selectedSeats.length}/{remainingTicketQuota})
+                  </p>
+                  <p className="mb-4 text-center text-[11px] font-bold text-gray-400">
+                    Bạn đã mua {purchasedTicketCount}/4 vé cho trận này.
                   </p>
                   <div className="flex min-h-[60px] flex-wrap justify-center gap-2">
                     {selectedSeats.length > 0 ? (
@@ -210,11 +250,11 @@ const BookingPage = () => {
 
                 <Button 
                   type="primary" block size="large" 
-                  disabled={selectedSeats.length === 0} 
+                  disabled={selectedSeats.length === 0 || remainingTicketQuota === 0}
                   onClick={() => setIsModalOpen(true)}
                   className="flex h-16 items-center justify-center gap-2 rounded-2xl border-none bg-[#003078] text-lg font-black shadow-xl transition-all hover:bg-[#edbb00] active:scale-95 italic uppercase"
                 >
-                  <ShoppingCartOutlined /> TIẾP TỤC
+                  <ShoppingCartOutlined /> {remainingTicketQuota === 0 ? 'ĐÃ ĐẠT GIỚI HẠN' : 'TIẾP TỤC'}
                 </Button>
               </div>
             </Card>

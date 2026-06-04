@@ -1,5 +1,6 @@
 import React from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 const Hero = () => {
   return (
@@ -27,12 +28,12 @@ const Hero = () => {
         </p>
         
         <div className="flex justify-center gap-6 mt-10">
-          <button className="bg-[#FFD700] text-[#003078] font-black px-12 py-4 rounded-full text-lg hover:scale-110 transition-all shadow-[0_0_20px_rgba(255,215,0,0.4)]">
+          <Link href="/matches" className="bg-[#FFD700] text-[#003078] font-black px-12 py-4 rounded-full text-lg hover:scale-110 transition-all shadow-[0_0_20px_rgba(255,215,0,0.4)]">
             MUA VÉ NGAY
-          </button>
-          <button className="border-2 border-white text-white font-bold px-12 py-4 rounded-full text-lg hover:bg-white hover:text-[#003078] transition-all">
+          </Link>
+          <Link href="/matches" className="border-2 border-white text-white font-bold px-12 py-4 rounded-full text-lg hover:bg-white hover:text-[#003078] transition-all">
             LỊCH THI ĐẤU
-          </button>
+          </Link>
         </div>
       </div>
 

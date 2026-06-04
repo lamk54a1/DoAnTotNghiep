@@ -11,8 +11,8 @@ const MatchList = () => {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const data = await axiosClient.get('/matches');
-        setMatches(data as any);
+        const data = await axiosClient.get('/matches?scope=featured');
+        setMatches(data as unknown as IMatch[]);
       } catch (err) {
         console.error("Lỗi lấy danh sách trận đấu:", err);
       } finally {
@@ -31,9 +31,15 @@ const MatchList = () => {
         <div className="h-1 flex-1 bg-gray-100 ml-6"></div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {matches.map((m) => <MatchCard key={m.id} match={m} />)}
-      </div>
+      {matches.length > 0 ? (
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+          {matches.map((m) => <MatchCard key={m.id} match={m} />)}
+        </div>
+      ) : (
+        <div className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-gray-500 shadow-sm">
+          Hiện chưa có trận đấu nào đang mở bán vé.
+        </div>
+      )}
     </section>
   );
 };
