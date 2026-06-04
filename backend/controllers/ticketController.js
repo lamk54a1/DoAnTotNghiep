@@ -43,6 +43,21 @@ const generateAllSeats = async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        const matchResult = await client.query('SELECT id FROM matches WHERE id = $1', [matchId]);
+        if (matchResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Không tìm thấy trận đấu.' });
+        }
+
+        const reservedTickets = await client.query(
+            "SELECT 1 FROM tickets WHERE match_id = $1 AND status <> 'AVAILABLE' LIMIT 1",
+            [matchId]
+        );
+        if (reservedTickets.rowCount > 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Không thể sinh lại vé vì trận đấu đã có ghế được đặt hoặc bán.' });
+        }
+
         await client.query('DELETE FROM tickets WHERE match_id = $1', [matchId]);
 
   const query = `
