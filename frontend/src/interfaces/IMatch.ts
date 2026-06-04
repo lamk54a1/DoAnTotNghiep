@@ -13,4 +13,5 @@ export interface IMatch {
 
   homeScore?: number;       // Tỷ số đội nhà (SLNA) - dùng sau khi trận đấu kết thúc
   awayScore?: number;       // Tỷ số đội khách
+  freeStands?: Array<'A' | 'B' | 'C' | 'D'>; // Khán đài miễn phí vé theo từng trận
 }

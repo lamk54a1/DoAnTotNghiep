@@ -43,6 +43,11 @@ const Header = () => {
   // Cấu hình Menu thả xuống khi bấm vào Tên user
   const userMenu: MenuProps['items'] = [
     {
+      key: 'profile',
+      label: <Link href="/profile">Thông tin cá nhân</Link>,
+      icon: <UserOutlined />,
+    },
+    {
       key: 'my-tickets',
       label: <Link href="/my-tickets">Vé của tôi</Link>,
         icon: <IdcardOutlined />,

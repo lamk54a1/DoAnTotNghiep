@@ -11,6 +11,21 @@ export default function Home() {
       {/* Phần danh sách trận đấu */}
       <MatchList />
 
+      <section className="bg-[#003078] py-16 text-white">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-6 md:grid-cols-3">
+          {[
+            ['Vé điện tử QR', 'Nhận mã QR ngay sau khi đặt vé, lưu trong mục Vé của tôi và xuất trình tại cổng sân.'],
+            ['Sơ đồ ghế trực quan', 'Chọn khán đài A, B, C, D với trạng thái ghế được cập nhật theo từng trận đấu.'],
+            ['Kết quả & lịch đấu', 'Theo dõi trận sắp tới, trận đã kết thúc và kết quả do admin xác nhận.'],
+          ].map(([title, text]) => (
+            <article key={title} className="rounded-3xl border border-white/10 bg-white/5 p-7 shadow-lg backdrop-blur">
+              <h3 className="text-xl font-black uppercase text-[#edbb00]">{title}</h3>
+              <p className="mt-4 text-sm leading-7 text-blue-100">{text}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
       {/* Section kêu gọi tham gia Hội cổ động viên */}
       <section className="bg-white py-20 border-t border-gray-100">
         <div className="max-w-7xl mx-auto px-6 text-center">

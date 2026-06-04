@@ -5,7 +5,7 @@ import { useBooking } from '../../../hooks/useBooking';
 import { Button, Card, Statistic, Divider, Modal, Tag, Tabs, App as AntApp, Result, Spin } from 'antd';
 import { ShoppingCartOutlined, InfoCircleOutlined, EnvironmentOutlined } from '@ant-design/icons';
 import axiosClient from '../../../api/axiosClient';
-import { IMatch } from '../../../interfaces';
+import { IMatch, ITicket } from '../../../interfaces';
 
 interface StandDetail {
   name: string;
@@ -19,6 +19,13 @@ interface StandMap {
   [key: string]: StandDetail;
 }
 
+const STAND_CONFIGS: StandMap = {
+  A: { name: 'Khán đài A', rows: 80, seatsPerRow: 100, price: 100000, color: '#003078' },
+  B: { name: 'Khán đài B', rows: 60, seatsPerRow: 100, price: 50000, color: '#edbb00' },
+  C: { name: 'Khán đài C', rows: 30, seatsPerRow: 100, price: 20000, color: '#2ecc71' },
+  D: { name: 'Khán đài D', rows: 30, seatsPerRow: 100, price: 20000, color: '#e74c3c' },
+};
+
 const BookingPage = () => {
   const router = useRouter(); 
   const { id } = useParams();
@@ -26,20 +33,17 @@ const BookingPage = () => {
   const { selectedSeats, handleToggleSeat, totalPrice } = useBooking();
   
   const [localSoldSeats, setLocalSoldSeats] = useState<string[]>([]);
+  const [existingSeats, setExistingSeats] = useState<string[]>([]);
+  const [ticketPrices, setTicketPrices] = useState<Record<string, number>>({});
   const [activeTab, setActiveTab] = useState<string>('A');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [match, setMatch] = useState<IMatch | null>(null);
   const [loadingMatch, setLoadingMatch] = useState(true);
   const [purchasedTicketCount, setPurchasedTicketCount] = useState(0);
 
-  const standConfigs: StandMap = {
-    A: { name: 'Khán đài A', rows: 20, seatsPerRow: 40, price: 100000, color: '#003078' },
-    B: { name: 'Khán đài B', rows: 15, seatsPerRow: 40, price: 50000, color: '#edbb00' },
-    C: { name: 'Khán đài C', rows: 10, seatsPerRow: 30, price: 20000, color: '#2ecc71' },
-    D: { name: 'Khán đài D', rows: 10, seatsPerRow: 30, price: 20000, color: '#e74c3c' },
-  };
-
-  const current = standConfigs[activeTab];
+  const current = STAND_CONFIGS[activeTab];
+  const currentRows = current.rows;
+  const currentDisplayPrice = match?.freeStands?.includes(activeTab as 'A' | 'B' | 'C' | 'D') ? 0 : current.price;
 
   const fetchSoldSeats = useCallback(async () => {
     if (!id) return;
@@ -49,13 +53,16 @@ const BookingPage = () => {
       if (matchData.status !== 'ON_SALE') return;
 
       const token = localStorage.getItem('access_token');
-      const [data, countData] = await Promise.all([
-        axiosClient.get<string[]>(`/tickets/sold/${id}`),
+      const [ticketsData, countData] = await Promise.all([
+        axiosClient.get<ITicket[]>(`/tickets/${id}`),
         token
           ? axiosClient.get<{ ticketCount: number }>(`/orders/match/${id}/count`)
           : Promise.resolve({ ticketCount: 0 }),
       ]);
-      setLocalSoldSeats(data as unknown as string[]);
+      const tickets = ticketsData as unknown as ITicket[];
+      setExistingSeats(tickets.map((ticket) => ticket.seatCode));
+      setTicketPrices(Object.fromEntries(tickets.map((ticket) => [ticket.seatCode, Number(ticket.price || 0)])));
+      setLocalSoldSeats(tickets.filter((ticket) => ticket.status === 'SOLD').map((ticket) => ticket.seatCode));
       setPurchasedTicketCount(Number((countData as { ticketCount: number }).ticketCount || 0));
     } catch (error) {
       console.error('Lỗi khi tải danh sách ghế đã bán:', error);
@@ -69,9 +76,11 @@ const BookingPage = () => {
   }, [fetchSoldSeats]);
 
   const rows = useMemo(() => {
-    return Array.from({ length: current.rows }, (_, i) => String.fromCharCode(65 + i));
-  }, [current.rows]);
+    return Array.from({ length: currentRows }, (_, i) => i + 1);
+  }, [currentRows]);
 
+  const existingSeatSet = useMemo(() => new Set(existingSeats), [existingSeats]);
+  const soldSeatSet = useMemo(() => new Set(localSoldSeats), [localSoldSeats]);
   const remainingTicketQuota = Math.max(0, 4 - purchasedTicketCount);
 
   const handlePayment = () => {
@@ -109,6 +118,19 @@ const BookingPage = () => {
     );
   }
 
+  if (existingSeats.length === 0) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-24">
+        <Result
+          status="info"
+          title="Kho vé trận này chưa được khởi tạo"
+          subTitle="Admin cần vào Quản lý lịch thi đấu và bấm Sinh vé trước khi người dùng có thể chọn ghế."
+          extra={<Button type="primary" onClick={() => router.push('/matches')}>Quay lại lịch thi đấu</Button>}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] pb-20 pt-24 font-montserrat text-gray-900">
       <div className="mx-auto max-w-[1400px] px-4 md:px-8">
@@ -124,7 +146,7 @@ const BookingPage = () => {
                 <EnvironmentOutlined /> {current.name}
               </span>
               <span className="font-black italic text-red-600 uppercase">
-                Giá vé: {current.price.toLocaleString()}đ
+                Giá vé: {currentDisplayPrice === 0 ? 'Miễn phí' : `${currentDisplayPrice.toLocaleString()}đ`}
               </span>
             </div>
           </div>
@@ -141,8 +163,8 @@ const BookingPage = () => {
                 centered
                 activeKey={activeTab}
                 onChange={(key) => setActiveTab(key)}
-                items={Object.keys(standConfigs).map(key => ({
-                  label: <span className="px-6 text-xs font-black italic uppercase">{standConfigs[key].name}</span>,
+                items={Object.keys(STAND_CONFIGS).map(key => ({
+                  label: <span className="px-6 text-xs font-black italic uppercase">{STAND_CONFIGS[key].name}</span>,
                   key: key
                 }))}
               />
@@ -156,37 +178,38 @@ const BookingPage = () => {
 
               <div className="custom-scrollbar max-h-[550px] overflow-x-auto overflow-y-auto pb-10">
                 <div className="flex min-w-max flex-col items-center gap-3 px-8">
-                  {rows.map((row) => (
-                    <div key={row} className="flex items-center gap-4">
-                      <span className="w-6 text-xs font-black text-gray-300">{row}</span>
+                  {rows.map((rowNumber) => (
+                    <div key={rowNumber} className="flex items-center gap-4">
+                      <span className="w-8 text-xs font-black text-gray-300">{rowNumber}</span>
                       <div className="flex gap-2">
                         {Array.from({ length: current.seatsPerRow }).map((_, index) => {
                           const seatNum = index + 1;
-                          
-                          // ĐỒNG BỘ: Sinh mã khớp hoàn toàn logic SQL DB mẫu của bạn
-                          const rowNumber = row.charCodeAt(0) - 64; 
                           const sectorName = `${activeTab}${rowNumber}`; // VD: 'A1', 'B2'
-                          const paddedSeat = String(seatNum).padStart(2, '0'); // VD: '01', '10'
-                          
-                          const seatId = `${sectorName}-${paddedSeat}`; // Kết quả sinh ra: "A1-01", "B2-10"
+                          const paddedSeat = String(seatNum).padStart(2, '0'); // VD: '01', '10', '100'
+                          const seatId = `${sectorName}-${paddedSeat}`; // Kết quả sinh ra: "A1-01", "B2-10", "A1-100"
 
                           const isSelected = selectedSeats.includes(seatId);
-                          const isSold = localSoldSeats.includes(seatId);
+                          const isCreated = existingSeatSet.has(seatId);
+                          const isSold = soldSeatSet.has(seatId);
+                          const seatPrice = ticketPrices[seatId] ?? currentDisplayPrice;
                           const isQuotaReached = !isSelected && selectedSeats.length >= remainingTicketQuota;
                           
                           return (
                             <button
                               key={seatId}
-                              disabled={isSold || isQuotaReached}
+                              disabled={!isCreated || isSold || isQuotaReached}
                               onClick={() => {
+                                if (!isCreated) return;
                                 if (isQuotaReached) {
                                   message.warning(`Bạn chỉ còn được mua thêm ${remainingTicketQuota} vé cho trận này.`);
                                   return;
                                 }
-                                if (!isSold) handleToggleSeat(seatId);
+                                if (!isSold) handleToggleSeat(seatId, seatPrice);
                               }}
                               className={`flex h-8 w-8 items-center justify-center rounded-lg border text-[9px] font-black transition-all duration-200 ${
-                                isSold 
+                                !isCreated
+                                  ? 'bg-gray-50 border-gray-100 text-gray-200 cursor-not-allowed opacity-40'
+                                  : isSold
                                   ? 'bg-gray-200 border-gray-100 text-gray-400 cursor-not-allowed opacity-40 line-through' 
                                   : isSelected 
                                     ? 'z-10 scale-110 border-[#FFD700] bg-[#FFD700] text-[#003078] shadow-lg shadow-yellow-200' 
@@ -200,7 +223,7 @@ const BookingPage = () => {
                           );
                         })}
                       </div>
-                      <span className="w-6 text-right text-xs font-black text-gray-300">{row}</span>
+                      <span className="w-8 text-right text-xs font-black text-gray-300">{rowNumber}</span>
                     </div>
                   ))}
                 </div>

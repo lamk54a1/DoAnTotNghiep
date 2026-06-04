@@ -4,13 +4,47 @@ import Image from 'next/image';
 import axios from 'axios';
 import { useBooking } from '../../hooks/useBooking';
 import { Card, Steps, Radio, Button, Divider, App, Tag, QRCode, Result, Spin } from 'antd';
-import { UserOutlined, CreditCardOutlined, CheckCircleOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
+import { BankOutlined, MobileOutlined, QrcodeOutlined, ShopOutlined, UserOutlined, CreditCardOutlined, CheckCircleOutlined, HomeOutlined, LoadingOutlined } from '@ant-design/icons';
 import axiosClient from '../../api/axiosClient';
 
 interface IOrderResponse {
   id: number;
   orderQrCode: string;
 }
+
+type PaymentMethod = 'BANK_TRANSFER' | 'MOMO' | 'VNPAY' | 'CASH';
+
+const paymentOptions: Array<{
+  value: PaymentMethod;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+}> = [
+  {
+    value: 'BANK_TRANSFER',
+    title: 'Chuyển khoản VietQR',
+    description: 'Quét QR ngân hàng, nội dung chuyển khoản tự động theo đơn.',
+    icon: <BankOutlined />,
+  },
+  {
+    value: 'MOMO',
+    title: 'Ví MoMo',
+    description: 'Mô phỏng thanh toán ví điện tử MoMo cho đơn vé SLNA.',
+    icon: <MobileOutlined />,
+  },
+  {
+    value: 'VNPAY',
+    title: 'Thẻ ATM / VNPAY',
+    description: 'Thanh toán qua cổng VNPAY bằng ATM nội địa hoặc QR Pay.',
+    icon: <QrcodeOutlined />,
+  },
+  {
+    value: 'CASH',
+    title: 'Thanh toán tại quầy',
+    description: 'Giữ chỗ và thanh toán trực tiếp tại quầy vé sân Vinh.',
+    icon: <ShopOutlined />,
+  },
+];
 
 const CheckoutPage = () => {
   const { selectedSeats, totalPrice, confirmPayment } = useBooking();
@@ -19,8 +53,9 @@ const CheckoutPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState('bank');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [ticketCode, setTicketCode] = useState('');
+  const [confirmedSeats, setConfirmedSeats] = useState<string[]>([]);
 
   const BANK_ID = "vietcombank";
   const ACCOUNT_NO = "1027799416";
@@ -40,19 +75,17 @@ const CheckoutPage = () => {
         return;
       }
 
-      const user = JSON.parse(userInfoStr);
-
+      const seatsSnapshot = [...selectedSeats];
       const payload = {
-        userId: user.id,
-        totalAmount: totalPrice,
         paymentMethod: paymentMethod,
-        tickets: selectedSeats, // Gửi trực tiếp dạng ["A1-01", "A1-02"]
+        tickets: seatsSnapshot,
         matchId: Number(matchIdStr)
       };
 
       const resData = await axiosClient.post('/orders', payload) as unknown as IOrderResponse;
 
       setTicketCode(resData.orderQrCode);
+      setConfirmedSeats(seatsSnapshot);
       confirmPayment(); 
       setIsSuccess(true);
       setCurrentStep(2);
@@ -89,7 +122,7 @@ const CheckoutPage = () => {
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Vị trí ghế đã mua</span>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {selectedSeats.map(s => <Tag key={s} color="gold" className="m-0 font-bold border-none">{s}</Tag>)}
+                    {confirmedSeats.map(s => <Tag key={s} color="gold" className="m-0 font-bold border-none">{s}</Tag>)}
                   </div>
                 </div>
                 <Divider className="my-2" />
@@ -109,6 +142,19 @@ const CheckoutPage = () => {
     );
   }
 
+  if (selectedSeats.length === 0) {
+    return (
+      <div className="min-h-screen bg-white pt-28 pb-20 font-montserrat flex flex-col items-center px-6">
+        <Result
+          status="warning"
+          title="Bạn chưa chọn ghế"
+          subTitle="Vui lòng quay lại lịch thi đấu, chọn trận đang mở bán và chọn ghế trước khi thanh toán."
+          extra={<Button type="primary" onClick={() => window.location.href = '/matches'}>Xem lịch thi đấu</Button>}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8fafc] pt-28 pb-20 font-montserrat">
       <div className="max-w-6xl mx-auto px-6">
@@ -119,11 +165,27 @@ const CheckoutPage = () => {
           <div className="lg:col-span-2 space-y-6">
             <Card className="rounded-3xl border-none shadow-sm" title={<span className="font-black italic uppercase text-[#003078]">Cổng thanh toán điện tử</span>}>
               <Radio.Group onChange={(e) => setPaymentMethod(e.target.value)} value={paymentMethod} className="w-full">
-                <div className={`p-5 border-2 rounded-2xl transition-all flex items-center justify-between mb-4 ${paymentMethod === 'bank' ? 'border-[#003078] bg-blue-50/50' : 'border-gray-100'}`}>
-                  <Radio value="bank" className="font-bold text-[#003078]">Chuyển khoản liên ngân hàng qua VietQR</Radio>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {paymentOptions.map((option) => (
+                    <label
+                      key={option.value}
+                      className={`cursor-pointer rounded-2xl border-2 p-5 transition-all ${paymentMethod === option.value ? 'border-[#003078] bg-blue-50/70 shadow-sm' : 'border-gray-100 bg-white hover:border-blue-100'}`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <Radio value={option.value} />
+                        <div>
+                          <div className="flex items-center gap-2 font-black text-[#003078]">
+                            <span className="text-lg">{option.icon}</span>
+                            {option.title}
+                          </div>
+                          <p className="mt-2 text-xs font-medium leading-5 text-gray-500">{option.description}</p>
+                        </div>
+                      </div>
+                    </label>
+                  ))}
                 </div>
               </Radio.Group>
-              {paymentMethod === 'bank' && (
+              {paymentMethod === 'BANK_TRANSFER' && (
                 <div className="mt-6 flex flex-col items-center bg-white border border-dashed border-gray-200 rounded-[40px] p-8 relative overflow-hidden">
                   <div className="relative p-3 bg-white border-4 border-[#003078] rounded-[32px] mb-6 shadow-2xl">
                     <Image src={vietQrUrl} alt="QR Ngân hàng" width={256} height={256} unoptimized className="h-64 w-64 object-contain" />
@@ -140,6 +202,26 @@ const CheckoutPage = () => {
                   </div>
                   <Button type="primary" size="large" loading={isVerifying} className="h-16 px-12 bg-[#edbb00] text-[#003078] border-none font-black text-sm uppercase tracking-wider rounded-2xl shadow-xl hover:bg-[#003078] hover:text-white transition-all transform hover:scale-[1.02] active:scale-95" onClick={handleVerifyPayment}>
                     Tôi đã chuyển khoản xong
+                  </Button>
+                </div>
+              )}
+              {paymentMethod !== 'BANK_TRANSFER' && (
+                <div className="mt-6 rounded-[32px] border border-dashed border-gray-200 bg-white p-8 text-center">
+                  <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-[#003078] text-3xl text-[#edbb00]">
+                    {paymentOptions.find((option) => option.value === paymentMethod)?.icon}
+                  </div>
+                  <h3 className="text-xl font-black uppercase text-[#003078]">
+                    {paymentOptions.find((option) => option.value === paymentMethod)?.title}
+                  </h3>
+                  <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-gray-500">
+                    Đây là môi trường mô phỏng. Khi bấm xác nhận, hệ thống sẽ tạo đơn chờ admin xác nhận thanh toán.
+                  </p>
+                  <div className="mt-6 rounded-2xl bg-gray-50 p-5">
+                    <p className="m-0 text-xs font-bold uppercase text-gray-400">Số tiền cần thanh toán</p>
+                    <p className="m-0 mt-1 text-3xl font-black italic text-[#003078]">{totalPrice.toLocaleString()}đ</p>
+                  </div>
+                  <Button type="primary" size="large" loading={isVerifying} className="mt-6 h-14 rounded-2xl px-10 font-black uppercase" onClick={handleVerifyPayment}>
+                    Xác nhận phương thức thanh toán
                   </Button>
                 </div>
               )}

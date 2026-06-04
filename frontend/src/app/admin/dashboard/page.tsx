@@ -1,8 +1,8 @@
 'use client';
 import AdminPageShell from '../../../components/Admin/AdminPageShell';
-import { App as AntApp, Card, Row, Col, Statistic, Table, Button, Space, Popconfirm } from 'antd';
+import { App as AntApp, Card, Row, Col, Statistic, Table, Button, Space, Popconfirm, Select } from 'antd';
 import { DollarOutlined, UserOutlined, TagOutlined, PlusOutlined, RetweetOutlined, ShoppingOutlined } from '@ant-design/icons';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../../api/axiosClient';
 import { IMatch } from '../../../interfaces/IMatch';
 import dayjs from 'dayjs';
@@ -19,12 +19,18 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<DashboardStats>({ totalRevenue: 0, totalTicketsSold: 0, totalUsers: 0, pendingOrders: 0 });
   const [matches, setMatches] = useState<IMatch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedYear, setSelectedYear] = useState<number | undefined>(new Date().getFullYear());
+  const [selectedMatchId, setSelectedMatchId] = useState<number | undefined>();
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
+      const params = new URLSearchParams();
+      if (selectedYear) params.set('year', String(selectedYear));
+      if (selectedMatchId) params.set('matchId', String(selectedMatchId));
+
       // Gọi cả 2 API cùng lúc
       const [statsRes, matchesRes] = await Promise.all([
-        axiosClient.get('/admin/stats'),
+        axiosClient.get(`/admin/stats?${params.toString()}`),
         axiosClient.get('/matches')
       ]);
       setStats(statsRes as unknown as DashboardStats);
@@ -34,11 +40,11 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedMatchId, selectedYear]);
 
   useEffect(() => {
     void Promise.resolve().then(fetchData);
-  }, []);
+  }, [fetchData]);
 
   const handleGenerateTickets = async (matchId: number) => {
     try {
@@ -51,6 +57,41 @@ export default function AdminDashboard() {
 
   return (
     <AdminPageShell title="Bảng điều khiển quản trị" subtitle="Theo dõi nhanh hoạt động bán vé của câu lạc bộ.">
+        <Card className="mb-6 shadow-sm">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div>
+              <h2 className="m-0 text-lg font-black uppercase text-[#003078]">Bộ lọc doanh thu</h2>
+              <p className="mt-1 text-sm text-gray-500">Xem doanh thu theo năm hoặc theo từng trận đấu.</p>
+            </div>
+            <Space wrap>
+              <Select
+                allowClear
+                placeholder="Tất cả các năm"
+                className="w-40"
+                value={selectedYear}
+                onChange={setSelectedYear}
+                options={Array.from({ length: 6 }, (_, index) => {
+                  const year = new Date().getFullYear() - index;
+                  return { value: year, label: `Năm ${year}` };
+                })}
+              />
+              <Select
+                allowClear
+                showSearch
+                placeholder="Tất cả trận đấu"
+                className="w-72"
+                value={selectedMatchId}
+                optionFilterProp="label"
+                onChange={setSelectedMatchId}
+                options={matches.map((match) => ({
+                  value: match.id,
+                  label: `SLNA vs ${match.opponent} - ${dayjs(match.matchDate).format('DD/MM/YYYY')}`,
+                }))}
+              />
+            </Space>
+          </div>
+        </Card>
+
         {/* PHẦN THỐNG KÊ */}
         <Row gutter={16} className="mb-8">
           <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-blue-600 shadow-md"><Statistic title="Doanh Thu" value={stats.totalRevenue} prefix={<DollarOutlined />} suffix="VND" styles={{ content: { color: '#3f8600' } }} /></Card></Col>

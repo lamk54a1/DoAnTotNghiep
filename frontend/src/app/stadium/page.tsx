@@ -13,9 +13,10 @@ export default function StadiumPage() {
           <h2 className="text-2xl font-black text-[#003078]">Bốn khu vực khán đài</h2>
           <p className="mt-4 text-sm leading-7 text-gray-600">Hệ thống vé trực tuyến chia sân thành khán đài A, B, C và D. Khi một trận mở bán, bạn có thể xem sơ đồ chi tiết và chọn ghế còn trống trực tiếp.</p>
           <ul className="mt-5 space-y-2 text-sm font-bold text-gray-600">
-            <li>Khán đài A: 100.000đ</li>
-            <li>Khán đài B: 50.000đ</li>
-            <li>Khán đài C và D: 20.000đ</li>
+            <li>Khán đài A: 8.000 ghế, 100.000đ</li>
+            <li>Khán đài B: 6.000 ghế, 50.000đ</li>
+            <li>Khán đài C và D: mỗi khán đài 3.000 ghế, 20.000đ</li>
+            <li>Tổng sức chứa hệ thống vé: 20.000 ghế</li>
           </ul>
           <Link href="/matches" className="mt-6 inline-block rounded-xl bg-[#edbb00] px-5 py-3 text-xs font-black uppercase text-[#003078]">
             Xem lịch thi đấu

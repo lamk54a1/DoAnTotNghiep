@@ -76,6 +76,30 @@ function RegisterPage() {
             <Input placeholder="Ví dụ: 0912345678" className="h-10 rounded-lg" />
           </Form.Item>
 
+          <Form.Item
+            label={<span className="font-bold text-xs uppercase text-gray-600">CCCD</span>}
+            name="cccd"
+            normalize={(value: string) => value?.replace(/\D/g, '')}
+            rules={[
+              { required: true, message: 'Vui lòng nhập số CCCD!' },
+              { pattern: /^[0-9]{12}$/, message: 'CCCD phải gồm đúng 12 chữ số!' }
+            ]}
+            extra="Mỗi số CCCD chỉ được tạo một tài khoản để đảm bảo giới hạn mua vé."
+          >
+            <Input maxLength={12} placeholder="Ví dụ: 040203001234" className="h-10 rounded-lg" />
+          </Form.Item>
+
+          <Form.Item
+            label={<span className="font-bold text-xs uppercase text-gray-600">Địa chỉ</span>}
+            name="address"
+            rules={[
+              { required: true, message: 'Vui lòng nhập địa chỉ!' },
+              { min: 8, message: 'Địa chỉ cần chi tiết hơn một chút!' }
+            ]}
+          >
+            <Input.TextArea rows={3} placeholder="Số nhà, phường/xã, quận/huyện, tỉnh/thành phố" className="rounded-lg" />
+          </Form.Item>
+
           <Form.Item 
             label={<span className="font-bold text-xs uppercase text-gray-600">Mật khẩu</span>} 
             name="password" 

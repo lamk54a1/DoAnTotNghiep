@@ -44,6 +44,8 @@ export default function AdminUsersPage() {
           { title: 'Họ tên', dataIndex: 'fullName', render: (value) => <span className="font-bold">{value}</span> },
           { title: 'Email', dataIndex: 'email' },
           { title: 'Số điện thoại', dataIndex: 'phoneNumber', render: (value) => value || '-' },
+          { title: 'CCCD', dataIndex: 'cccd', render: (value) => value || '-' },
+          { title: 'Địa chỉ', dataIndex: 'address', ellipsis: true, render: (value) => value || '-' },
           { title: 'Vai trò', dataIndex: 'role', render: (role) => <Tag color={role === 'ADMIN' ? 'blue' : 'default'}>{role}</Tag> },
           { title: 'Ngày tạo', dataIndex: 'createdAt', render: (value: string) => value ? dayjs(value).format('DD/MM/YYYY') : '-' },
           { title: 'Trạng thái', dataIndex: 'status', render: (status) => <Tag color={status === 'ACTIVE' ? 'green' : 'red'}>{status}</Tag> },

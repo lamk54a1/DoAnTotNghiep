@@ -8,12 +8,12 @@ export const useBooking = () => {
   const dispatch = useAppDispatch();
   const { selectedSeats, soldSeats, totalPrice } = useAppSelector((state) => state.booking);
 
-  const handleToggleSeat = (seatId: string) => {
+  const handleToggleSeat = (seatId: string, price?: number) => {
     if (!selectedSeats.includes(seatId) && !soldSeats.includes(seatId) && selectedSeats.length >= 4) {
       message.warning("Tối đa 4 vé mỗi lần đặt!");
       return;
     }
-    dispatch(toggleSeatSelection(seatId));
+    dispatch(toggleSeatSelection({ seatId, price }));
   };
 
   return {

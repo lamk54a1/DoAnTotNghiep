@@ -4,6 +4,7 @@ export interface IUser {
   email: string;
   fullName: string;
   phoneNumber?: string;     // Rất quan trọng để kiểm tra giới hạn 4 vé
+  cccd?: string;            // Căn cước công dân để tránh tạo nhiều tài khoản mua vé
   role: 'USER' | 'ADMIN';   // Phân quyền người dùng hoặc quản trị viên
   avatar?: string;
   password?: string;        // Lưu hash mật khẩu (dùng ở Backend)
@@ -23,6 +24,8 @@ export interface IRegisterPayload {
   password: string;
   fullName: string;
   phoneNumber: string;
+  cccd: string;
+  address: string;
 }
 
 export interface IAuthResponse {
