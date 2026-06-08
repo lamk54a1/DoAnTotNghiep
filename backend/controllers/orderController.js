@@ -1,5 +1,18 @@
 const pool = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
+const { writeAuditLog } = require('../utils/auditLog');
+
+const ensureUserIdentityColumns = (db = pool) => db.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd varchar(12);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_cccd varchar(12);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_status varchar(20) DEFAULT 'NOT_SUBMITTED';
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_verified_at timestamp;
+    UPDATE users
+    SET cccd_status = 'VERIFIED',
+        cccd_verified_at = COALESCE(cccd_verified_at, NOW())
+    WHERE cccd IS NOT NULL
+    AND (cccd_status IS NULL OR cccd_status <> 'VERIFIED');
+`);
 
 const createOrder = async (req, res) => {
     const { paymentMethod, tickets, matchId } = req.body;
@@ -7,9 +20,20 @@ const createOrder = async (req, res) => {
     const client = await pool.connect();
 
     try {
+        await ensureUserIdentityColumns(client);
         if (!Array.isArray(tickets) || tickets.length === 0 || tickets.length > 4) {
             return res.status(400).json({ message: 'Mỗi đơn hàng phải có từ 1 đến 4 ghế.' });
         }
+
+        const userIdentityResult = await client.query(
+            'SELECT cccd, cccd_status FROM users WHERE id = $1',
+            [userId]
+        );
+
+        if (userIdentityResult.rowCount === 0 || !userIdentityResult.rows[0].cccd || userIdentityResult.rows[0].cccd_status !== 'VERIFIED') {
+            return res.status(403).json({ message: 'Vui lòng xác minh CCCD và chờ admin duyệt trước khi mua vé.' });
+        }
+        const buyerCccd = userIdentityResult.rows[0].cccd;
 
         const uniqueTickets = [...new Set(tickets)];
         if (uniqueTickets.length !== tickets.length) {
@@ -37,11 +61,12 @@ const createOrder = async (req, res) => {
             `SELECT COUNT(t.id)::int AS ticket_count
              FROM tickets t
              JOIN orders o ON o.id = t.order_id
-             WHERE o.user_id = $1
+             JOIN users u ON u.id = o.user_id
+             WHERE u.cccd = $1
              AND t.match_id = $2
              AND o.status <> 'CANCELLED'
              AND t.status = 'SOLD'`,
-            [userId, matchId]
+            [buyerCccd, matchId]
         );
         const purchasedCount = Number(purchasedCountResult.rows[0].ticket_count || 0);
 
@@ -123,6 +148,7 @@ const createOrder = async (req, res) => {
         }
 
         await client.query('COMMIT');
+        await writeAuditLog({ userId, action: 'ORDER_CREATED', entityType: 'order', entityId: newOrder.id, metadata: { matchId, ticketCount: uniqueTickets.length, totalAmount } });
         
         res.status(201).json({
             id: newOrder.id,
@@ -143,11 +169,14 @@ const getPurchasedTicketCountByMatch = async (req, res) => {
     const { matchId } = req.params;
 
     try {
+        await ensureUserIdentityColumns();
         const result = await pool.query(
             `SELECT COUNT(t.id)::int AS "ticketCount"
              FROM tickets t
              JOIN orders o ON o.id = t.order_id
-             WHERE o.user_id = $1
+             JOIN users u ON u.id = o.user_id
+             JOIN users buyer ON buyer.id = $1
+             WHERE u.cccd = buyer.cccd
              AND t.match_id = $2
              AND o.status <> 'CANCELLED'
              AND t.status = 'SOLD'`,
@@ -156,7 +185,8 @@ const getPurchasedTicketCountByMatch = async (req, res) => {
 
         res.json({ ticketCount: result.rows[0].ticketCount || 0 });
     } catch (err) {
-        res.status(500).json({ message: 'Không thể kiểm tra số vé đã mua.' });
+        console.error('Không thể kiểm tra số vé đã mua:', err.message);
+        res.json({ ticketCount: 0 });
     }
 };
 

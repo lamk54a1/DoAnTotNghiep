@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 const pool = require('./config/db');
 const adminRoutes = require('./routes/adminRoutes');
@@ -23,6 +24,7 @@ const matchRoutes = require('./routes/matchRoutes');
 const ticketRoutes = require('./routes/ticketRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const authRoutes = require('./routes/authRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 // Route kiểm tra hệ thống công khai
 app.get('/', (req, res) => {
@@ -34,6 +36,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/matches', matchRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/uploads', uploadRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ========================================================
 // 3. KHỞI ĐỘNG SERVER (LUÔN LUÔN ĐẶT Ở CUỐI CÙNG)

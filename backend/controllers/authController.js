@@ -1,11 +1,20 @@
 const pool = require('../config/db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { writeAuditLog } = require('../utils/auditLog');
 
 const ensureUserIdentityColumns = () => pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd varchar(12);
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_cccd varchar(12);
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_status varchar(20) DEFAULT 'NOT_SUBMITTED';
+  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_verified_at timestamp;
   ALTER TABLE users ADD COLUMN IF NOT EXISTS address text;
   CREATE UNIQUE INDEX IF NOT EXISTS users_cccd_unique_idx ON users (cccd) WHERE cccd IS NOT NULL;
+  UPDATE users
+  SET cccd_status = 'VERIFIED',
+      cccd_verified_at = COALESCE(cccd_verified_at, NOW())
+  WHERE cccd IS NOT NULL
+  AND (cccd_status IS NULL OR cccd_status <> 'VERIFIED');
 `);
 
 const normalizeCccd = (value) => String(value || '').replace(/\D/g, '');
@@ -20,6 +29,9 @@ const getProfile = async (req, res) => {
         full_name AS "fullName",
         phone_number AS "phoneNumber",
         cccd,
+        pending_cccd AS "pendingCccd",
+        CASE WHEN cccd IS NOT NULL THEN 'VERIFIED' ELSE cccd_status END AS "cccdStatus",
+        cccd_verified_at AS "cccdVerifiedAt",
         address,
         role,
         status,
@@ -66,6 +78,9 @@ const updateProfile = async (req, res) => {
         full_name AS "fullName",
         phone_number AS "phoneNumber",
         cccd,
+        pending_cccd AS "pendingCccd",
+        CASE WHEN cccd IS NOT NULL THEN 'VERIFIED' ELSE cccd_status END AS "cccdStatus",
+        cccd_verified_at AS "cccdVerifiedAt",
         address,
         role,
         status,
@@ -83,14 +98,75 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// ĐĂNG KÝ
-const register = async (req, res) => {
-  const { email, password, fullName, phoneNumber, address } = req.body;
+const updateIdentity = async (req, res) => {
   const cccd = normalizeCccd(req.body.cccd);
 
   if (!cccd || !/^\d{12}$/.test(cccd)) {
-    return res.status(400).json({ message: 'CCCD phải gồm đúng 12 chữ số.' });
+    return res.status(400).json({ message: 'Không đọc được CCCD hợp lệ từ ảnh. Vui lòng chụp rõ mặt trước CCCD.' });
   }
+
+  try {
+    await ensureUserIdentityColumns();
+
+    const currentUserResult = await pool.query(
+      'SELECT id, cccd FROM users WHERE id = $1',
+      [req.user.id]
+    );
+
+    if (currentUserResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+    }
+
+    if (currentUserResult.rows[0].cccd) {
+      return res.status(409).json({ message: 'Tài khoản này đã cập nhật CCCD. Không thể cập nhật lại.' });
+    }
+
+    const cccdExist = await pool.query(
+      'SELECT id FROM users WHERE cccd = $1 AND id <> $2',
+      [cccd, req.user.id]
+    );
+
+    if (cccdExist.rows.length > 0) {
+      return res.status(400).json({ message: 'CCCD này đã được dùng cho tài khoản khác.' });
+    }
+
+    const result = await pool.query(
+      `UPDATE users
+       SET pending_cccd = $1, cccd_status = 'PENDING'
+       WHERE id = $2 AND cccd IS NULL
+       RETURNING
+        id,
+        email,
+        full_name AS "fullName",
+        phone_number AS "phoneNumber",
+        cccd,
+        pending_cccd AS "pendingCccd",
+        cccd_status AS "cccdStatus",
+        cccd_verified_at AS "cccdVerifiedAt",
+        address,
+        role,
+        status,
+        created_at AS "createdAt"`,
+      [cccd, req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(409).json({ message: 'Tài khoản này đã cập nhật CCCD. Không thể cập nhật lại.' });
+    }
+
+    await writeAuditLog({ userId: req.user.id, action: 'CCCD_SUBMITTED', entityType: 'user', entityId: req.user.id, metadata: { pendingCccd: cccd } });
+    res.json({ message: 'Đã gửi CCCD cho admin duyệt.', user: result.rows[0] });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(400).json({ message: 'CCCD này đã được dùng cho tài khoản khác.' });
+    }
+    res.status(500).json({ message: 'Không thể cập nhật CCCD.' });
+  }
+};
+
+// ĐĂNG KÝ
+const register = async (req, res) => {
+  const { email, password, fullName, phoneNumber, address } = req.body;
 
   if (!String(address || '').trim()) {
     return res.status(400).json({ message: 'Vui lòng nhập địa chỉ.' });
@@ -104,28 +180,20 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Email này đã được sử dụng!' });
     }
 
-    const cccdExist = await pool.query('SELECT id FROM users WHERE cccd = $1', [cccd]);
-    if (cccdExist.rows.length > 0) {
-      return res.status(400).json({ message: 'CCCD này đã được đăng ký tài khoản!' });
-    }
-
     // 2. Mã hóa mật khẩu
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
     // 3. Lưu vào database (Mặc định role là USER)
     const newUser = await pool.query(
-      `INSERT INTO users (email, password, full_name, phone_number, cccd, address, role, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'USER', 'ACTIVE')
+      `INSERT INTO users (email, password, full_name, phone_number, address, role, status)
+       VALUES ($1, $2, $3, $4, $5, 'USER', 'ACTIVE')
        RETURNING id, email, full_name, role`,
-      [email, hashedPassword, fullName, phoneNumber, cccd, String(address).trim()]
+      [email, hashedPassword, fullName, phoneNumber, String(address).trim()]
     );
 
     res.status(201).json({ message: 'Đăng ký tài khoản thành công!', user: newUser.rows[0] });
   } catch (err) {
-    if (err.code === '23505') {
-      return res.status(400).json({ message: 'CCCD hoặc email này đã được sử dụng!' });
-    }
     res.status(500).json({ message: 'Lỗi hệ thống khi đăng ký.' });
   }
 };
@@ -134,6 +202,7 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   const { email, password } = req.body;
   try {
+    await ensureUserIdentityColumns();
     // 1. Tìm user theo email
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
@@ -168,7 +237,9 @@ const login = async (req, res) => {
         id: user.id,
         email: user.email,
         fullName: user.full_name,
-        role: user.role
+        role: user.role,
+        cccd: user.cccd || null,
+        cccdStatus: user.cccd ? 'VERIFIED' : user.cccd_status || 'NOT_SUBMITTED'
       }
     });
   } catch (err) {
@@ -176,4 +247,4 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile };
+module.exports = { register, login, getProfile, updateProfile, updateIdentity };
