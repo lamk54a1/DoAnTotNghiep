@@ -83,7 +83,7 @@ const MatchCard = ({ match }: Props) => {
       {/* Thông tin chi tiết bên dưới */}
       <div className="p-6">
         <div className="flex items-center gap-2 mb-4">
-            <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded">V-LEAGUE 2026</span>
+            <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded">{match.competitionName || 'GIẢI ĐẤU'}</span>
             <span className="text-gray-300">|</span>
             <span className="text-gray-500 text-xs font-medium italic">{match.description || "Vòng thi đấu"}</span>
         </div>
@@ -101,27 +101,30 @@ const MatchCard = ({ match }: Props) => {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-dashed border-gray-200 flex items-center justify-between">
+        <div className="pt-4 border-t border-dashed border-gray-200 flex items-center justify-between gap-3">
           <div>
             <p className="text-[10px] text-gray-400 font-bold uppercase">Giá chỉ từ</p>
             <p className="text-[#003078] font-black text-2xl">{match.ticketPriceMin?.toLocaleString('en-US')}đ</p>
           </div>
           
-          {canBook ? (
-          <Link href={`/booking/${match.id}`}>
-            <button className={`px-6 py-3 rounded-xl font-black text-sm transition-all shadow-md ${
-              canBook
-              ? 'bg-[#FFD700] text-[#003078] hover:bg-[#003078] hover:text-[#FFD700]' 
-              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            }`}>
-              MUA VÉ NGAY
-            </button>
-          </Link>
-          ) : (
-            <button disabled className="cursor-not-allowed rounded-xl bg-gray-100 px-6 py-3 text-sm font-black text-gray-400 shadow-md">
-              {match.status === 'UPCOMING' ? 'SẮP MỞ BÁN' : 'HẾT VÉ'}
-            </button>
-          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Link href={`/matches/${match.id}`}>
+              <button className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-black text-[#003078] shadow-sm transition-all hover:bg-blue-50">
+                CHI TIẾT
+              </button>
+            </Link>
+            {canBook ? (
+            <Link href={`/booking/${match.id}`}>
+              <button className="rounded-xl bg-[#FFD700] px-5 py-3 text-sm font-black text-[#003078] shadow-md transition-all hover:bg-[#003078] hover:text-[#FFD700]">
+                MUA VÉ
+              </button>
+            </Link>
+            ) : (
+              <button disabled className="cursor-not-allowed rounded-xl bg-gray-100 px-5 py-3 text-sm font-black text-gray-400 shadow-md">
+                {match.status === 'UPCOMING' ? 'SẮP MỞ BÁN' : 'HẾT VÉ'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

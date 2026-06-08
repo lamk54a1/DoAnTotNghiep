@@ -56,7 +56,7 @@ const Hero = () => {
                   <EnvironmentOutlined /> {featuredMatch?.stadium || 'Sân vận động Vinh'}
                 </span>
                 <span className="rounded-full bg-white/10 px-4 py-2 backdrop-blur">
-                  <TrophyOutlined /> V-League 2026
+                  <TrophyOutlined /> {featuredMatch?.competitionName || 'Giải đấu SLNA'}
                 </span>
               </div>
             </div>

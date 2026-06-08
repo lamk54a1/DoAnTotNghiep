@@ -6,6 +6,7 @@ import { App as AntApp, Button, Card, Form, Input, Result, Spin, Tag } from 'ant
 import { IdcardOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
 import { authApi } from '../../api/authApi';
 import { IUser } from '../../interfaces/IUser';
+import CccdVerificationCard from '../../components/Profile/CccdVerificationCard';
 
 type ProfileFormValues = Pick<IUser, 'fullName' | 'phoneNumber' | 'address'>;
 
@@ -103,67 +104,76 @@ export default function ProfilePage() {
               <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase text-gray-500">
                 <IdcardOutlined /> CCCD
               </p>
-              <p className="m-0 text-lg font-black tracking-wider text-[#003078]">{profile?.cccd || 'Chưa cập nhật'}</p>
+              <p className="m-0 text-lg font-black tracking-wider text-[#003078]">{profile?.cccd || 'Chưa xác minh'}</p>
               <p className="mt-2 text-xs leading-5 text-gray-400">
-                CCCD được khóa sau đăng ký để đảm bảo mỗi người chỉ có một tài khoản mua vé.
+                CCCD được khóa sau khi xác minh để đảm bảo mỗi người chỉ có một tài khoản mua vé.
               </p>
             </div>
           </Card>
 
-          <Card className="rounded-[28px] border-none shadow-md lg:col-span-2">
-            <Form
-              key={profile?.id}
-              layout="vertical"
-              onFinish={handleSave}
-              initialValues={{
-                fullName: profile?.fullName,
-                phoneNumber: profile?.phoneNumber,
-                address: profile?.address,
-              }}
-            >
-              <Form.Item
-                label={<span className="font-bold text-xs uppercase text-gray-600">Họ và tên</span>}
-                name="fullName"
-                rules={[{ required: true, message: 'Vui lòng nhập họ và tên!' }]}
-              >
-                <Input className="h-11 rounded-xl" placeholder="Họ và tên" />
-              </Form.Item>
+          <div className="space-y-6 lg:col-span-2">
+            <CccdVerificationCard
+              cccd={profile?.cccd}
+              pendingCccd={profile?.pendingCccd}
+              cccdStatus={profile?.cccdStatus}
+              onVerified={setProfile}
+            />
 
-              <Form.Item
-                label={<span className="font-bold text-xs uppercase text-gray-600">Số điện thoại</span>}
-                name="phoneNumber"
-                rules={[
-                  { required: true, message: 'Vui lòng nhập số điện thoại!' },
-                  { pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải gồm đúng 10 chữ số!' },
-                ]}
+            <Card className="rounded-[28px] border-none shadow-md">
+              <Form
+                key={profile?.id}
+                layout="vertical"
+                onFinish={handleSave}
+                initialValues={{
+                  fullName: profile?.fullName,
+                  phoneNumber: profile?.phoneNumber,
+                  address: profile?.address,
+                }}
               >
-                <Input maxLength={10} className="h-11 rounded-xl" placeholder="0912345678" />
-              </Form.Item>
-
-              <Form.Item
-                label={<span className="font-bold text-xs uppercase text-gray-600">Địa chỉ</span>}
-                name="address"
-                rules={[
-                  { required: true, message: 'Vui lòng nhập địa chỉ!' },
-                  { min: 8, message: 'Địa chỉ cần chi tiết hơn một chút!' },
-                ]}
-              >
-                <Input.TextArea rows={4} className="rounded-xl" placeholder="Số nhà, phường/xã, quận/huyện, tỉnh/thành phố" />
-              </Form.Item>
-
-              <div className="flex justify-end">
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={saving}
-                  icon={<SaveOutlined />}
-                  className="h-11 rounded-xl bg-[#003078] px-8 font-black uppercase"
+                <Form.Item
+                  label={<span className="font-bold text-xs uppercase text-gray-600">Họ và tên</span>}
+                  name="fullName"
+                  rules={[{ required: true, message: 'Vui lòng nhập họ và tên!' }]}
                 >
-                  Lưu thay đổi
-                </Button>
-              </div>
-            </Form>
-          </Card>
+                  <Input className="h-11 rounded-xl" placeholder="Họ và tên" />
+                </Form.Item>
+
+                <Form.Item
+                  label={<span className="font-bold text-xs uppercase text-gray-600">Số điện thoại</span>}
+                  name="phoneNumber"
+                  rules={[
+                    { required: true, message: 'Vui lòng nhập số điện thoại!' },
+                    { pattern: /^[0-9]{10}$/, message: 'Số điện thoại phải gồm đúng 10 chữ số!' },
+                  ]}
+                >
+                  <Input maxLength={10} className="h-11 rounded-xl" placeholder="0912345678" />
+                </Form.Item>
+
+                <Form.Item
+                  label={<span className="font-bold text-xs uppercase text-gray-600">Địa chỉ</span>}
+                  name="address"
+                  rules={[
+                    { required: true, message: 'Vui lòng nhập địa chỉ!' },
+                    { min: 8, message: 'Địa chỉ cần chi tiết hơn một chút!' },
+                  ]}
+                >
+                  <Input.TextArea rows={4} className="rounded-xl" placeholder="Số nhà, phường/xã, quận/huyện, tỉnh/thành phố" />
+                </Form.Item>
+
+                <div className="flex justify-end">
+                  <Button
+                    type="primary"
+                    htmlType="submit"
+                    loading={saving}
+                    icon={<SaveOutlined />}
+                    className="h-11 rounded-xl bg-[#003078] px-8 font-black uppercase"
+                  >
+                    Lưu thay đổi
+                  </Button>
+                </div>
+              </Form>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

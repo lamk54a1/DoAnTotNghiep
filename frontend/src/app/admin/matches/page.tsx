@@ -1,11 +1,13 @@
 'use client';
 import AdminPageShell from '../../../components/Admin/AdminPageShell';
-import { App as AntApp, Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, Row, Col, Popconfirm, Avatar, Tag, Checkbox } from 'antd';
-import { PlusOutlined, EditOutlined, RetweetOutlined, DeleteOutlined } from '@ant-design/icons';
+import { App as AntApp, Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, Row, Col, Popconfirm, Avatar, Tag, Checkbox, Upload, QRCode } from 'antd';
+import { PlusOutlined, EditOutlined, RetweetOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
+import type { UploadProps } from 'antd';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import axiosClient from '../../../api/axiosClient';
+import axiosClient, { API_ORIGIN } from '../../../api/axiosClient';
 import { IMatch } from '../../../interfaces/IMatch'; 
+import { ITicketInventory } from '../../../interfaces/ITicketInventory';
 import dayjs from 'dayjs';
 
 const STAND_OPTIONS = [
@@ -15,6 +17,42 @@ const STAND_OPTIONS = [
   { label: 'Khán đài D - 3.000 vé', value: 'D' },
 ];
 
+const DEFAULT_STAND_PRICES = {
+  A: 100000,
+  B: 50000,
+  C: 20000,
+  D: 20000,
+};
+
+interface PaperTicket {
+  id: number;
+  seatCode: string;
+  sector: string;
+  row: string;
+  seatNumber: number;
+  price: number;
+  status: 'PAPER_RESERVED' | 'PAPER_SOLD';
+  ticketQrCode: string;
+  opponent: string;
+  matchDate: string;
+  stadium: string;
+  competitionName?: string;
+}
+
+const EMPTY_INVENTORY: ITicketInventory = {
+  A: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  B: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  C: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  D: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+};
+
+const hasFullScore = (homeScore?: number | null, awayScore?: number | null) => (
+  homeScore !== null
+  && homeScore !== undefined
+  && awayScore !== null
+  && awayScore !== undefined
+);
+
 export default function AdminMatchesPage() {
   const { notification } = AntApp.useApp();
   const [matches, setMatches] = useState<IMatch[]>([]);
@@ -23,8 +61,48 @@ export default function AdminMatchesPage() {
   const [isGenerateModalOpen, setIsGenerateModalOpen] = useState<boolean>(false);
   const [editingMatch, setEditingMatch] = useState<IMatch | null>(null);
   const [generatingMatch, setGeneratingMatch] = useState<IMatch | null>(null);
+  const [inventoryMatch, setInventoryMatch] = useState<IMatch | null>(null);
+  const [inventory, setInventory] = useState<ITicketInventory>(EMPTY_INVENTORY);
+  const [loadingInventory, setLoadingInventory] = useState(false);
+  const [paperStand, setPaperStand] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [paperQuantity, setPaperQuantity] = useState(100);
+  const [updatingPaperTickets, setUpdatingPaperTickets] = useState(false);
+  const [paperTickets, setPaperTickets] = useState<PaperTicket[]>([]);
+  const [isPaperPrintOpen, setIsPaperPrintOpen] = useState(false);
+  const [loadingPaperTickets, setLoadingPaperTickets] = useState(false);
   const [selectedGenerateStands, setSelectedGenerateStands] = useState<string[]>(['A', 'B', 'C', 'D']);
   const [form] = Form.useForm();
+
+  const uploadImage = async (file: File) => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const res = await axiosClient.post('/uploads/match-image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }) as unknown as { path: string };
+
+    return res.path.startsWith('http') ? res.path : `${API_ORIGIN}${res.path}`;
+  };
+
+  const createUploadProps = (fieldName: 'opponentLogo' | 'bannerImage'): UploadProps => ({
+    accept: 'image/*',
+    maxCount: 1,
+    showUploadList: false,
+    beforeUpload: async (file) => {
+      try {
+        const imageUrl = await uploadImage(file);
+        form.setFieldValue(fieldName, imageUrl);
+        notification.success({ title: 'Upload ảnh thành công', description: imageUrl });
+      } catch (error) {
+        notification.error({
+          title: 'Upload ảnh thất bại',
+          description: axios.isAxiosError(error) ? error.response?.data?.message : 'Vui lòng thử lại với ảnh khác.',
+        });
+      }
+
+      return false;
+    },
+  });
 
   const fetchMatches = async () => {
     try {
@@ -48,10 +126,17 @@ export default function AdminMatchesPage() {
         ...match,
         matchDate: dayjs(match.matchDate),
         freeStands: match.freeStands || [],
+        standPrices: { ...DEFAULT_STAND_PRICES, ...(match.standPrices || {}) },
       });
     } else {
       form.resetFields();
-      form.setFieldsValue({ stadium: 'Sân vận động Vinh', status: 'ON_SALE', freeStands: [] });
+      form.setFieldsValue({
+        stadium: 'Sân vận động Vinh',
+        status: 'ON_SALE',
+        competitionName: 'V-League 2026',
+        freeStands: [],
+        standPrices: DEFAULT_STAND_PRICES,
+      });
     }
     setIsModalOpen(true);
   };
@@ -61,14 +146,25 @@ export default function AdminMatchesPage() {
       const payload = {
         ...values,
         matchDate: dayjs(values.matchDate).toISOString(),
+        status: hasFullScore(values.homeScore, values.awayScore) ? 'FINISHED' : values.status,
       };
 
       if (editingMatch) {
         await axiosClient.put(`/matches/${editingMatch.id}`, payload);
-        notification.success({ title: 'Cập nhật trận đấu thành công!' });
+        notification.success({
+          title: 'Cập nhật trận đấu thành công!',
+          description: hasFullScore(values.homeScore, values.awayScore)
+            ? 'Trận đấu đã được tự chuyển sang trạng thái Đã kết thúc.'
+            : undefined,
+        });
       } else {
         await axiosClient.post('/matches', payload);
-        notification.success({ title: 'Thêm trận đấu mới thành công!' });
+        notification.success({
+          title: 'Thêm trận đấu mới thành công!',
+          description: hasFullScore(values.homeScore, values.awayScore)
+            ? 'Trận đấu đã được tự chuyển sang trạng thái Đã kết thúc.'
+            : undefined,
+        });
       }
       
       setIsModalOpen(false);
@@ -83,6 +179,69 @@ export default function AdminMatchesPage() {
     setGeneratingMatch(match);
     setSelectedGenerateStands(['A', 'B', 'C', 'D']);
     setIsGenerateModalOpen(true);
+  };
+
+  const loadInventory = async (matchId: number) => {
+    try {
+      const data = await axiosClient.get<ITicketInventory>(`/tickets/inventory/${matchId}`);
+      setInventory({ ...EMPTY_INVENTORY, ...(data as unknown as Partial<ITicketInventory>) });
+    } finally {
+      setLoadingInventory(false);
+    }
+  };
+
+  const openInventoryModal = async (match: IMatch) => {
+    setInventoryMatch(match);
+    setPaperStand('A');
+    setLoadingInventory(true);
+    await loadInventory(match.id);
+  };
+
+  const handleUpdatePaperTickets = async (mode: 'RESERVE' | 'RELEASE' | 'MARK_SOLD' | 'UNMARK_SOLD') => {
+    if (!inventoryMatch) return;
+    try {
+      setUpdatingPaperTickets(true);
+      const res = await axiosClient.patch<{ message: string }>(`/tickets/paper/${inventoryMatch.id}`, {
+        stand: paperStand,
+        quantity: paperQuantity,
+        mode,
+      }) as unknown as { message?: string };
+      notification.success({
+        title: {
+          RESERVE: 'Đã giữ vé giấy',
+          RELEASE: 'Đã trả vé về online',
+          MARK_SOLD: 'Đã ghi nhận bán giấy',
+          UNMARK_SOLD: 'Đã hoàn trạng thái vé giấy',
+        }[mode],
+        description: res.message,
+      });
+      setLoadingInventory(true);
+      await loadInventory(inventoryMatch.id);
+    } catch (error) {
+      notification.error({
+        title: 'Không thể cập nhật vé giấy',
+        description: axios.isAxiosError(error) ? error.response?.data?.message : 'Vui lòng thử lại.',
+      });
+    } finally {
+      setUpdatingPaperTickets(false);
+    }
+  };
+
+  const openPaperPrintModal = async () => {
+    if (!inventoryMatch) return;
+    try {
+      setLoadingPaperTickets(true);
+      setIsPaperPrintOpen(true);
+      const data = await axiosClient.get<PaperTicket[]>(`/tickets/paper/${inventoryMatch.id}?stand=${paperStand}`);
+      setPaperTickets(data as unknown as PaperTicket[]);
+    } catch (error) {
+      notification.error({
+        title: 'Không thể tải vé giấy',
+        description: axios.isAxiosError(error) ? error.response?.data?.message : 'Vui lòng thử lại.',
+      });
+    } finally {
+      setLoadingPaperTickets(false);
+    }
   };
 
   const handleGenerateTickets = async () => {
@@ -117,8 +276,13 @@ export default function AdminMatchesPage() {
       notification.success({ title: 'Đã xóa trận đấu!' });
       setLoading(true);
       fetchMatches();
-    } catch (error) {
-      console.error(error);
+    } catch (error: unknown) {
+      notification.error({
+        title: 'Không thể xóa trận đấu',
+        description: axios.isAxiosError(error)
+          ? error.response?.data?.message || 'Trận đấu đã phát sinh dữ liệu vé.'
+          : 'Vui lòng thử lại sau.',
+      });
     }
   };
 
@@ -128,6 +292,7 @@ export default function AdminMatchesPage() {
       title: 'Đối thủ',
       dataIndex: 'opponent',
       key: 'opponent',
+      width: 190,
       render: (opponent: string, record: IMatch) => (
         <Space>
           <Avatar src={record.opponentLogo} size={36}>{opponent.charAt(0)}</Avatar>
@@ -139,12 +304,21 @@ export default function AdminMatchesPage() {
       title: 'Ngày thi đấu', 
       dataIndex: 'matchDate', 
       key: 'matchDate',
+      width: 140,
       render: (date: string) => dayjs(date).format('DD/MM/YYYY HH:mm') 
     },
-    { title: 'Sân vận động', dataIndex: 'stadium', key: 'stadium' },
+    { title: 'Sân vận động', dataIndex: 'stadium', key: 'stadium', width: 120 },
+    {
+      title: 'Giải đấu',
+      dataIndex: 'competitionName',
+      key: 'competitionName',
+      width: 130,
+      render: (value: string) => value || 'V-League 2026',
+    },
     {
       title: 'Tỷ số',
       key: 'score',
+      width: 220,
       render: (_: unknown, record: IMatch) => (
         record.homeScore != null && record.awayScore != null
           ? <Tag color="blue">SLNA {record.homeScore} - {record.awayScore} {record.opponent}</Tag>
@@ -155,6 +329,7 @@ export default function AdminMatchesPage() {
       title: 'Trạng thái', 
       dataIndex: 'status', 
       key: 'status',
+      width: 120,
       render: (status: string) => (
         <span className={`px-2 py-1 rounded text-xs font-bold ${status === 'ON_SALE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
           {status}
@@ -165,6 +340,7 @@ export default function AdminMatchesPage() {
       title: 'Miễn phí',
       dataIndex: 'freeStands',
       key: 'freeStands',
+      width: 100,
       render: (freeStands: string[] = []) => (
         freeStands.length > 0
           ? <Tag color="gold">Khán đài {freeStands.join(', ')}</Tag>
@@ -174,8 +350,10 @@ export default function AdminMatchesPage() {
     {
       title: 'Hành động',
       key: 'action',
+      fixed: 'right' as const,
+      width: 390,
       render: (_: unknown, record: IMatch) => (
-        <Space>
+        <Space wrap size={[8, 8]}>
           <Button type="primary" icon={<EditOutlined />} onClick={() => openModal(record)}>
             Sửa
           </Button>
@@ -183,6 +361,9 @@ export default function AdminMatchesPage() {
           <Button icon={<RetweetOutlined />} onClick={() => openGenerateModal(record)} className="text-green-600 border-green-600 hover:bg-green-50 font-bold">
               Sinh vé
             </Button>
+          <Button onClick={() => openInventoryModal(record)}>
+            Tồn kho
+          </Button>
           <Popconfirm
             title="Xóa trận đấu này?"
             description="Chỉ có thể xóa trận chưa có vé được đặt hoặc bán."
@@ -208,7 +389,14 @@ export default function AdminMatchesPage() {
       }
     >
 
-        <Table dataSource={matches} columns={columns} rowKey="id" loading={loading} className="shadow-md bg-white rounded-xl overflow-hidden" />
+        <Table
+          dataSource={matches}
+          columns={columns}
+          rowKey="id"
+          loading={loading}
+          scroll={{ x: 1480 }}
+          className="shadow-md bg-white rounded-xl overflow-hidden"
+        />
 
         <Modal
           title={editingMatch ? "CẬP NHẬT TRẬN ĐẤU" : "THÊM TRẬN ĐẤU MỚI"}
@@ -224,15 +412,29 @@ export default function AdminMatchesPage() {
               <Input placeholder="Ví dụ: Hà Nội FC, Nam Định FC..." />
             </Form.Item>
 
+            <Form.Item name="competitionName" label="Tên giải đấu" rules={[{ required: true, message: 'Vui lòng nhập tên giải đấu!' }]}>
+              <Input placeholder="Ví dụ: V-League 2026, Cúp Quốc gia, Giao hữu quốc tế..." />
+            </Form.Item>
+
             <Row gutter={16}>
               <Col span={12}>
                 <Form.Item name="opponentLogo" label="Logo đội khách (URL)">
-                  <Input placeholder="https://.../logo.png" />
+                  <Space.Compact className="w-full">
+                    <Input placeholder="Dán URL hoặc upload ảnh từ máy" />
+                    <Upload {...createUploadProps('opponentLogo')}>
+                      <Button icon={<UploadOutlined />}>Upload</Button>
+                    </Upload>
+                  </Space.Compact>
                 </Form.Item>
               </Col>
               <Col span={12}>
                 <Form.Item name="bannerImage" label="Ảnh banner trận đấu (URL)">
-                  <Input placeholder="https://.../banner.jpg" />
+                  <Space.Compact className="w-full">
+                    <Input placeholder="Dán URL hoặc upload ảnh từ máy" />
+                    <Upload {...createUploadProps('bannerImage')}>
+                      <Button icon={<UploadOutlined />}>Upload</Button>
+                    </Upload>
+                  </Space.Compact>
                 </Form.Item>
               </Col>
             </Row>
@@ -255,12 +457,7 @@ export default function AdminMatchesPage() {
             </Form.Item>
 
             <Row gutter={16}>
-              <Col span={12}>
-                <Form.Item name="ticketPriceMin" label="Giá vé thấp nhất (VND)" rules={[{ required: true }]}>
-                  <InputNumber className="w-full" min={0} step={10000} />
-                </Form.Item>
-              </Col>
-              <Col span={12}>
+              <Col span={24}>
                 <Form.Item name="status" label="Trạng thái mở bán" initialValue="ON_SALE">
                   <Select>
                     <Select.Option value="UPCOMING">Sắp diễn ra</Select.Option>
@@ -271,6 +468,19 @@ export default function AdminMatchesPage() {
                 </Form.Item>
               </Col>
             </Row>
+
+            <div className="mb-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+              <p className="mb-3 text-xs font-black uppercase text-[#003078]">Giá vé từng khán đài</p>
+              <Row gutter={16}>
+                {(['A', 'B', 'C', 'D'] as const).map((stand) => (
+                  <Col key={stand} span={6}>
+                    <Form.Item name={['standPrices', stand]} label={`Khán đài ${stand}`} rules={[{ required: true, message: 'Nhập giá vé' }]}>
+                      <InputNumber className="w-full" min={0} step={10000} />
+                    </Form.Item>
+                  </Col>
+                ))}
+              </Row>
+            </div>
 
             <Row gutter={16}>
               <Col span={12}>
@@ -325,6 +535,164 @@ export default function AdminMatchesPage() {
             <div className="rounded-xl bg-yellow-50 p-3 text-xs font-bold text-yellow-800">
               Khán đài miễn phí hiện tại: {generatingMatch?.freeStands?.length ? generatingMatch.freeStands.join(', ') : 'Không có'}.
             </div>
+          </div>
+        </Modal>
+
+        <Modal
+          title={`THỐNG KÊ TỒN KHO - SLNA vs ${inventoryMatch?.opponent || ''}`}
+          open={Boolean(inventoryMatch)}
+          onCancel={() => setInventoryMatch(null)}
+          footer={null}
+          width={820}
+          loading={loadingInventory}
+        >
+          <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <div className="mb-3 text-xs font-black uppercase text-[#003078]">Quản lý vé giấy</div>
+            <Space wrap>
+              <Select
+                value={paperStand}
+                onChange={(value) => setPaperStand(value)}
+                options={STAND_OPTIONS.map((item) => ({ label: item.label.replace(/ - .+$/, ''), value: item.value }))}
+                className="min-w-36"
+              />
+              <InputNumber
+                min={1}
+                max={inventory[paperStand]?.total || 1}
+                value={paperQuantity}
+                onChange={(value) => setPaperQuantity(Number(value || 1))}
+                addonAfter="vé"
+              />
+              <Button
+                type="primary"
+                loading={updatingPaperTickets}
+                onClick={() => handleUpdatePaperTickets('RESERVE')}
+              >
+                Giữ vé giấy
+              </Button>
+              <Button
+                loading={updatingPaperTickets}
+                onClick={() => handleUpdatePaperTickets('RELEASE')}
+              >
+                Trả về online
+              </Button>
+              <Button
+                type="primary"
+                ghost
+                loading={updatingPaperTickets}
+                onClick={() => handleUpdatePaperTickets('MARK_SOLD')}
+              >
+                Đã bán giấy
+              </Button>
+              <Button
+                loading={updatingPaperTickets}
+                onClick={() => handleUpdatePaperTickets('UNMARK_SOLD')}
+              >
+                Hoàn về vé giấy
+              </Button>
+              <Button onClick={openPaperPrintModal}>
+                In vé giấy
+              </Button>
+            </Space>
+            <div className="mt-3 text-xs text-gray-500">
+              Vé giấy sẽ bị trừ khỏi số vé khách có thể mua trên web. Khi bán tại quầy, bấm Đã bán giấy để hệ thống ghi nhận tồn kho và doanh thu riêng.
+            </div>
+          </div>
+          <Row gutter={[16, 16]}>
+            {(['A', 'B', 'C', 'D'] as const).map((stand) => {
+              const item = inventory[stand];
+              const unavailable = item.sold + item.paperReserved + item.paperSold;
+              const percent = item.total ? Math.round((unavailable / item.total) * 100) : 0;
+              return (
+                <Col span={12} key={stand}>
+                  <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <span className="font-black text-[#003078]">Khán đài {stand}</span>
+                      <Tag color="blue">{percent}% không còn online</Tag>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <span>Tổng vé: <b>{item.total.toLocaleString('vi-VN')}</b></span>
+                      <span>Còn lại: <b>{item.available.toLocaleString('vi-VN')}</b></span>
+                      <span>Đã bán: <b>{item.sold.toLocaleString('vi-VN')}</b></span>
+                      <span>Vé giấy: <b>{item.paperReserved.toLocaleString('vi-VN')}</b></span>
+                      <span>Giấy đã bán: <b>{item.paperSold.toLocaleString('vi-VN')}</b></span>
+                      <span>Đã soát: <b>{item.scanned.toLocaleString('vi-VN')}</b></span>
+                      <span>DT vé giấy: <b>{item.paperRevenue.toLocaleString('vi-VN')}đ</b></span>
+                    </div>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-white">
+                      <div className="h-full bg-[#003078]" style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                </Col>
+              );
+            })}
+          </Row>
+        </Modal>
+
+        <Modal
+          title={`IN VÉ GIẤY - KHÁN ĐÀI ${paperStand}`}
+          open={isPaperPrintOpen}
+          onCancel={() => setIsPaperPrintOpen(false)}
+          width={980}
+          footer={[
+            <Button key="close" onClick={() => setIsPaperPrintOpen(false)}>Đóng</Button>,
+            <Button key="print" type="primary" onClick={() => window.print()} disabled={paperTickets.length === 0}>
+              In danh sách vé
+            </Button>,
+          ]}
+          loading={loadingPaperTickets}
+        >
+          <style jsx global>{`
+            @media print {
+              body * {
+                visibility: hidden;
+              }
+              .paper-print-area, .paper-print-area * {
+                visibility: visible;
+              }
+              .paper-print-area {
+                position: absolute;
+                inset: 0 auto auto 0;
+                width: 100%;
+                padding: 0;
+              }
+              .paper-ticket-card {
+                break-inside: avoid;
+                page-break-inside: avoid;
+              }
+            }
+          `}</style>
+          <div className="paper-print-area">
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <p className="m-0 text-lg font-black text-[#003078]">SLNA Ticketing - Vé giấy</p>
+                <p className="m-0 text-xs text-gray-500">
+                  {inventoryMatch ? `SLNA vs ${inventoryMatch.opponent}` : ''} - Khán đài {paperStand}
+                </p>
+              </div>
+              <Tag color="blue">{paperTickets.length.toLocaleString('vi-VN')} vé</Tag>
+            </div>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+              {paperTickets.map((ticket) => (
+                <div key={ticket.id} className="paper-ticket-card flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
+                  <div className="min-w-0 pr-4">
+                    <p className="m-0 text-xs font-black uppercase text-gray-400">{ticket.competitionName || 'Giải đấu'}</p>
+                    <p className="m-0 text-base font-black text-[#003078]">SLNA vs {ticket.opponent}</p>
+                    <p className="m-0 mt-1 text-xs text-gray-500">{dayjs(ticket.matchDate).format('DD/MM/YYYY HH:mm')} - {ticket.stadium}</p>
+                    <p className="m-0 mt-3 text-2xl font-black text-black">{ticket.seatCode}</p>
+                    <p className="m-0 text-xs font-bold text-gray-500">
+                      {Number(ticket.price || 0).toLocaleString('vi-VN')}đ - {ticket.status === 'PAPER_SOLD' ? 'Đã bán giấy' : 'Vé giấy'}
+                    </p>
+                    <p className="m-0 mt-2 text-[10px] font-bold text-gray-400">{ticket.ticketQrCode}</p>
+                  </div>
+                  <QRCode value={ticket.ticketQrCode} size={108} color="#003078" bordered={false} />
+                </div>
+              ))}
+            </div>
+            {paperTickets.length === 0 && (
+              <div className="rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-400">
+                Chưa có vé giấy nào ở khán đài này. Hãy giữ vé giấy trước khi in.
+              </div>
+            )}
           </div>
         </Modal>
     </AdminPageShell>

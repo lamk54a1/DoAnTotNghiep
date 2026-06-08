@@ -2,11 +2,13 @@ import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 const axiosClient = axios.create({
   baseURL:  'http://localhost:5000/api',
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+export const API_ORIGIN = 'http://localhost:5000';
 
 // THIẾT LẬP INTERCEPTORS
 // 1. Trước khi gửi request đi

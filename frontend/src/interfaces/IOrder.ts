@@ -1,5 +1,12 @@
 import { ITicket } from './ITicket';
 
+export type PaymentMethod = 'VNPAY' | 'MOMO' | 'CASH' | 'BANK_TRANSFER';
+
+export interface IOrderResponse {
+  id: number;
+  orderQrCode: string;
+}
+
 export interface IOrder {
   id: number;
   userId: number;
@@ -9,7 +16,7 @@ export interface IOrder {
   status: 'PENDING' | 'SUCCESS' | 'CANCELLED';
   
   // Phương thức thanh toán
-  paymentMethod: 'VNPAY' | 'MOMO' | 'CASH' | 'BANK_TRANSFER';
+  paymentMethod: PaymentMethod;
   
   createdAt: Date | string;
   

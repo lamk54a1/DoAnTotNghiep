@@ -12,6 +12,8 @@ interface DashboardStats {
   totalTicketsSold: number;
   totalUsers: number;
   pendingOrders: number;
+  monthlyRevenue?: Array<{ month: string; revenue: number }>;
+  ticketsByMatch?: Array<{ id: number; opponent: string; ticketsSold: number }>;
 }
 
 export default function AdminDashboard() {
@@ -98,6 +100,51 @@ export default function AdminDashboard() {
           <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-yellow-500 shadow-md"><Statistic title="Vé Đã Bán" value={stats.totalTicketsSold} prefix={<TagOutlined />} suffix="Vé" /></Card></Col>
           <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-green-500 shadow-md"><Statistic title="Người Dùng" value={stats.totalUsers} prefix={<UserOutlined />} suffix="User" /></Card></Col>
           <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-orange-500 shadow-md"><Statistic title="Đơn Chờ Xử Lý" value={stats.pendingOrders} prefix={<ShoppingOutlined />} suffix="Đơn" /></Card></Col>
+        </Row>
+
+        <Row gutter={16} className="mb-8">
+          <Col xs={24} lg={12}>
+            <Card title={<span className="font-black uppercase text-[#003078]">Doanh thu theo tháng</span>} className="mb-4 shadow-md">
+              <div className="space-y-3">
+                {(stats.monthlyRevenue || []).map((item) => {
+                  const maxRevenue = Math.max(...(stats.monthlyRevenue || []).map((row) => Number(row.revenue)), 1);
+                  return (
+                    <div key={item.month}>
+                      <div className="mb-1 flex justify-between text-xs font-bold text-gray-500">
+                        <span>{item.month}</span>
+                        <span>{Number(item.revenue).toLocaleString('vi-VN')}đ</span>
+                      </div>
+                      <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-full rounded-full bg-[#003078]" style={{ width: `${Math.max(4, (Number(item.revenue) / maxRevenue) * 100)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {(stats.monthlyRevenue || []).length === 0 && <p className="text-sm text-gray-400">Chưa có dữ liệu doanh thu.</p>}
+              </div>
+            </Card>
+          </Col>
+          <Col xs={24} lg={12}>
+            <Card title={<span className="font-black uppercase text-[#003078]">Vé bán theo trận</span>} className="mb-4 shadow-md">
+              <div className="space-y-3">
+                {(stats.ticketsByMatch || []).map((item) => {
+                  const maxTickets = Math.max(...(stats.ticketsByMatch || []).map((row) => Number(row.ticketsSold)), 1);
+                  return (
+                    <div key={item.id}>
+                      <div className="mb-1 flex justify-between text-xs font-bold text-gray-500">
+                        <span>SLNA vs {item.opponent}</span>
+                        <span>{item.ticketsSold} vé</span>
+                      </div>
+                      <div className="h-3 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-full rounded-full bg-[#edbb00]" style={{ width: `${Math.max(4, (Number(item.ticketsSold) / maxTickets) * 100)}%` }} />
+                      </div>
+                    </div>
+                  );
+                })}
+                {(stats.ticketsByMatch || []).length === 0 && <p className="text-sm text-gray-400">Chưa có dữ liệu vé bán.</p>}
+              </div>
+            </Card>
+          </Col>
         </Row>
 
         {/* PHẦN DANH SÁCH TRẬN ĐẤU (TÍCH HỢP NGAY TẠI DASHBOARD) */}

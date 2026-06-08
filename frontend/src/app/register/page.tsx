@@ -11,10 +11,8 @@ function RegisterPage() {
   const [form] = Form.useForm();
   const { notification } = AntApp.useApp();
 
-  // Khử sạch kiểu any bằng cách ép kiểu IRegisterPayload kết hợp thuộc tính confirmPassword phụ trợ
   const onFinish = async (values: IRegisterPayload & { confirmPassword?: string }) => {
     try {
-      // Loại bỏ trường confirmPassword trước khi gửi lên API Backend
       const { confirmPassword, ...payload } = values;
       void confirmPassword;
       
@@ -74,19 +72,6 @@ function RegisterPage() {
             ]}
           >
             <Input placeholder="Ví dụ: 0912345678" className="h-10 rounded-lg" />
-          </Form.Item>
-
-          <Form.Item
-            label={<span className="font-bold text-xs uppercase text-gray-600">CCCD</span>}
-            name="cccd"
-            normalize={(value: string) => value?.replace(/\D/g, '')}
-            rules={[
-              { required: true, message: 'Vui lòng nhập số CCCD!' },
-              { pattern: /^[0-9]{12}$/, message: 'CCCD phải gồm đúng 12 chữ số!' }
-            ]}
-            extra="Mỗi số CCCD chỉ được tạo một tài khoản để đảm bảo giới hạn mua vé."
-          >
-            <Input maxLength={12} placeholder="Ví dụ: 040203001234" className="h-10 rounded-lg" />
           </Form.Item>
 
           <Form.Item

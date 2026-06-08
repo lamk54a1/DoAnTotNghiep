@@ -18,4 +18,8 @@ export const authApi = {
   updateProfile: (data: Pick<IUser, 'fullName' | 'phoneNumber' | 'address'>): Promise<{ message: string; user: IUser }> => {
     return axiosClient.put('/auth/profile', data);
   },
+
+  updateIdentity: (cccd: string): Promise<{ message: string; user: IUser }> => {
+    return axiosClient.put('/auth/identity', { cccd });
+  },
 };

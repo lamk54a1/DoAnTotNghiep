@@ -4,8 +4,10 @@ export interface IMatch {
   opponentLogo?: string;    // Link ảnh logo đội khách
   matchDate: Date | string; // Thời gian diễn ra trận đấu
   stadium: string;          // Mặc định: "Sân vận động Vinh"
+  competitionName?: string; // Tên giải đấu do admin nhập
   description?: string;     // Thông tin thêm như: "Vòng 15 V-League"
   ticketPriceMin?: number;  // Giá vé thấp nhất để hiển thị (VD: 50000)
+  standPrices?: Record<'A' | 'B' | 'C' | 'D', number>; // Giá vé từng khán đài theo trận
   
   bannerImage?: string;     // Ảnh nền lớn của trận đấu (hiện ở trang chủ)
   
