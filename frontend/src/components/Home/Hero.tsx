@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { CalendarOutlined, EnvironmentOutlined, FireOutlined, TrophyOutlined } from '@ant-design/icons';
 import axiosClient from '../../api/axiosClient';
 import { IMatch } from '../../interfaces';
+import MatchCountdown from './MatchCountdown';
 
 const Hero = () => {
   const [featuredMatch, setFeaturedMatch] = useState<IMatch | null>(null);
@@ -59,6 +60,7 @@ const Hero = () => {
                   <TrophyOutlined /> {featuredMatch?.competitionName || 'Giải đấu SLNA'}
                 </span>
               </div>
+              {featuredMatch && <MatchCountdown matchDate={featuredMatch.matchDate} />}
             </div>
           </div>
           <div className="absolute right-8 top-8 text-[120px] font-black italic leading-none text-white/10 md:text-[180px]">

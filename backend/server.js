@@ -11,7 +11,7 @@ const app = express();
 // 1. CẤU HÌNH MIDDLEWARE HỆ THỐNG (BẮT BUỘC PHẢI ĐẶT TRÊN CÙNG)
 // ========================================================
 app.use(cors({
-  origin: 'http://localhost:3000', // Cho phép Frontend cổng 3000 gọi API
+  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true
 }));
 app.use(express.json()); // Giúp Backend đọc được dữ liệu JSON (req.body) từ Form gửi lên
@@ -25,6 +25,7 @@ const ticketRoutes = require('./routes/ticketRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
+const sponsorRoutes = require('./routes/sponsorRoutes');
 
 // Route kiểm tra hệ thống công khai
 app.get('/', (req, res) => {
@@ -37,6 +38,7 @@ app.use('/api/matches', matchRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/uploads', uploadRoutes);
+app.use('/api/sponsors', sponsorRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ========================================================

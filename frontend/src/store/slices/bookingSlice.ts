@@ -62,8 +62,18 @@ const bookingSlice = createSlice({
       state.selectedSeatPrices = {};
       state.totalPrice = 0;
     },
+    replaceHeldSelection: (state, action: PayloadAction<{ seats: string[]; prices: Record<string, number> }>) => {
+      state.selectedSeats = action.payload.seats;
+      state.selectedSeatPrices = Object.fromEntries(
+        action.payload.seats.map((seatId) => [seatId, action.payload.prices[seatId] ?? PRICE_MAP[seatId.charAt(0)] ?? 0])
+      );
+      state.totalPrice = action.payload.seats.reduce(
+        (sum, seatId) => sum + (state.selectedSeatPrices[seatId] || 0),
+        0
+      );
+    },
   },
 });
 
-export const { toggleSeatSelection, resetBooking, confirmPaymentSuccess } = bookingSlice.actions;
+export const { toggleSeatSelection, resetBooking, confirmPaymentSuccess, replaceHeldSelection } = bookingSlice.actions;
 export default bookingSlice.reducer;

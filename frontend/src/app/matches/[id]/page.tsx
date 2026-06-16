@@ -13,10 +13,10 @@ import { ITicketInventory } from '../../../interfaces/ITicketInventory';
 const STANDS = ['A', 'B', 'C', 'D'] as const;
 
 const emptyInventory: ITicketInventory = {
-  A: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  B: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  C: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  D: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  A: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  B: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  C: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  D: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
 };
 
 export default function MatchDetailPage() {

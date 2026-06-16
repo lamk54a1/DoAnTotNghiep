@@ -1,5 +1,6 @@
 import { ShoppingCartOutlined } from '@ant-design/icons';
 import { Button, Card, Divider, Statistic, Tag } from 'antd';
+import { useEffect, useRef, useState } from 'react';
 
 interface BookingOrderCardProps {
   purchasedTicketCount: number;
@@ -8,6 +9,8 @@ interface BookingOrderCardProps {
   totalPrice: number;
   onCheckout: () => void;
   onToggleSeat: (seatId: string) => void;
+  holdExpiresAt?: string | null;
+  onHoldExpired: () => void;
 }
 
 export default function BookingOrderCard({
@@ -17,7 +20,29 @@ export default function BookingOrderCard({
   totalPrice,
   onCheckout,
   onToggleSeat,
+  holdExpiresAt,
+  onHoldExpired,
 }: BookingOrderCardProps) {
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  const expirationHandled = useRef(false);
+
+  useEffect(() => {
+    expirationHandled.current = false;
+    const tick = () => {
+      const remaining = holdExpiresAt ? Math.max(0, Math.ceil((Number(holdExpiresAt) - Date.now()) / 1000)) : 0;
+      setSecondsLeft(remaining);
+      if (holdExpiresAt && remaining === 0 && !expirationHandled.current) {
+        expirationHandled.current = true;
+        onHoldExpired();
+      }
+    };
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [holdExpiresAt, onHoldExpired]);
+
+  const countdown = `${String(Math.floor(secondsLeft / 60)).padStart(2, '0')}:${String(secondsLeft % 60).padStart(2, '0')}`;
+
   return (
     <Card className="sticky top-24 overflow-hidden rounded-[32px] border-none shadow-xl shadow-blue-900/5">
       <div className="-m-6 mb-8 flex items-center justify-center gap-2 bg-[#003078] p-5">
@@ -33,6 +58,11 @@ export default function BookingOrderCard({
           <p className="mb-4 text-center text-[11px] font-bold text-gray-400">
             Bạn đã mua {purchasedTicketCount}/4 vé cho trận này.
           </p>
+          {selectedSeats.length > 0 && (
+            <div className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-center text-xs font-black text-red-600">
+              Giữ ghế còn {countdown}
+            </div>
+          )}
           <div className="flex min-h-[60px] flex-wrap justify-center gap-2">
             {selectedSeats.length > 0 ? (
               selectedSeats.map((seat) => (

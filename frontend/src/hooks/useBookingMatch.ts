@@ -27,6 +27,8 @@ export function useBookingMatch(matchId?: string) {
   const [loadingMatch, setLoadingMatch] = useState(true);
   const [purchasedTicketCount, setPurchasedTicketCount] = useState(0);
   const [standInventory, setStandInventory] = useState<Record<string, StandInventory>>(createEmptyStandInventory);
+  const [heldSeats, setHeldSeats] = useState<string[]>([]);
+  const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
 
   const fetchSoldSeats = useCallback(async () => {
     if (!matchId) {
@@ -43,7 +45,15 @@ export function useBookingMatch(matchId?: string) {
       const tickets = ticketsData as unknown as ITicket[];
       setExistingSeats(tickets.map((ticket) => ticket.seatCode));
       setTicketPrices(Object.fromEntries(tickets.map((ticket) => [ticket.seatCode, Number(ticket.price || 0)])));
-      setLocalSoldSeats(tickets.filter((ticket) => ticket.status !== 'AVAILABLE').map((ticket) => ticket.seatCode));
+      const myHeldTickets = tickets.filter((ticket) => ticket.status === 'HELD' && ticket.heldByCurrentUser);
+      setHeldSeats(myHeldTickets.map((ticket) => ticket.seatCode));
+      setHoldExpiresAt(myHeldTickets
+        .map((ticket) => ticket.heldUntil ? new Date(ticket.heldUntil).getTime() : 0)
+        .filter(Boolean)
+        .sort((a, b) => a - b)[0]?.toString() || null);
+      setLocalSoldSeats(tickets
+        .filter((ticket) => ticket.status !== 'AVAILABLE' && !ticket.heldByCurrentUser)
+        .map((ticket) => ticket.seatCode));
       setStandInventory(tickets.reduce<Record<string, StandInventory>>((acc, ticket) => {
         const stand = ticket.seatCode.charAt(0);
         if (!acc[stand]) acc[stand] = { total: 0, sold: 0, paperReserved: 0, paperSold: 0, available: 0 };
@@ -79,6 +89,8 @@ export function useBookingMatch(matchId?: string) {
 
   useEffect(() => {
     void Promise.resolve().then(fetchSoldSeats);
+    const interval = window.setInterval(fetchSoldSeats, 5000);
+    return () => window.clearInterval(interval);
   }, [fetchSoldSeats]);
 
   return {
@@ -89,5 +101,8 @@ export function useBookingMatch(matchId?: string) {
     purchasedTicketCount,
     standInventory,
     ticketPrices,
+    heldSeats,
+    holdExpiresAt,
+    refreshSeats: fetchSoldSeats,
   };
 }

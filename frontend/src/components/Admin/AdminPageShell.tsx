@@ -11,6 +11,7 @@ import {
   QrcodeOutlined,
   ShoppingOutlined,
   TeamOutlined,
+  BankOutlined,
 } from '@ant-design/icons';
 import AdminGuard from '../Common/AdminGuard';
 
@@ -19,6 +20,7 @@ const navigation = [
   { href: '/admin/matches', label: 'Trận đấu', icon: <CalendarOutlined /> },
   { href: '/admin/orders', label: 'Đơn hàng', icon: <ShoppingOutlined /> },
   { href: '/admin/users', label: 'Người dùng', icon: <TeamOutlined /> },
+  { href: '/admin/sponsors', label: 'Nhà tài trợ', icon: <BankOutlined /> },
   { href: '/admin/scanner', label: 'Soát vé', icon: <QrcodeOutlined /> },
   { href: '/admin/audit-logs', label: 'Nhật ký', icon: <HistoryOutlined /> },
 ];

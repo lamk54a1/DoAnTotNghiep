@@ -18,6 +18,20 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+const optionalAuth = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return next();
+
+  try {
+    req.user = jwt.verify(token, process.env.JWT_SECRET || 'SLNA_SECRET_KEY_2026');
+  } catch (err) {
+    req.user = null;
+  }
+  next();
+};
+
 // 2. Middleware chỉ cho phép quyền ADMIN đi qua
 const isAdmin = (req, res, next) => {
   verifyToken(req, res, () => {
@@ -29,4 +43,4 @@ const isAdmin = (req, res, next) => {
   });
 };
 
-module.exports = { verifyToken, isAdmin };
+module.exports = { verifyToken, optionalAuth, isAdmin };

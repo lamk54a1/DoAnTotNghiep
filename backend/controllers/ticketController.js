@@ -24,7 +24,28 @@ const ensureTicketScanColumn = (db = pool) => db.query(
 const ensureTicketStatusValues = async (db = pool) => {
     await db.query("ALTER TYPE ticket_status ADD VALUE IF NOT EXISTS 'PAPER_RESERVED'");
     await db.query("ALTER TYPE ticket_status ADD VALUE IF NOT EXISTS 'PAPER_SOLD'");
+    await db.query("ALTER TYPE ticket_status ADD VALUE IF NOT EXISTS 'HELD'");
 };
+
+const ensureTicketHoldColumns = (db = pool) => db.query(`
+    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS held_by integer REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS held_until timestamp;
+    CREATE INDEX IF NOT EXISTS tickets_hold_expiry_idx ON tickets (held_until) WHERE status = 'HELD';
+`);
+
+const ensurePaperPrintColumns = (db = pool) => db.query(`
+    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS is_printed boolean DEFAULT false;
+    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS printed_at timestamp;
+    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS printed_by integer REFERENCES users(id) ON DELETE SET NULL;
+    CREATE INDEX IF NOT EXISTS tickets_paper_printed_idx
+    ON tickets (match_id, status, is_printed);
+`);
+
+const releaseExpiredHolds = (db = pool) => db.query(`
+    UPDATE tickets
+    SET status = 'AVAILABLE', held_by = NULL, held_until = NULL
+    WHERE status = 'HELD' AND held_until <= NOW()
+`);
 
 // 1. Hàm lấy chi tiết vé
 const getTicketsByMatch = async (req, res) => {
@@ -32,20 +53,85 @@ const getTicketsByMatch = async (req, res) => {
     try {
         await ensureTicketScanColumn();
         await ensureTicketStatusValues();
+        await ensureTicketHoldColumns();
+        await releaseExpiredHolds();
         const query = `
             SELECT 
                 id, match_id AS "matchId", order_id AS "orderId",
                 seat_code AS "seatCode", sector, row, seat_number AS "seatNumber",
-                price, status, ticket_qr_code AS "ticketQrCode", is_scanned AS "isScanned"
+                price, status, ticket_qr_code AS "ticketQrCode", is_scanned AS "isScanned",
+                held_until AS "heldUntil",
+                (held_by = $2) AS "heldByCurrentUser"
             FROM tickets 
-            WHERE match_id = $1 
+            WHERE match_id = $1
             ORDER BY seat_code ASC
         `;
-        const result = await pool.query(query, [matchId]);
+        const result = await pool.query(query, [matchId, req.user?.id || null]);
         res.json(result.rows); 
     } catch (err) {
         console.error('Không thể lấy danh sách ghế:', err.message);
         res.status(500).json({ message: "Không thể lấy danh sách ghế", error: err.message });
+    }
+};
+
+const holdSeats = async (req, res) => {
+    const matchId = Number(req.params.matchId);
+    const seats = [...new Set(Array.isArray(req.body.seats) ? req.body.seats.map(String) : [])];
+
+    if (!matchId || seats.length === 0 || seats.length > 4) {
+        return res.status(400).json({ message: 'Vui lòng chọn từ 1 đến 4 ghế hợp lệ.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await ensureTicketStatusValues(client);
+        await ensureTicketHoldColumns(client);
+        await client.query('BEGIN');
+        await releaseExpiredHolds(client);
+
+        const result = await client.query(
+            `UPDATE tickets
+             SET status = 'HELD', held_by = $1, held_until = NOW() + INTERVAL '10 minutes'
+             WHERE match_id = $2
+             AND seat_code = ANY($3::text[])
+             AND (status = 'AVAILABLE' OR (status = 'HELD' AND held_by = $1))
+             RETURNING seat_code AS "seatCode", held_until AS "heldUntil"`,
+            [req.user.id, matchId, seats]
+        );
+
+        if (result.rowCount !== seats.length) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Một hoặc nhiều ghế vừa được người khác giữ. Vui lòng chọn ghế khác.' });
+        }
+
+        await client.query('COMMIT');
+        res.json({ seats: result.rows, heldUntil: result.rows[0].heldUntil });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Không thể giữ ghế lúc này.' });
+    } finally {
+        client.release();
+    }
+};
+
+const releaseSeats = async (req, res) => {
+    const matchId = Number(req.params.matchId);
+    const seats = [...new Set(Array.isArray(req.body.seats) ? req.body.seats.map(String) : [])];
+
+    try {
+        await ensureTicketStatusValues();
+        await ensureTicketHoldColumns();
+        const result = await pool.query(
+            `UPDATE tickets
+             SET status = 'AVAILABLE', held_by = NULL, held_until = NULL
+             WHERE match_id = $1 AND held_by = $2 AND status = 'HELD'
+             AND seat_code = ANY($3::text[])
+             RETURNING seat_code AS "seatCode"`,
+            [matchId, req.user.id, seats]
+        );
+        res.json({ releasedSeats: result.rows.map((row) => row.seatCode) });
+    } catch (err) {
+        res.status(500).json({ message: 'Không thể trả ghế.' });
     }
 };
 
@@ -157,6 +243,7 @@ const getTicketInventoryByMatch = async (req, res) => {
     try {
         await ensureTicketScanColumn();
         await ensureTicketStatusValues();
+        await ensurePaperPrintColumns();
         const result = await pool.query(
             `SELECT
                 SUBSTRING(seat_code FROM 1 FOR 1) AS stand,
@@ -165,6 +252,8 @@ const getTicketInventoryByMatch = async (req, res) => {
                 COUNT(*) FILTER (WHERE status = 'SOLD')::int AS sold,
                 COUNT(*) FILTER (WHERE status = 'PAPER_RESERVED')::int AS "paperReserved",
                 COUNT(*) FILTER (WHERE status = 'PAPER_SOLD')::int AS "paperSold",
+                COUNT(*) FILTER (WHERE status IN ('PAPER_RESERVED', 'PAPER_SOLD') AND is_printed = true)::int AS "paperPrinted",
+                COUNT(*) FILTER (WHERE status = 'PAPER_RESERVED' AND is_printed = true)::int AS "paperReservedPrinted",
                 COUNT(*) FILTER (WHERE status IN ('SOLD', 'PAPER_SOLD') AND is_scanned = true)::int AS scanned,
                 COALESCE(SUM(price) FILTER (WHERE status = 'SOLD'), 0)::int AS revenue,
                 COALESCE(SUM(price) FILTER (WHERE status = 'PAPER_SOLD'), 0)::int AS "paperRevenue"
@@ -183,6 +272,8 @@ const getTicketInventoryByMatch = async (req, res) => {
                 sold: row.sold,
                 paperReserved: row.paperReserved,
                 paperSold: row.paperSold,
+                paperPrinted: row.paperPrinted,
+                paperReservedPrinted: row.paperReservedPrinted,
                 scanned: row.scanned,
                 revenue: row.revenue,
                 paperRevenue: row.paperRevenue,
@@ -216,6 +307,7 @@ const updatePaperTickets = async (req, res) => {
     const client = await pool.connect();
     try {
         await ensureTicketStatusValues();
+        await ensurePaperPrintColumns(client);
         const statusTransitions = {
             RESERVE: { from: 'AVAILABLE', to: 'PAPER_RESERVED' },
             RELEASE: { from: 'PAPER_RESERVED', to: 'AVAILABLE' },
@@ -225,20 +317,41 @@ const updatePaperTickets = async (req, res) => {
         const { from: fromStatus, to: toStatus } = statusTransitions[mode];
 
         await client.query('BEGIN');
+        const releasePrintFilter = mode === 'RELEASE'
+            ? 'AND COALESCE(is_printed, false) = false'
+            : '';
         const selectedResult = await client.query(
             `WITH selected_tickets AS (
                 SELECT id, ticket_qr_code
                 FROM tickets
                 WHERE match_id = $1
                 AND SUBSTRING(seat_code FROM 1 FOR 1) = $2
-                AND status = $3
+                AND status = $3::ticket_status
+                ${releasePrintFilter}
                 ORDER BY row::int ASC, seat_number ASC
                 LIMIT $4
+                FOR UPDATE SKIP LOCKED
              )
              SELECT id, ticket_qr_code AS "ticketQrCode"
              FROM selected_tickets`,
             [matchId, normalizedStand, fromStatus, ticketCount]
         );
+
+        if (mode === 'RELEASE' && selectedResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+                message: 'Không còn vé giấy chưa in để trả về online. Vé đã in PDF được khóa vĩnh viễn khỏi kênh bán online.'
+            });
+        }
+
+        if (selectedResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+                message: mode === 'RESERVE'
+                    ? `Khán đài ${normalizedStand} không còn vé online khả dụng để giữ.`
+                    : 'Không có vé phù hợp với thao tác này.'
+            });
+        }
 
         for (const ticket of selectedResult.rows) {
             const nextQrCode = mode === 'RELEASE'
@@ -247,7 +360,10 @@ const updatePaperTickets = async (req, res) => {
 
             await client.query(
                 `UPDATE tickets
-                 SET status = $1, ticket_qr_code = $2
+                 SET status = $1::ticket_status, ticket_qr_code = $2,
+                     is_printed = CASE WHEN $1::text = 'AVAILABLE' THEN false ELSE is_printed END,
+                     printed_at = CASE WHEN $1::text = 'AVAILABLE' THEN NULL ELSE printed_at END,
+                     printed_by = CASE WHEN $1::text = 'AVAILABLE' THEN NULL ELSE printed_by END
                  WHERE id = $3`,
                 [toStatus, nextQrCode, ticket.id]
             );
@@ -305,6 +421,7 @@ const getPaperTicketsByMatch = async (req, res) => {
 
     try {
         await ensureTicketStatusValues();
+        await ensurePaperPrintColumns();
         const missingQrResult = await pool.query(
             `SELECT t.id
              FROM tickets t
@@ -330,6 +447,8 @@ const getPaperTicketsByMatch = async (req, res) => {
                 t.price,
                 t.status,
                 t.ticket_qr_code AS "ticketQrCode",
+                t.is_printed AS "isPrinted",
+                t.printed_at AS "printedAt",
                 m.opponent,
                 m.match_date AS "matchDate",
                 m.stadium,
@@ -344,6 +463,59 @@ const getPaperTicketsByMatch = async (req, res) => {
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ message: 'Không thể tải danh sách vé giấy.', error: err.message });
+    }
+};
+
+const markPaperTicketsPrinted = async (req, res) => {
+    const matchId = Number(req.params.matchId);
+    const ticketIds = [...new Set(
+        (Array.isArray(req.body.ticketIds) ? req.body.ticketIds : [])
+            .map(Number)
+            .filter((id) => Number.isInteger(id) && id > 0)
+    )];
+
+    if (!matchId || ticketIds.length === 0) {
+        return res.status(400).json({ message: 'Không có vé giấy hợp lệ để in.' });
+    }
+
+    const client = await pool.connect();
+    try {
+        await ensurePaperPrintColumns(client);
+        await client.query('BEGIN');
+        const result = await client.query(
+            `UPDATE tickets
+             SET is_printed = true,
+                 printed_at = COALESCE(printed_at, NOW()),
+                 printed_by = COALESCE(printed_by, $1)
+             WHERE match_id = $2
+             AND id = ANY($3::int[])
+             AND status IN ('PAPER_RESERVED', 'PAPER_SOLD')
+             RETURNING id`,
+            [req.user.id, matchId, ticketIds]
+        );
+
+        if (result.rowCount !== ticketIds.length) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Một số vé không còn ở trạng thái vé giấy. Vui lòng tải lại danh sách.' });
+        }
+
+        await client.query('COMMIT');
+        await writeAuditLog({
+            userId: req.user.id,
+            action: 'PAPER_TICKETS_PRINTED',
+            entityType: 'match',
+            entityId: matchId,
+            metadata: { ticketIds, count: result.rowCount }
+        });
+        res.json({
+            message: `Đã khóa ${result.rowCount} vé sau khi in. Các vé này không thể trả về bán online.`,
+            printedCount: result.rowCount
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        res.status(500).json({ message: 'Không thể đánh dấu vé đã in.', error: err.message });
+    } finally {
+        client.release();
     }
 };
 
@@ -411,4 +583,4 @@ const scanTicket = async (req, res) => {
     }
 };
 
-module.exports = { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, scanTicket };
+module.exports = { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats };

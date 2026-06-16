@@ -4,18 +4,24 @@ import { authApi } from '../../api/authApi';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ILoginPayload, IAuthResponse } from '../../interfaces/IUser';
+import { useEffect } from 'react';
+import { saveAuthSession } from '../../utils/authSession';
 
 export default function LoginPage() {
   const router = useRouter();
   // 1. Khai báo API notification bằng Hook để tiêu thụ được Context
   const [api, contextHolder] = notification.useNotification();
 
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get('oauth_error');
+    if (error) api.error({ title: 'Đăng nhập thất bại', description: error });
+  }, [api]);
+
   const onFinish = async (values: ILoginPayload) => {
     try {
       const res = await authApi.login(values) as unknown as IAuthResponse;
       
-      localStorage.setItem('access_token', res.access_token);
-      localStorage.setItem('user_info', JSON.stringify(res.user));
+      saveAuthSession(res.access_token, res.user);
 
       // 2. Thay notification.success bằng api.success 
       // Sửa luôn chữ 'message' thành 'description' hoặc 'message' của api chuẩn (bỏ cảnh báo deprecated)
@@ -26,6 +32,8 @@ export default function LoginPage() {
 
       if (res.user.role === 'ADMIN') {
         router.push('/admin/dashboard');
+      } else if (!res.user.profileCompleted) {
+        router.push('/complete-profile');
       } else {
         router.push('/');
       }

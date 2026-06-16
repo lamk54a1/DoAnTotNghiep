@@ -6,6 +6,7 @@ import { CameraOutlined, IdcardOutlined, LockOutlined, UploadOutlined } from '@a
 import type { UploadProps } from 'antd';
 import { authApi } from '../../api/authApi';
 import { IUser } from '../../interfaces/IUser';
+import { saveStoredUser } from '../../utils/authSession';
 import { extractCccdFromImage } from '../../utils/extractCccdFromImage';
 
 interface CccdVerificationCardProps {
@@ -55,11 +56,11 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
       onVerified(res.user);
 
       const currentUserInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
-      localStorage.setItem('user_info', JSON.stringify({
+      saveStoredUser({
         ...currentUserInfo,
         cccd: res.user.cccd,
         cccdStatus: res.user.cccdStatus,
-      }));
+      });
 
       notification.success({
         title: 'Đã gửi yêu cầu',

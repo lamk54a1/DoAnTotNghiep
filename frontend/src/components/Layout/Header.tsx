@@ -1,17 +1,19 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ShoppingCartOutlined, UserOutlined, LogoutOutlined, DashboardOutlined, IdcardOutlined } from '@ant-design/icons';
 import { Badge, Dropdown, MenuProps } from 'antd';
 import { useBooking } from '../../hooks/useBooking'; // Đường dẫn tương đối của bạn
 import { IUser } from '../../interfaces/IUser'; // Import interface User (đường dẫn tuỳ theo cấu trúc của bạn)
+import { AUTH_SESSION_CHANGED, clearAuthSession, getStoredUser } from '../../utils/authSession';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [user, setUser] = useState<IUser | null>(null); // Trạng thái lưu user đăng nhập
   const { selectedSeats } = useBooking();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     // Xử lý hiệu ứng cuộn trang
@@ -22,21 +24,23 @@ const Header = () => {
 
     // Xử lý lấy thông tin đăng nhập từ LocalStorage
     // Dùng trong useEffect để tránh lỗi Hydration của Next.js
-    queueMicrotask(() => {
-      const userInfo = localStorage.getItem('user_info');
-      if (userInfo) {
-        setUser(JSON.parse(userInfo));
-      }
-    });
+    const syncUser = () => setUser(getStoredUser());
+    queueMicrotask(syncUser);
+    window.addEventListener(AUTH_SESSION_CHANGED, syncUser);
+    window.addEventListener('storage', syncUser);
+    window.addEventListener('focus', syncUser);
 
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener(AUTH_SESSION_CHANGED, syncUser);
+      window.removeEventListener('storage', syncUser);
+      window.removeEventListener('focus', syncUser);
+    };
+  }, [pathname]);
 
   // Hàm xử lý Đăng xuất
   const handleLogout = () => {
-    localStorage.removeItem('user_info');
-    localStorage.removeItem('access_token');
-    setUser(null);
+    clearAuthSession();
     router.push('/login'); // Đá về trang đăng nhập
   };
 
@@ -125,7 +129,7 @@ const Header = () => {
                 : 'bg-[#edbb00] text-[#003078] hover:bg-white'
               }`}>
                 <UserOutlined className="text-sm" />
-                {user.fullName.toUpperCase()} {/* Hiển thị tên thay vì chữ ĐĂNG NHẬP */}
+                {(user.fullName || user.email).toUpperCase()} {/* Hiển thị tên thay vì chữ ĐĂNG NHẬP */}
               </button>
             </Dropdown>
           ) : (

@@ -22,4 +22,12 @@ export const authApi = {
   updateIdentity: (cccd: string): Promise<{ message: string; user: IUser }> => {
     return axiosClient.put('/auth/identity', { cccd });
   },
+
+  changePassword: (data: { currentPassword: string; newPassword: string }): Promise<{ message: string }> => {
+    return axiosClient.put('/auth/password', data);
+  },
+
+  changeEmail: (data: { email: string; currentPassword: string }): Promise<{ message: string; email: string }> => {
+    return axiosClient.put('/auth/email', data);
+  },
 };

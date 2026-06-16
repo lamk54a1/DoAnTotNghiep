@@ -14,6 +14,11 @@ const ensureUserIdentityColumns = (db = pool) => db.query(`
     AND (cccd_status IS NULL OR cccd_status <> 'VERIFIED');
 `);
 
+const ensureTicketHoldColumns = (db = pool) => db.query(`
+    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS held_by integer REFERENCES users(id) ON DELETE SET NULL;
+    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS held_until timestamp;
+`);
+
 const createOrder = async (req, res) => {
     const { paymentMethod, tickets, matchId } = req.body;
     const userId = req.user.id;
@@ -21,6 +26,7 @@ const createOrder = async (req, res) => {
 
     try {
         await ensureUserIdentityColumns(client);
+        await ensureTicketHoldColumns(client);
         if (!Array.isArray(tickets) || tickets.length === 0 || tickets.length > 4) {
             return res.status(400).json({ message: 'Mỗi đơn hàng phải có từ 1 đến 4 ghế.' });
         }
@@ -87,16 +93,26 @@ const createOrder = async (req, res) => {
             return res.status(400).json({ message: 'Kho vé của trận này chưa được khởi tạo. Vui lòng chờ admin sinh vé trước khi đặt.' });
         }
 
+        await client.query(`
+            UPDATE tickets
+            SET status = 'AVAILABLE', held_by = NULL, held_until = NULL
+            WHERE status = 'HELD' AND held_until <= NOW()
+        `);
+
         const ticketPrices = await client.query(
             `SELECT seat_code, price
              FROM tickets
-             WHERE match_id = $1 AND seat_code = ANY($2::text[]) AND status = 'AVAILABLE'
+             WHERE match_id = $1
+             AND seat_code = ANY($2::text[])
+             AND status = 'HELD'
+             AND held_by = $3
+             AND held_until > NOW()
              FOR UPDATE`,
-            [matchId, uniqueTickets]
+            [matchId, uniqueTickets, userId]
         );
 
         if (ticketPrices.rowCount !== uniqueTickets.length) {
-            throw new Error('Một hoặc nhiều ghế không tồn tại hoặc đã có người mua trước!');
+            throw new Error('Thời gian giữ ghế đã hết hoặc ghế không còn thuộc phiên của bạn.');
         }
 
         const totalAmount = ticketPrices.rows.reduce((sum, ticket) => sum + Number(ticket.price), 0);
@@ -133,12 +149,15 @@ const createOrder = async (req, res) => {
             
             const tRes = await client.query(
                 `UPDATE tickets 
-                 SET status = 'SOLD', order_id = $1, ticket_qr_code = $2 
+                 SET status = 'SOLD', order_id = $1, ticket_qr_code = $2,
+                     held_by = NULL, held_until = NULL
                  WHERE match_id = $3 
                  AND seat_code = $4 
-                 AND status = 'AVAILABLE'
+                 AND status = 'HELD'
+                 AND held_by = $5
+                 AND held_until > NOW()
                  RETURNING *`,
-                [newOrder.id, ticketQr, matchId, seatCode]
+                [newOrder.id, ticketQr, matchId, seatCode, userId]
             );
 
             if (tRes.rowCount === 0) {
@@ -205,11 +224,15 @@ const getMyOrders = async (req, res) => {
                         JSON_BUILD_OBJECT(
                             'id', t.id,
                             'seatCode', t.seat_code,
+                            'sector', t.sector,
+                            'seatNumber', t.seat_number,
+                            'price', t.price,
                             'status', t.status,
                             'ticketQrCode', t.ticket_qr_code,
                             'opponent', m.opponent,
                             'matchDate', m.match_date,
-                            'stadium', m.stadium
+                            'stadium', m.stadium,
+                            'competitionName', m.competition_name
                         )
                         ORDER BY t.seat_code
                     ) FILTER (WHERE t.id IS NOT NULL),

@@ -14,6 +14,8 @@ export interface IUser {
   address?: string;         // Địa chỉ (nếu muốn làm tính năng ship vé cứng)
   status: 'ACTIVE' | 'BANNED';
   createdAt: Date | string; // Ngày tạo tài khoản
+  profileCompleted?: boolean;
+  authProvider?: 'LOCAL' | 'GOOGLE' | 'FACEBOOK';
 }
 
 // 2. LÀM THÊM: Các kiểu dữ liệu bổ trợ cho luồng Auth (Gộp vào đây luôn)
@@ -40,5 +42,7 @@ export interface IAuthResponse {
     role: 'USER' | 'ADMIN';
     cccd?: string | null;
     cccdStatus?: 'NOT_SUBMITTED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
+    profileCompleted?: boolean;
+    authProvider?: 'LOCAL' | 'GOOGLE' | 'FACEBOOK';
   };
 }

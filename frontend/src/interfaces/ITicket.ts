@@ -9,7 +9,7 @@ export interface ITicket {
   seatNumber: number;       // Số ghế trong hàng
   
   price: number;
-  status: 'AVAILABLE' | 'PENDING' | 'SOLD' | 'PAPER_RESERVED' | 'PAPER_SOLD'; // Trạng thái ghế  
+  status: 'AVAILABLE' | 'PENDING' | 'HELD' | 'SOLD' | 'PAPER_RESERVED' | 'PAPER_SOLD'; // Trạng thái ghế  
   /**
    * Mã QR riêng cho từng vé. 
    * Khi nhân viên quét mã này, hệ thống sẽ biết chính xác là ghế nào, khán đài nào.
@@ -21,4 +21,6 @@ export interface ITicket {
    * Tránh việc một vé bị quay vòng cho nhiều người dùng.
    */
   isScanned?: boolean; 
+  heldUntil?: Date | string | null;
+  heldByCurrentUser?: boolean;
 }

@@ -1,7 +1,7 @@
 'use client';
 import AdminPageShell from '../../../components/Admin/AdminPageShell';
-import { App as AntApp, Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, Row, Col, Popconfirm, Avatar, Tag, Checkbox, Upload, QRCode } from 'antd';
-import { PlusOutlined, EditOutlined, RetweetOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
+import { App as AntApp, Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, Row, Col, Popconfirm, Avatar, Tag, Checkbox, Upload } from 'antd';
+import { PlusOutlined, EditOutlined, RetweetOutlined, DeleteOutlined, UploadOutlined, FilePdfOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { useEffect, useState } from 'react';
 import axios from 'axios';
@@ -9,6 +9,8 @@ import axiosClient, { API_ORIGIN } from '../../../api/axiosClient';
 import { IMatch } from '../../../interfaces/IMatch'; 
 import { ITicketInventory } from '../../../interfaces/ITicketInventory';
 import dayjs from 'dayjs';
+import PrintableTicket from '../../../components/Tickets/PrintableTicket';
+import { ISponsor } from '../../../interfaces/ISponsor';
 
 const STAND_OPTIONS = [
   { label: 'Khán đài A - 8.000 vé', value: 'A' },
@@ -37,13 +39,15 @@ interface PaperTicket {
   matchDate: string;
   stadium: string;
   competitionName?: string;
+  isPrinted: boolean;
+  printedAt?: string;
 }
 
 const EMPTY_INVENTORY: ITicketInventory = {
-  A: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  B: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  C: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  D: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  A: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  B: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  C: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
+  D: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
 };
 
 const hasFullScore = (homeScore?: number | null, awayScore?: number | null) => (
@@ -68,6 +72,7 @@ export default function AdminMatchesPage() {
   const [paperQuantity, setPaperQuantity] = useState(100);
   const [updatingPaperTickets, setUpdatingPaperTickets] = useState(false);
   const [paperTickets, setPaperTickets] = useState<PaperTicket[]>([]);
+  const [sponsors, setSponsors] = useState<ISponsor[]>([]);
   const [isPaperPrintOpen, setIsPaperPrintOpen] = useState(false);
   const [loadingPaperTickets, setLoadingPaperTickets] = useState(false);
   const [selectedGenerateStands, setSelectedGenerateStands] = useState<string[]>(['A', 'B', 'C', 'D']);
@@ -232,11 +237,40 @@ export default function AdminMatchesPage() {
     try {
       setLoadingPaperTickets(true);
       setIsPaperPrintOpen(true);
-      const data = await axiosClient.get<PaperTicket[]>(`/tickets/paper/${inventoryMatch.id}?stand=${paperStand}`);
-      setPaperTickets(data as unknown as PaperTicket[]);
+      const [ticketData, sponsorData] = await Promise.all([
+        axiosClient.get<PaperTicket[]>(`/tickets/paper/${inventoryMatch.id}?stand=${paperStand}`),
+        axiosClient.get<ISponsor[]>('/sponsors'),
+      ]);
+      setPaperTickets(ticketData as unknown as PaperTicket[]);
+      setSponsors(sponsorData as unknown as ISponsor[]);
     } catch (error) {
       notification.error({
         title: 'Không thể tải vé giấy',
+        description: axios.isAxiosError(error) ? error.response?.data?.message : 'Vui lòng thử lại.',
+      });
+    } finally {
+      setLoadingPaperTickets(false);
+    }
+  };
+
+  const printPaperTickets = async () => {
+    if (!inventoryMatch || paperTickets.length === 0) return;
+    try {
+      setLoadingPaperTickets(true);
+      const response = await axiosClient.post(`/tickets/paper/${inventoryMatch.id}/print`, {
+        ticketIds: paperTickets.map((ticket) => ticket.id),
+      }) as unknown as { message?: string };
+      setPaperTickets((current) => current.map((ticket) => ({ ...ticket, isPrinted: true })));
+      await loadInventory(inventoryMatch.id);
+      notification.warning({
+        title: 'Vé đã được khóa sau khi in',
+        description: response.message,
+        duration: 6,
+      });
+      window.setTimeout(() => window.print(), 100);
+    } catch (error) {
+      notification.error({
+        title: 'Không thể in vé PDF',
         description: axios.isAxiosError(error) ? error.response?.data?.message : 'Vui lòng thử lại.',
       });
     } finally {
@@ -571,6 +605,7 @@ export default function AdminMatchesPage() {
               </Button>
               <Button
                 loading={updatingPaperTickets}
+                disabled={inventory[paperStand].paperReserved <= inventory[paperStand].paperReservedPrinted}
                 onClick={() => handleUpdatePaperTickets('RELEASE')}
               >
                 Trả về online
@@ -615,6 +650,7 @@ export default function AdminMatchesPage() {
                       <span>Đã bán: <b>{item.sold.toLocaleString('vi-VN')}</b></span>
                       <span>Vé giấy: <b>{item.paperReserved.toLocaleString('vi-VN')}</b></span>
                       <span>Giấy đã bán: <b>{item.paperSold.toLocaleString('vi-VN')}</b></span>
+                      <span>Đã in PDF: <b>{item.paperPrinted.toLocaleString('vi-VN')}</b></span>
                       <span>Đã soát: <b>{item.scanned.toLocaleString('vi-VN')}</b></span>
                       <span>DT vé giấy: <b>{item.paperRevenue.toLocaleString('vi-VN')}đ</b></span>
                     </div>
@@ -632,37 +668,71 @@ export default function AdminMatchesPage() {
           title={`IN VÉ GIẤY - KHÁN ĐÀI ${paperStand}`}
           open={isPaperPrintOpen}
           onCancel={() => setIsPaperPrintOpen(false)}
-          width={980}
+          width={520}
           footer={[
             <Button key="close" onClick={() => setIsPaperPrintOpen(false)}>Đóng</Button>,
-            <Button key="print" type="primary" onClick={() => window.print()} disabled={paperTickets.length === 0}>
-              In danh sách vé
-            </Button>,
+            <Popconfirm
+              key="print"
+              title="Khóa vé và in PDF?"
+              description="Sau thao tác này, các vé đang hiển thị sẽ không thể trả về bán online."
+              okText="Khóa và in"
+              cancelText="Hủy"
+              onConfirm={printPaperTickets}
+              disabled={paperTickets.length === 0}
+            >
+              <Button type="primary" icon={<FilePdfOutlined />} disabled={paperTickets.length === 0}>
+                Khóa và In PDF
+              </Button>
+            </Popconfirm>,
           ]}
           loading={loadingPaperTickets}
         >
           <style jsx global>{`
+            @page {
+              size: 105mm 210mm;
+              margin: 0;
+            }
             @media print {
               body * {
-                visibility: hidden;
+                visibility: hidden !important;
               }
               .paper-print-area, .paper-print-area * {
-                visibility: visible;
+                visibility: visible !important;
               }
               .paper-print-area {
                 position: absolute;
-                inset: 0 auto auto 0;
-                width: 100%;
+                inset: 0;
+                width: 105mm;
                 padding: 0;
+                background: white;
               }
-              .paper-ticket-card {
+              .paper-ticket-page {
+                width: 105mm;
+                min-height: 210mm;
+                padding: 4mm;
                 break-inside: avoid;
                 page-break-inside: avoid;
+                page-break-after: always;
+              }
+              .paper-ticket-page:last-child {
+                page-break-after: auto;
+              }
+              .paper-ticket-page .slna-print-ticket {
+                width: 97mm !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+              }
+              .paper-print-summary,
+              .paper-print-status {
+                display: none !important;
               }
             }
           `}</style>
-          <div className="paper-print-area">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-xs font-bold leading-5 text-red-700">
+            Khi bấm “Khóa và In PDF”, toàn bộ vé đang hiển thị sẽ được đánh dấu đã in và không thể trả về bán online.
+          </div>
+          <div className="paper-print-area bg-gray-100 py-4">
+            <div className="paper-print-summary mb-4 flex items-center justify-between">
               <div>
                 <p className="m-0 text-lg font-black text-[#003078]">SLNA Ticketing - Vé giấy</p>
                 <p className="m-0 text-xs text-gray-500">
@@ -671,20 +741,19 @@ export default function AdminMatchesPage() {
               </div>
               <Tag color="blue">{paperTickets.length.toLocaleString('vi-VN')} vé</Tag>
             </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div className="space-y-5">
               {paperTickets.map((ticket) => (
-                <div key={ticket.id} className="paper-ticket-card flex items-center justify-between rounded-xl border border-gray-200 bg-white p-4">
-                  <div className="min-w-0 pr-4">
-                    <p className="m-0 text-xs font-black uppercase text-gray-400">{ticket.competitionName || 'Giải đấu'}</p>
-                    <p className="m-0 text-base font-black text-[#003078]">SLNA vs {ticket.opponent}</p>
-                    <p className="m-0 mt-1 text-xs text-gray-500">{dayjs(ticket.matchDate).format('DD/MM/YYYY HH:mm')} - {ticket.stadium}</p>
-                    <p className="m-0 mt-3 text-2xl font-black text-black">{ticket.seatCode}</p>
-                    <p className="m-0 text-xs font-bold text-gray-500">
-                      {Number(ticket.price || 0).toLocaleString('vi-VN')}đ - {ticket.status === 'PAPER_SOLD' ? 'Đã bán giấy' : 'Vé giấy'}
-                    </p>
-                    <p className="m-0 mt-2 text-[10px] font-bold text-gray-400">{ticket.ticketQrCode}</p>
-                  </div>
-                  <QRCode value={ticket.ticketQrCode} size={108} color="#003078" bordered={false} />
+                <div key={ticket.id} className="paper-ticket-page">
+                  <PrintableTicket
+                    ticket={ticket}
+                    fallbackQrCode={ticket.ticketQrCode}
+                    sponsors={sponsors}
+                  />
+                  {ticket.isPrinted && (
+                    <div className="paper-print-status mx-auto mt-2 w-[390px] text-center">
+                      <Tag color="red">Đã in - Không thể trả online</Tag>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

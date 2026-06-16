@@ -5,11 +5,17 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { IRegisterPayload } from '../../interfaces/IUser';
+import { useEffect } from 'react';
 
 function RegisterPage() {
   const router = useRouter();
   const [form] = Form.useForm();
   const { notification } = AntApp.useApp();
+
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get('oauth_error');
+    if (error) notification.error({ title: 'Đăng ký thất bại', description: error });
+  }, [notification]);
 
   const onFinish = async (values: IRegisterPayload & { confirmPassword?: string }) => {
     try {
@@ -124,6 +130,7 @@ function RegisterPage() {
               ĐĂNG KÝ NGAY
             </Button>
           </Form.Item>
+
 
           <div className="text-center mt-4 text-xs font-medium text-gray-500">
             Đã có tài khoản rồi?{' '}

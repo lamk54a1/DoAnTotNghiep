@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { App as AntApp, Button, Card, Form, Input, Result, Spin, Tag } from 'antd';
-import { IdcardOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
+import { IdcardOutlined, LockOutlined, MailOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
 import { authApi } from '../../api/authApi';
 import { IUser } from '../../interfaces/IUser';
 import CccdVerificationCard from '../../components/Profile/CccdVerificationCard';
+import { saveStoredUser } from '../../utils/authSession';
 
 type ProfileFormValues = Pick<IUser, 'fullName' | 'phoneNumber' | 'address'>;
 
@@ -17,6 +18,8 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
+  const [changingEmail, setChangingEmail] = useState(false);
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -43,12 +46,12 @@ export default function ProfilePage() {
       const res = await authApi.updateProfile(values) as unknown as { message: string; user: IUser };
       setProfile(res.user);
 
-      localStorage.setItem('user_info', JSON.stringify({
+      saveStoredUser({
         id: res.user.id,
         email: res.user.email,
         fullName: res.user.fullName,
         role: res.user.role,
-      }));
+      });
 
       notification.success({
         title: 'Đã lưu thông tin',
@@ -56,6 +59,32 @@ export default function ProfilePage() {
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangeEmail = async (values: { email: string; currentPassword: string }) => {
+    try {
+      setChangingEmail(true);
+      const res = await authApi.changeEmail(values) as unknown as { message: string; email: string };
+      setProfile((current) => current ? { ...current, email: res.email } : current);
+      const storedUser = JSON.parse(localStorage.getItem('user_info') || '{}');
+      saveStoredUser({ ...storedUser, email: res.email });
+      notification.success({ title: 'Đã đổi email', description: res.message });
+    } finally {
+      setChangingEmail(false);
+    }
+  };
+
+  const handleChangePassword = async (values: { currentPassword: string; newPassword: string; confirmPassword: string }) => {
+    try {
+      setChangingPassword(true);
+      const res = await authApi.changePassword({
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      }) as unknown as { message: string };
+      notification.success({ title: 'Đã đổi mật khẩu', description: res.message });
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -173,6 +202,53 @@ export default function ProfilePage() {
                 </div>
               </Form>
             </Card>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card title={<span className="font-black text-[#003078]"><MailOutlined /> Đổi email</span>} className="rounded-[28px] border-none shadow-md">
+                <Form layout="vertical" onFinish={handleChangeEmail}>
+                  <Form.Item name="email" label="Email mới" rules={[{ required: true, type: 'email', message: 'Nhập email hợp lệ.' }]}>
+                    <Input className="h-11 rounded-xl" />
+                  </Form.Item>
+                  <Form.Item name="currentPassword" label="Mật khẩu hiện tại" rules={[{ required: true, message: 'Nhập mật khẩu hiện tại.' }]}>
+                    <Input.Password className="h-11 rounded-xl" />
+                  </Form.Item>
+                  <Button htmlType="submit" type="primary" loading={changingEmail} className="h-11 rounded-xl bg-[#003078] font-bold">
+                    Đổi email
+                  </Button>
+                </Form>
+              </Card>
+
+              <Card title={<span className="font-black text-[#003078]"><LockOutlined /> Đổi mật khẩu</span>} className="rounded-[28px] border-none shadow-md">
+                <Form layout="vertical" onFinish={handleChangePassword}>
+                  <Form.Item name="currentPassword" label="Mật khẩu hiện tại" rules={[{ required: true, message: 'Nhập mật khẩu hiện tại.' }]}>
+                    <Input.Password className="h-11 rounded-xl" />
+                  </Form.Item>
+                  <Form.Item name="newPassword" label="Mật khẩu mới" rules={[{ required: true }, { min: 8, message: 'Tối thiểu 8 ký tự.' }]}>
+                    <Input.Password className="h-11 rounded-xl" />
+                  </Form.Item>
+                  <Form.Item
+                    name="confirmPassword"
+                    label="Nhập lại mật khẩu"
+                    dependencies={['newPassword']}
+                    rules={[
+                      { required: true, message: 'Nhập lại mật khẩu mới.' },
+                      ({ getFieldValue }) => ({
+                        validator(_, value) {
+                          return !value || getFieldValue('newPassword') === value
+                            ? Promise.resolve()
+                            : Promise.reject(new Error('Mật khẩu nhập lại không khớp.'));
+                        },
+                      }),
+                    ]}
+                  >
+                    <Input.Password className="h-11 rounded-xl" />
+                  </Form.Item>
+                  <Button htmlType="submit" type="primary" loading={changingPassword} className="h-11 rounded-xl bg-[#003078] font-bold">
+                    Đổi mật khẩu
+                  </Button>
+                </Form>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

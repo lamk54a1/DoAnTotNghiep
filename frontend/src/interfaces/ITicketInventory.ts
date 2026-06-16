@@ -4,6 +4,8 @@ export interface IStandInventory {
   sold: number;
   paperReserved: number;
   paperSold: number;
+  paperPrinted: number;
+  paperReservedPrinted: number;
   scanned: number;
   revenue: number;
   paperRevenue: number;

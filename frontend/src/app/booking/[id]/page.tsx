@@ -13,12 +13,13 @@ import { useBookingMatch } from '../../../hooks/useBookingMatch';
 import { authApi } from '../../../api/authApi';
 import { IUser } from '../../../interfaces/IUser';
 import CccdVerificationCard from '../../../components/Profile/CccdVerificationCard';
+import axiosClient from '../../../api/axiosClient';
 
 const BookingPage = () => {
   const router = useRouter(); 
   const { id } = useParams<{ id: string }>();
   const { message } = AntApp.useApp(); 
-  const { selectedSeats, handleToggleSeat, totalPrice } = useBooking();
+  const { selectedSeats, handleToggleSeat, totalPrice, replaceHeldSeats, reset } = useBooking();
   
   const [activeTab, setActiveTab] = useState<StandKey>('A');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -33,7 +34,30 @@ const BookingPage = () => {
     purchasedTicketCount,
     standInventory,
     ticketPrices,
+    heldSeats,
+    holdExpiresAt,
+    refreshSeats,
   } = useBookingMatch(id);
+
+  useEffect(() => {
+    replaceHeldSeats(heldSeats, ticketPrices);
+  }, [heldSeats, replaceHeldSeats, ticketPrices]);
+
+  const handleSeatToggle = async (seatId: string, price: number) => {
+    try {
+      if (selectedSeats.includes(seatId)) {
+        await axiosClient.post(`/tickets/release/${id}`, { seats: [seatId] });
+        handleToggleSeat(seatId, price);
+      } else {
+        await axiosClient.post(`/tickets/hold/${id}`, { seats: [...selectedSeats, seatId] });
+        handleToggleSeat(seatId, price);
+      }
+      await refreshSeats();
+    } catch {
+      message.warning('Ghế này vừa được người khác giữ. Vui lòng chọn ghế khác.');
+      await refreshSeats();
+    }
+  };
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -155,7 +179,7 @@ const BookingPage = () => {
               selectedSeats={selectedSeats}
               ticketPrices={ticketPrices}
               onQuotaReached={() => message.warning(`Bạn chỉ còn được mua thêm ${remainingTicketQuota} vé cho trận này.`)}
-              onToggleSeat={handleToggleSeat}
+              onToggleSeat={handleSeatToggle}
             />
           </div>
 
@@ -166,7 +190,13 @@ const BookingPage = () => {
               selectedSeats={selectedSeats}
               totalPrice={totalPrice}
               onCheckout={() => setIsModalOpen(true)}
-              onToggleSeat={handleToggleSeat}
+              onToggleSeat={(seatId) => void handleSeatToggle(seatId, ticketPrices[seatId] || 0)}
+              holdExpiresAt={holdExpiresAt}
+              onHoldExpired={() => {
+                reset();
+                void refreshSeats();
+                message.warning('Thời gian giữ ghế đã hết. Các ghế đã được mở bán lại.');
+              }}
             />
           </div>
         </div>

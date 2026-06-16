@@ -1,6 +1,7 @@
 'use client'
 import Hero from "../components/Home/Hero";
 import MatchList from "../components/Home/MatchList";
+import SponsorsSection from "../components/Home/SponsorsSection";
 
 export default function Home() {
   return (
@@ -10,6 +11,8 @@ export default function Home() {
 
       {/* Phần danh sách trận đấu */}
       <MatchList />
+
+      <SponsorsSection />
 
       <section className="bg-[#003078] py-16 text-white">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-6 md:grid-cols-3">
