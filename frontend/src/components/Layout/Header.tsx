@@ -133,15 +133,17 @@ const Header = () => {
               </button>
             </Dropdown>
           ) : (
-            <Link href="/login">
-              <button className={`flex items-center gap-2 font-black px-5 py-2 rounded-full text-[11px] tracking-widest transition-all shadow-md active:scale-95 ${
+            <Link
+              href="/login"
+              suppressHydrationWarning
+              className={`flex items-center gap-2 font-black px-5 py-2 rounded-full text-[11px] tracking-widest transition-all shadow-md active:scale-95 ${
                 isScrolled 
                 ? 'bg-white text-[#003078] hover:bg-[#edbb00]' 
                 : 'bg-[#edbb00] text-[#003078] hover:bg-white'
-              }`}>
-                <UserOutlined className="text-sm" />
-                ĐĂNG NHẬP
-              </button>
+              }`}
+            >
+              <UserOutlined className="text-sm" />
+              ĐĂNG NHẬP
             </Link>
           )}
 

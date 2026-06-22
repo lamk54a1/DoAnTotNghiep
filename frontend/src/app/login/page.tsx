@@ -14,7 +14,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     const error = new URLSearchParams(window.location.search).get('oauth_error');
-    if (error) api.error({ title: 'Đăng nhập thất bại', description: error });
+    if (error) api.error({ message: 'Đăng nhập thất bại', description: error });
   }, [api]);
 
   const onFinish = async (values: ILoginPayload) => {
@@ -23,11 +23,11 @@ export default function LoginPage() {
       
       saveAuthSession(res.access_token, res.user);
 
-      // 2. Thay notification.success bằng api.success 
-      // Sửa luôn chữ 'message' thành 'description' hoặc 'message' của api chuẩn (bỏ cảnh báo deprecated)
-      api.success({ 
-        title: 'Thành công',
-        description: res.message 
+      queueMicrotask(() => {
+        api.success({
+          message: 'Thành công',
+          description: res.message,
+        });
       });
 
       if (res.user.role === 'ADMIN') {

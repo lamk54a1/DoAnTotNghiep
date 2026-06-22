@@ -3,6 +3,7 @@ import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Layout/Header";
 import Footer from "../components/Layout/Footer";
+import ChatbotWidget from "../components/Chatbot/ChatbotWidget";
 import { ReduxProvider } from "../store/Provider"; 
 import { ConfigProvider, App } from 'antd'; // Thêm App ở đây
 
@@ -23,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${montserrat.variable} h-full antialiased`}>
-      <body className={`${montserrat.className} min-h-full flex flex-col bg-gray-50 text-gray-900`}>
+    <html lang="vi" className={`${montserrat.variable} h-full antialiased`} suppressHydrationWarning>
+      <body className={`${montserrat.className} min-h-full flex flex-col bg-gray-50 text-gray-900`} suppressHydrationWarning>
         <ReduxProvider>
           <ConfigProvider
             theme={{
@@ -41,6 +42,7 @@ export default function RootLayout({
               <div className="flex-grow pt-16">
                 {children}
               </div>
+              <ChatbotWidget />
               <Footer />
             </App>
           </ConfigProvider>
