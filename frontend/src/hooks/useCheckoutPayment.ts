@@ -45,7 +45,7 @@ export function useCheckoutPayment({
 
       confirmPayment();
       onSuccess(resData.orderQrCode, seatsSnapshot);
-      message.success('Thanh toán thành công!');
+      message.success('Đã tạo đơn hàng. Vui lòng chờ xác nhận thanh toán!');
     } catch (error: unknown) {
       console.error(error);
       message.error(axios.isAxiosError(error) && error.response?.data?.message

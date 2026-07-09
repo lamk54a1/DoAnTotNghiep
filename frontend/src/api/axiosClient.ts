@@ -1,14 +1,16 @@
 import axios, { AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
+
 const axiosClient = axios.create({
-  baseURL:  'http://localhost:5000/api',
+  baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-export const API_ORIGIN = 'http://localhost:5000';
+export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 
 // THIẾT LẬP INTERCEPTORS
 // 1. Trước khi gửi request đi

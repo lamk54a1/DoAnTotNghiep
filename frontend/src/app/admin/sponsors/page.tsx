@@ -155,7 +155,7 @@ export default function AdminSponsorsPage() {
         className="overflow-hidden rounded-xl bg-white shadow-md"
       />
 
-      <Modal title={editing ? 'Cập nhật nhà tài trợ' : 'Thêm nhà tài trợ'} open={open} onCancel={() => setOpen(false)} footer={null} destroyOnHidden>
+      <Modal title={editing ? 'Cập nhật nhà tài trợ' : 'Thêm nhà tài trợ'} open={open} onCancel={() => setOpen(false)} footer={null} destroyOnHidden forceRender>
         <Form form={form} layout="vertical" onFinish={saveSponsor} className="mt-4">
           <Form.Item name="name" label="Tên nhà tài trợ" rules={[{ required: true, message: 'Nhập tên nhà tài trợ.' }]}>
             <Input />

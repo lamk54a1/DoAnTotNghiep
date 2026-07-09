@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../../api/axiosClient';
 import { IMatch } from '../../../interfaces/IMatch';
 import dayjs from 'dayjs';
+import axios from 'axios';
 
 interface DashboardStats {
   totalRevenue: number;
@@ -25,24 +26,39 @@ export default function AdminDashboard() {
   const [selectedMatchId, setSelectedMatchId] = useState<number | undefined>();
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
     try {
       const params = new URLSearchParams();
       if (selectedYear) params.set('year', String(selectedYear));
       if (selectedMatchId) params.set('matchId', String(selectedMatchId));
 
-      // Gọi cả 2 API cùng lúc
-      const [statsRes, matchesRes] = await Promise.all([
+      const [statsResult, matchesResult] = await Promise.allSettled([
         axiosClient.get(`/admin/stats?${params.toString()}`),
-        axiosClient.get('/matches')
+        axiosClient.get('/matches'),
       ]);
-      setStats(statsRes as unknown as DashboardStats);
-      setMatches(matchesRes as unknown as IMatch[]);
+
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value as unknown as DashboardStats);
+      } else if (axios.isAxiosError(statsResult.reason) && statsResult.reason.response?.status === 403) {
+        notification.warning({
+          message: 'Phiên quản trị không hợp lệ',
+          description: 'Vui lòng đăng xuất rồi đăng nhập lại bằng tài khoản admin.',
+        });
+      } else {
+        notification.error({ message: 'Không thể tải thống kê doanh thu.' });
+      }
+
+      if (matchesResult.status === 'fulfilled') {
+        setMatches(matchesResult.value as unknown as IMatch[]);
+      } else {
+        notification.error({ message: 'Không thể tải danh sách trận đấu cho bộ lọc.' });
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [selectedMatchId, selectedYear]);
+  }, [notification, selectedMatchId, selectedYear]);
 
   useEffect(() => {
     void Promise.resolve().then(fetchData);

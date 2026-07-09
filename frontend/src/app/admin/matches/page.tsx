@@ -188,7 +188,7 @@ export default function AdminMatchesPage() {
 
   const loadInventory = async (matchId: number) => {
     try {
-      const data = await axiosClient.get<ITicketInventory>(`/tickets/inventory/${matchId}`);
+      const data = await axiosClient.get<ITicketInventory>(`/tickets/admin/inventory/${matchId}`);
       setInventory({ ...EMPTY_INVENTORY, ...(data as unknown as Partial<ITicketInventory>) });
     } finally {
       setLoadingInventory(false);

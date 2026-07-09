@@ -1,17 +1,10 @@
 import type { Metadata } from "next";
-import { Montserrat } from "next/font/google";
 import "./globals.css";
 import Header from "../components/Layout/Header";
 import Footer from "../components/Layout/Footer";
 import ChatbotWidget from "../components/Chatbot/ChatbotWidget";
 import { ReduxProvider } from "../store/Provider"; 
 import { ConfigProvider, App } from 'antd'; // Thêm App ở đây
-
-const montserrat = Montserrat({
-  subsets: ["vietnamese"],
-  variable: "--font-montserrat",
-  weight: ["400", "500", "600", "700", "800", "900"],
-});
 
 export const metadata: Metadata = {
   title: "SLNA Ticketing - Hệ thống bán vé trực tuyến",
@@ -24,15 +17,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${montserrat.variable} h-full antialiased`} suppressHydrationWarning>
-      <body className={`${montserrat.className} min-h-full flex flex-col bg-gray-50 text-gray-900`} suppressHydrationWarning>
+    <html lang="vi" className="h-full antialiased" suppressHydrationWarning>
+      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900" suppressHydrationWarning>
         <ReduxProvider>
           <ConfigProvider
             theme={{
               token: {
                 colorPrimary: '#003078', // Màu xanh SLNA
                 borderRadius: 12,
-                fontFamily: 'var(--font-montserrat)',
+                fontFamily: '"Segoe UI", Arial, Helvetica, sans-serif',
               },
             }}
           >
