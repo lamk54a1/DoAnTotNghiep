@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
 
-const { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats } = require('../controllers/ticketController');
+const { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, getPublicTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats } = require('../controllers/ticketController');
 const { isAdmin, optionalAuth, verifyToken } = require('../middleware/authMiddleware');
 
 // API phục vụ sơ đồ ghế: GET /api/tickets/sold/:matchId
 router.get('/sold/:matchId', getSoldSeatsByMatch);
-router.get('/inventory/:matchId', getTicketInventoryByMatch);
+router.get('/inventory/:matchId', getPublicTicketInventoryByMatch);
+router.get('/admin/inventory/:matchId', isAdmin, getTicketInventoryByMatch);
 router.get('/paper/:matchId', isAdmin, getPaperTicketsByMatch);
 
 // Tuyến đường cho Admin khởi tạo vé (Dùng phương thức POST chuẩn chỉnh)

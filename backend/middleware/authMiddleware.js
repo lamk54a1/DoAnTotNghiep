@@ -1,5 +1,11 @@
 const jwt = require('jsonwebtoken');
 
+if (!process.env.JWT_SECRET) {
+  throw new Error('Thiếu JWT_SECRET trong .env. Vui lòng cấu hình secret trước khi chạy backend.');
+}
+
+const jwtSecret = process.env.JWT_SECRET;
+
 // 1. Middleware bắt buộc phải đăng nhập (Xác thực Token)
 const verifyToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -10,7 +16,7 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'SLNA_SECRET_KEY_2026');
+    const decoded = jwt.verify(token, jwtSecret);
     req.user = decoded; // Dữ liệu giải mã gồm { id, role }
     next();
   } catch (err) {
@@ -25,7 +31,7 @@ const optionalAuth = (req, res, next) => {
   if (!token) return next();
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET || 'SLNA_SECRET_KEY_2026');
+    req.user = jwt.verify(token, jwtSecret);
   } catch (err) {
     req.user = null;
   }

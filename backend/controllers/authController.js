@@ -4,6 +4,12 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { writeAuditLog } = require('../utils/auditLog');
 
+if (!process.env.JWT_SECRET) {
+  throw new Error('Thiếu JWT_SECRET trong .env. Vui lòng cấu hình secret trước khi chạy backend.');
+}
+
+const jwtSecret = process.env.JWT_SECRET;
+
 const ensureUserIdentityColumns = () => pool.query(`
   ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd varchar(12);
   ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_cccd varchar(12);
@@ -37,7 +43,7 @@ const ensureSocialColumns = (db = pool) => db.query(`
 
 const createAccessToken = (user) => jwt.sign(
   { id: user.id, role: user.role },
-  process.env.JWT_SECRET || 'SLNA_SECRET_KEY_2026',
+  jwtSecret,
   { expiresIn: '30d' }
 );
 
@@ -346,7 +352,7 @@ const oauthStart = (req, res) => {
     return res.redirect(`${frontendUrl}/${mode}?oauth_error=${encodeURIComponent(`${provider === 'google' ? 'Google' : 'Facebook'} chưa được cấu hình trên máy chủ.`)}`);
   }
   const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/oauth/${provider}/callback`;
-  const state = jwt.sign({ provider, mode, nonce: crypto.randomBytes(12).toString('hex') }, process.env.JWT_SECRET || 'SLNA_SECRET_KEY_2026', { expiresIn: '10m' });
+  const state = jwt.sign({ provider, mode, nonce: crypto.randomBytes(12).toString('hex') }, jwtSecret, { expiresIn: '10m' });
   const params = new URLSearchParams({
     client_id: config.clientId(),
     redirect_uri: redirectUri,
@@ -361,7 +367,7 @@ const oauthCallback = async (req, res) => {
   const provider = String(req.params.provider || '').toLowerCase();
   const config = oauthConfig[provider];
   try {
-    const stateData = jwt.verify(String(req.query.state || ''), process.env.JWT_SECRET || 'SLNA_SECRET_KEY_2026');
+    const stateData = jwt.verify(String(req.query.state || ''), jwtSecret);
     if (!config || stateData.provider !== provider || !req.query.code) throw new Error('Yêu cầu OAuth không hợp lệ.');
     const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/oauth/${provider}/callback`;
     const tokenParams = new URLSearchParams({

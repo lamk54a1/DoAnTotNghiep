@@ -1,0 +1,164 @@
+@startuml
+title Use Case Tổng Quan - Hệ thống bán vé SLNA Ticketing
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #F8FAFC
+  BorderColor #003078
+  ArrowColor #003078
+}
+skinparam actor {
+  BorderColor #003078
+  FontColor #003078
+}
+
+actor "Khán giả" as User
+actor "Quản trị viên" as Admin
+actor "Hệ thống" as System
+
+rectangle "SLNA Ticketing" {
+  usecase "Đăng ký tài khoản" as UC_Register
+  usecase "Đăng nhập" as UC_Login
+  usecase "Cập nhật thông tin cá nhân" as UC_Profile
+  usecase "Đổi mật khẩu/email" as UC_ChangeAuth
+  usecase "Gửi xác minh CCCD" as UC_CCCD
+
+  usecase "Xem lịch thi đấu" as UC_ViewMatches
+  usecase "Xem chi tiết trận đấu" as UC_ViewMatch
+  usecase "Chọn ghế" as UC_SelectSeat
+  usecase "Giữ ghế 10 phút" as UC_HoldSeat
+  usecase "Tạo đơn đặt vé" as UC_CreateOrder
+  usecase "Xem vé của tôi" as UC_MyTickets
+  usecase "In/Xuất vé PDF" as UC_PrintTicket
+  usecase "Hỏi chatbot" as UC_Chatbot
+
+  usecase "Quản lý trận đấu" as UC_AdminMatch
+  usecase "Sinh kho vé" as UC_GenerateTicket
+  usecase "Quản lý đơn hàng" as UC_AdminOrder
+  usecase "Xác nhận/Hủy đơn" as UC_UpdateOrder
+  usecase "Quản lý vé giấy" as UC_PaperTicket
+  usecase "In vé giấy PDF" as UC_PrintPaper
+  usecase "Soát vé QR" as UC_Scan
+  usecase "Quản lý người dùng" as UC_AdminUser
+  usecase "Duyệt CCCD" as UC_ReviewCccd
+  usecase "Quản lý nhà tài trợ" as UC_Sponsor
+  usecase "Xem thống kê doanh thu" as UC_Stats
+  usecase "Ghi nhật ký thao tác" as UC_Audit
+}
+
+User --> UC_Register
+User --> UC_Login
+User --> UC_Profile
+User --> UC_ChangeAuth
+User --> UC_CCCD
+User --> UC_ViewMatches
+User --> UC_ViewMatch
+User --> UC_SelectSeat
+User --> UC_CreateOrder
+User --> UC_MyTickets
+User --> UC_PrintTicket
+User --> UC_Chatbot
+
+UC_SelectSeat .> UC_HoldSeat : <<include>>
+UC_CreateOrder .> UC_HoldSeat : <<include>>
+UC_CreateOrder .> UC_CCCD : <<include>>
+
+Admin --> UC_AdminMatch
+Admin --> UC_GenerateTicket
+Admin --> UC_AdminOrder
+Admin --> UC_UpdateOrder
+Admin --> UC_PaperTicket
+Admin --> UC_PrintPaper
+Admin --> UC_Scan
+Admin --> UC_AdminUser
+Admin --> UC_ReviewCccd
+Admin --> UC_Sponsor
+Admin --> UC_Stats
+
+UC_AdminMatch .> UC_Audit : <<include>>
+UC_UpdateOrder .> UC_Audit : <<include>>
+UC_PaperTicket .> UC_Audit : <<include>>
+UC_PrintPaper .> UC_Audit : <<include>>
+UC_Scan .> UC_Audit : <<include>>
+UC_ReviewCccd .> UC_Audit : <<include>>
+
+System --> UC_HoldSeat
+System --> UC_Audit
+@enduml
+
+@startuml
+title Use Case Chi Tiết - Luồng mua vé online
+
+left to right direction
+actor "Khán giả" as User
+actor "Backend/API" as Backend
+database "PostgreSQL" as DB
+
+rectangle "Mua vé online" {
+  usecase "Đăng nhập" as Login
+  usecase "Xem trận đang mở bán" as ViewMatch
+  usecase "Chọn ghế trên sơ đồ" as SelectSeat
+  usecase "Giữ ghế 10 phút" as HoldSeat
+  usecase "Kiểm tra CCCD đã duyệt" as CheckCccd
+  usecase "Kiểm tra giới hạn 4 vé/trận" as CheckLimit
+  usecase "Tạo đơn PENDING" as CreateOrder
+  usecase "Sinh mã QR vé" as GenerateQr
+  usecase "Xem vé trong mục Vé của tôi" as MyTickets
+}
+
+User --> Login
+User --> ViewMatch
+User --> SelectSeat
+SelectSeat .> HoldSeat : <<include>>
+CreateOrder .> CheckCccd : <<include>>
+CreateOrder .> CheckLimit : <<include>>
+CreateOrder .> GenerateQr : <<include>>
+User --> CreateOrder
+User --> MyTickets
+
+Backend --> HoldSeat
+Backend --> CheckCccd
+Backend --> CheckLimit
+Backend --> CreateOrder
+Backend --> GenerateQr
+
+HoldSeat --> DB : Cập nhật tickets.status = HELD
+CreateOrder --> DB : Insert orders, update tickets SOLD
+MyTickets --> DB : Query orders + tickets
+@enduml
+
+@startuml
+title Use Case Chi Tiết - Quản lý vé giấy
+
+left to right direction
+actor "Quản trị viên" as Admin
+database "PostgreSQL" as DB
+
+rectangle "Quản lý vé giấy" {
+  usecase "Chọn trận đấu" as SelectMatch
+  usecase "Xem tồn kho vé" as Inventory
+  usecase "Giữ vé giấy theo khán đài" as ReservePaper
+  usecase "In vé giấy PDF" as PrintPaper
+  usecase "Đánh dấu vé giấy đã bán" as MarkSold
+  usecase "Không cho trả vé đã in về online" as LockPrinted
+  usecase "Soát vé giấy bằng QR" as ScanPaper
+  usecase "Ghi nhật ký thao tác" as Audit
+}
+
+Admin --> SelectMatch
+Admin --> Inventory
+Admin --> ReservePaper
+Admin --> PrintPaper
+Admin --> MarkSold
+Admin --> ScanPaper
+
+ReservePaper --> DB : AVAILABLE -> PAPER_RESERVED
+PrintPaper --> DB : is_printed = true
+MarkSold --> DB : PAPER_RESERVED -> PAPER_SOLD
+PrintPaper .> LockPrinted : <<include>>
+ReservePaper .> Audit : <<include>>
+PrintPaper .> Audit : <<include>>
+MarkSold .> Audit : <<include>>
+ScanPaper .> Audit : <<include>>
+@enduml

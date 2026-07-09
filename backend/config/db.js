@@ -1,12 +1,19 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const requiredEnv = ['DB_USER', 'DB_HOST', 'DB_NAME', 'DB_PASSWORD'];
+const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+
+if (missingEnv.length > 0) {
+  throw new Error(`Thiếu cấu hình database trong .env: ${missingEnv.join(', ')}`);
+}
+
 const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'slna_ticketing',
-  password: process.env.DB_PASSWORD || 'Slna1201@',
-  port: process.env.DB_PORT || 5432,
+  user: process.env.DB_USER,
+  host: process.env.DB_HOST,
+  database: process.env.DB_NAME,
+  password: process.env.DB_PASSWORD,
+  port: Number(process.env.DB_PORT || 5432),
 });
 
 pool.connect((err) => {

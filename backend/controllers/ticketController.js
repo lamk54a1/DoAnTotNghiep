@@ -286,6 +286,49 @@ const getTicketInventoryByMatch = async (req, res) => {
     }
 };
 
+const getPublicTicketInventoryByMatch = async (req, res) => {
+    const { matchId } = req.params;
+    try {
+        await ensureTicketScanColumn();
+        await ensureTicketStatusValues();
+        await ensurePaperPrintColumns();
+        await releaseExpiredHolds();
+        const result = await pool.query(
+            `SELECT
+                SUBSTRING(seat_code FROM 1 FOR 1) AS stand,
+                COUNT(*)::int AS total,
+                COUNT(*) FILTER (WHERE status = 'AVAILABLE')::int AS available,
+                COUNT(*) FILTER (WHERE status = 'SOLD')::int AS sold,
+                COUNT(*) FILTER (WHERE status = 'HELD')::int AS held,
+                COUNT(*) FILTER (WHERE status = 'PAPER_RESERVED')::int AS "paperReserved",
+                COUNT(*) FILTER (WHERE status = 'PAPER_SOLD')::int AS "paperSold",
+                COUNT(*) FILTER (WHERE status IN ('SOLD', 'PAPER_SOLD') AND is_scanned = true)::int AS scanned
+             FROM tickets
+             WHERE match_id = $1
+             GROUP BY stand
+             ORDER BY stand ASC`,
+            [matchId]
+        );
+
+        const inventory = {};
+        for (const row of result.rows) {
+            inventory[row.stand] = {
+                total: row.total,
+                available: row.available,
+                sold: row.sold,
+                held: row.held,
+                paperReserved: row.paperReserved,
+                paperSold: row.paperSold,
+                scanned: row.scanned,
+            };
+        }
+
+        res.json(inventory);
+    } catch (err) {
+        res.status(500).json({ message: 'Không thể tải tồn kho vé.', error: err.message });
+    }
+};
+
 const updatePaperTickets = async (req, res) => {
     const matchId = Number(req.params.matchId);
     const { stand, quantity, mode } = req.body;
@@ -583,4 +626,4 @@ const scanTicket = async (req, res) => {
     }
 };
 
-module.exports = { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats };
+module.exports = { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, getPublicTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats };
