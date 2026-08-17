@@ -42,14 +42,40 @@ const getFeaturedMatches = async () => {
   return result.rows;
 };
 
+const getMatchByQuestion = async (question) => {
+  const result = await withTimeout(pool.query(`
+    SELECT id, opponent, match_date, stadium, competition_name, ticket_price_min,
+           stand_prices, free_stands, status, home_score, away_score
+    FROM matches
+    ORDER BY match_date DESC
+    LIMIT 50
+  `), { rows: [] });
+  const normalizedQuestion = normalize(question);
+  return result.rows.find((match) => normalizedQuestion.includes(normalize(match.opponent))) || null;
+};
+
+const getTicketInventory = async (matchId) => {
+  const result = await withTimeout(pool.query(`
+    SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE status = 'AVAILABLE')::int AS available,
+      COUNT(*) FILTER (WHERE status = 'HELD')::int AS held,
+      COUNT(*) FILTER (WHERE status IN ('SOLD', 'PAPER_SOLD'))::int AS sold,
+      COUNT(*) FILTER (WHERE status = 'PAPER_RESERVED')::int AS "paperReserved"
+    FROM tickets
+    WHERE match_id = $1
+  `, [matchId]), { rows: [] });
+  return result.rows[0] || { total: 0, available: 0, held: 0, sold: 0, paperReserved: 0 };
+};
+
 const answerSchedule = async () => {
   const matches = await getFeaturedMatches();
   if (matches.length === 0) return 'Hiện hệ thống chưa có lịch trận sắp tới.';
   return ['Các trận sắp tới của SLNA:', ...matches.map((m) => `- SLNA vs ${m.opponent}: ${formatDateTime(m.match_date)} tại ${m.stadium}. Trạng thái: ${m.status}.`)].join('\n');
 };
 
-const answerTicketPrice = async () => {
-  const match = await getUpcomingMatch();
+const answerTicketPrice = async (selectedMatch = null) => {
+  const match = selectedMatch || await getUpcomingMatch();
   if (!match) return 'Hiện chưa có trận đang/sắp mở bán nên chưa có giá vé.';
   const standPrices = { A: 100000, B: 50000, C: 20000, D: 20000, ...(match.stand_prices || {}) };
   const freeStands = match.free_stands || [];
@@ -58,6 +84,36 @@ const answerTicketPrice = async () => {
     ...Object.entries(standPrices).map(([stand, price]) => `- Khán đài ${stand}: ${freeStands.includes(stand) ? 'Miễn phí' : formatMoney(price)}`),
     'Bạn có thể bấm “Mua vé” ở trang trận đấu để chọn ghế trực tiếp.',
   ].join('\n');
+};
+
+const answerTicketAvailability = async (selectedMatch = null) => {
+  const match = selectedMatch || await getUpcomingMatch();
+  if (!match) return 'Hiện chưa có trận sắp tới để kiểm tra số vé.';
+  if (match.status !== 'ON_SALE') {
+    return `Trận SLNA vs ${match.opponent} hiện có trạng thái ${match.status} và chưa mở bán vé trực tuyến.`;
+  }
+  const inventory = await getTicketInventory(match.id);
+  if (inventory.total === 0) return `Kho vé trận SLNA vs ${match.opponent} chưa được khởi tạo.`;
+  return [
+    `Tình trạng vé trận SLNA vs ${match.opponent} lúc này:`,
+    `- Còn bán online: ${inventory.available} vé.`,
+    `- Đang được giữ: ${inventory.held} vé.`,
+    `- Đã bán: ${inventory.sold} vé.`,
+    `- Đã dành cho vé giấy: ${inventory.paperReserved} vé.`,
+    'Dữ liệu được tra trực tiếp từ kho vé tại thời điểm bạn hỏi.',
+  ].join('\n');
+};
+
+const answerSpecificMatch = (match) => {
+  const lines = [
+    `Thông tin trận SLNA vs ${match.opponent}:`,
+    `- Giải đấu: ${match.competition_name}.`,
+    `- Thời gian: ${formatDateTime(match.match_date)}.`,
+    `- Địa điểm: ${match.stadium}.`,
+    `- Trạng thái: ${match.status}.`,
+  ];
+  if (match.status === 'FINISHED') lines.push(`- Kết quả: SLNA ${match.home_score ?? '-'} - ${match.away_score ?? '-'} ${match.opponent}.`);
+  return lines.join('\n');
 };
 
 const answerBuyTicket = async () => {
@@ -98,8 +154,23 @@ const answerMyTickets = () => [
 const answerAccount = () => [
   'Bạn có thể cập nhật thông tin cá nhân trong mục tài khoản:',
   '- Cập nhật họ tên, số điện thoại, địa chỉ.',
-  '- Đổi email, đổi mật khẩu.',
+  '- Đổi email cần tự nhập mật khẩu hiện tại để xác nhận; hệ thống không hiển thị hoặc điền sẵn mật khẩu.',
+  '- Tài khoản Google/Facebook quản lý email và mật khẩu tại nhà cung cấp đăng nhập.',
   '- Gửi CCCD để admin duyệt trước khi mua vé.',
+].join('\n');
+
+const answerPayment = () => [
+  'Sau khi chọn ghế, hệ thống giữ ghế trong 15 phút để bạn thanh toán.',
+  '- Chuyển đúng số tiền và nội dung thanh toán hiển thị trên đơn.',
+  '- QR vé chỉ được phát hành sau khi đơn được xác nhận thanh toán thành công.',
+  '- Đơn quá hạn hoặc bị hủy sẽ tự trả ghế về kho vé.',
+].join('\n');
+
+const answerCccd = () => [
+  'CCCD được dùng để xác minh người mua và áp dụng giới hạn tối đa 4 vé cho mỗi trận.',
+  '- Vào Thông tin cá nhân để gửi số CCCD.',
+  '- Chờ quản trị viên duyệt trước khi mua vé.',
+  '- Một CCCD chỉ được liên kết với một tài khoản và bị khóa sau khi xác minh.',
 ].join('\n');
 
 const answerPolicy = () => [
@@ -142,25 +213,31 @@ const fallbackAnswer = () => [
 const askChatbot = async (req, res) => {
   const question = String(req.body?.question || '').trim();
   if (!question) return res.status(400).json({ message: 'Vui lòng nhập câu hỏi.' });
+  if (question.length > 500) return res.status(400).json({ message: 'Câu hỏi không được dài quá 500 ký tự.' });
 
   const text = normalize(question);
   try {
     let answer;
-    if (/(lich|tran sap|sap toi|khi nao|doi nao|thi dau)/.test(text)) answer = await answerSchedule();
+    const selectedMatch = await getMatchByQuestion(question);
+    if (/(con bao nhieu ve|con ve|het ve|so ve|ve trong|ve con lai|ton kho)/.test(text)) answer = await answerTicketAvailability(selectedMatch);
+    else if (/(gia|bao nhieu|khan dai|ve bao)/.test(text)) answer = await answerTicketPrice(selectedMatch);
+    else if (selectedMatch && /(tran|doi|gap|vs|voi|thong tin|khi nao|o dau)/.test(text)) answer = answerSpecificMatch(selectedMatch);
+    else if (/(lich|tran sap|sap toi|khi nao|doi nao|thi dau)/.test(text)) answer = await answerSchedule();
     else if (/(ket qua|ti so|ty so|da dau|thang|thua|hoa)/.test(text)) answer = await answerResults();
-    else if (/(gia|bao nhieu|khan dai|ve bao)/.test(text)) answer = await answerTicketPrice();
-    else if (/(mua ve|dat ve|chon ghe|thanh toan|qr)/.test(text)) answer = await answerBuyTicket();
+    else if (/(thanh toan|chuyen khoan|don hang|het han|xac nhan thanh cong)/.test(text)) answer = answerPayment();
+    else if (/(mua ve|dat ve|chon ghe|qr)/.test(text)) answer = await answerBuyTicket();
     else if (/(ve cua toi|ve da mua|ma qr|qr ve|in pdf)/.test(text)) answer = answerMyTickets();
     else if (/(san|dia chi|vinh|o dau)/.test(text)) answer = await answerStadium();
     else if (/(nha tai tro|tai tro|sponsor|doi tac)/.test(text)) answer = await answerSponsors();
-    else if (/(tai khoan|dang nhap|mat khau|email|cccd|can cuoc|thong tin ca nhan)/.test(text)) answer = answerAccount();
+    else if (/(cccd|can cuoc|xac minh|duyet danh tinh)/.test(text)) answer = answerCccd();
+    else if (/(tai khoan|dang nhap|mat khau|email|thong tin ca nhan)/.test(text)) answer = answerAccount();
     else if (/(chinh sach|quy dinh|gioi han|hoan|huy|luu y)/.test(text)) answer = answerPolicy();
     else if (/(lien he|cong ty|mst|ma so thue|hotline)/.test(text)) answer = answerContact();
     else answer = fallbackAnswer();
 
     res.json({
       answer,
-      suggestions: ['Trận sắp tới khi nào?', 'Giá vé bao nhiêu?', 'Tôi mua vé như thế nào?', 'Nhà tài trợ gồm những ai?'],
+      suggestions: ['Trận sắp tới khi nào?', 'Còn bao nhiêu vé?', 'Giá từng khán đài?', 'Thanh toán vé thế nào?'],
     });
   } catch (err) {
     res.status(500).json({ message: 'Chatbot chưa thể trả lời lúc này. Vui lòng thử lại sau.' });

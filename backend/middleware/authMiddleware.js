@@ -1,52 +1,53 @@
 const jwt = require('jsonwebtoken');
+const pool = require('../config/db');
+const { getRequestToken } = require('../utils/session');
 
-if (!process.env.JWT_SECRET) {
-  throw new Error('Thiếu JWT_SECRET trong .env. Vui lòng cấu hình secret trước khi chạy backend.');
-}
+const loadActiveUser = async (token) => {
+  const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+  const result = await pool.query(
+    `SELECT id, role, status, token_version AS "tokenVersion"
+     FROM users WHERE id = $1`,
+    [decoded.id]
+  );
+  const user = result.rows[0];
+  if (!user || user.status !== 'ACTIVE' || Number(user.tokenVersion) !== Number(decoded.tokenVersion || 0)) {
+    return null;
+  }
+  return user;
+};
 
-const jwtSecret = process.env.JWT_SECRET;
-
-// 1. Middleware bắt buộc phải đăng nhập (Xác thực Token)
-const verifyToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Lấy chuỗi sau 'Bearer '
-
+const verifyToken = async (req, res, next) => {
+  const token = getRequestToken(req);
   if (!token) {
     return res.status(401).json({ message: 'Bạn vui lòng đăng nhập để thực hiện thao tác này!' });
   }
 
   try {
-    const decoded = jwt.verify(token, jwtSecret);
-    req.user = decoded; // Dữ liệu giải mã gồm { id, role }
-    next();
-  } catch (err) {
-    return res.status(403).json({ message: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ!' });
+    const user = await loadActiveUser(token);
+    if (!user) return res.status(401).json({ message: 'Phiên đăng nhập không còn hiệu lực.' });
+    req.user = user;
+    return next();
+  } catch {
+    return res.status(401).json({ message: 'Phiên đăng nhập đã hết hạn hoặc không hợp lệ!' });
   }
 };
 
-const optionalAuth = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
+const optionalAuth = async (req, _res, next) => {
+  const token = getRequestToken(req);
   if (!token) return next();
-
   try {
-    req.user = jwt.verify(token, jwtSecret);
-  } catch (err) {
+    req.user = await loadActiveUser(token);
+  } catch {
     req.user = null;
   }
-  next();
+  return next();
 };
 
-// 2. Middleware chỉ cho phép quyền ADMIN đi qua
-const isAdmin = (req, res, next) => {
-  verifyToken(req, res, () => {
-    if (req.user.role === 'ADMIN') {
-      next();
-    } else {
-      return res.status(403).json({ message: 'Lỗi bảo mật: Bạn không có quyền truy cập khu vực quản trị!' });
-    }
-  });
-};
+const isAdmin = (req, res, next) => verifyToken(req, res, () => {
+  if (req.user.role !== 'ADMIN') {
+    return res.status(403).json({ message: 'Bạn không có quyền truy cập khu vực quản trị!' });
+  }
+  return next();
+});
 
-module.exports = { verifyToken, optionalAuth, isAdmin };
+module.exports = { verifyToken, optionalAuth, isAdmin, loadActiveUser };

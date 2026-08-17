@@ -32,7 +32,7 @@ export default function AdminOrdersPage() {
   const fetchOrders = async () => {
     try {
       const data = await axiosClient.get<AdminOrder[]>('/admin/orders');
-      setOrders(data as unknown as AdminOrder[]);
+      setOrders(data);
     } finally {
       setLoading(false);
     }
@@ -52,10 +52,10 @@ export default function AdminOrdersPage() {
   const bulkApproveOrders = async () => {
     try {
       setBulkUpdating(true);
-      const res = await axiosClient.patch('/admin/orders/bulk/status', {
+      const res = await axiosClient.patch<{ message: string; updatedCount: number; skippedCount: number }>('/admin/orders/bulk/status', {
         ids: selectedRowKeys,
         status: 'SUCCESS',
-      }) as unknown as { message: string; updatedCount: number; skippedCount: number };
+      });
 
       notification.success({
         title: 'Đã duyệt hàng loạt',
@@ -80,9 +80,9 @@ export default function AdminOrdersPage() {
   const exportExcel = async () => {
     try {
       setExporting(true);
-      const blob = await axiosClient.get('/admin/reports/orders.xlsx', {
+      const blob = await axiosClient.get<Blob>('/admin/reports/orders.xlsx', {
         responseType: 'blob',
-      }) as unknown as Blob;
+      });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;

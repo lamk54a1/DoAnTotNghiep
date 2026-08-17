@@ -5,6 +5,10 @@ export type PaymentMethod = 'VNPAY' | 'MOMO' | 'CASH' | 'BANK_TRANSFER';
 export interface IOrderResponse {
   id: number;
   orderQrCode: string;
+  paymentQrCode: string | null;
+  expiresAt: string;
+  totalAmount: number;
+  status: 'PENDING';
 }
 
 export interface IOrder {

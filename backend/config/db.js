@@ -16,9 +16,12 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT || 5432),
 });
 
-pool.connect((err) => {
+pool.connect((err, client, release) => {
   if (err) console.error('Lỗi kết nối Postgres:', err.stack);
-  else console.log('Đã kết nối PostgreSQL thành công!');
+  else {
+    console.log('Đã kết nối PostgreSQL thành công!');
+    release();
+  }
 });
 
 module.exports = pool;

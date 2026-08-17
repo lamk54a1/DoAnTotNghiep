@@ -32,8 +32,8 @@ export default function MatchDetailPage() {
       axiosClient.get<ITicketInventory>(`/tickets/inventory/${id}`).catch(() => emptyInventory),
     ])
       .then(([matchData, inventoryData]) => {
-        setMatch(matchData as unknown as IMatch);
-        setInventory({ ...emptyInventory, ...(inventoryData as unknown as Partial<ITicketInventory>) });
+        setMatch(matchData);
+        setInventory({ ...emptyInventory, ...inventoryData });
       })
       .finally(() => setLoading(false));
   }, [id]);

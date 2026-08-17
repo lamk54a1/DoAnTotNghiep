@@ -1,11 +1,13 @@
 'use client';
-import { Form, Input, Button, Card, notification } from 'antd'; // Giữ nguyên import để Antd quản lý chung
+import { Form, Input, Button, Card, Divider, notification } from 'antd'; // Giữ nguyên import để Antd quản lý chung
 import { authApi } from '../../api/authApi';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ILoginPayload, IAuthResponse } from '../../interfaces/IUser';
 import { useEffect } from 'react';
 import { saveAuthSession } from '../../utils/authSession';
+
+const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,9 +21,9 @@ export default function LoginPage() {
 
   const onFinish = async (values: ILoginPayload) => {
     try {
-      const res = await authApi.login(values) as unknown as IAuthResponse;
+      const res: IAuthResponse = await authApi.login(values);
       
-      saveAuthSession(res.access_token, res.user);
+      saveAuthSession(res.user);
 
       queueMicrotask(() => {
         api.success({
@@ -37,8 +39,11 @@ export default function LoginPage() {
       } else {
         router.push('/');
       }
-    } catch (error) {
-      console.error(error);
+    } catch (error: unknown) {
+      const description = typeof error === 'object' && error && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        : undefined;
+      api.error({ message: 'Đăng nhập thất bại', description: description || 'Vui lòng kiểm tra lại thông tin.' });
     }
   };
 
@@ -81,6 +86,12 @@ export default function LoginPage() {
               ĐĂNG NHẬP
             </Button>
           </Form.Item>
+
+          <Divider plain>Hoặc đăng nhập với</Divider>
+          <div className="grid grid-cols-2 gap-3">
+            <Button href={`${apiBaseUrl}/auth/oauth/google?mode=login`}>Google</Button>
+            <Button href={`${apiBaseUrl}/auth/oauth/facebook?mode=login`}>Facebook</Button>
+          </div>
 
           <div className="text-center mt-4 text-xs font-medium text-gray-500">
             Chưa có tài khoản?{' '}

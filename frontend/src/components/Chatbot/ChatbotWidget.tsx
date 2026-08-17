@@ -17,8 +17,8 @@ interface ChatbotResponse {
 
 const defaultSuggestions = [
   'Trận sắp tới khi nào?',
-  'Giá vé bao nhiêu?',
-  'Tôi mua vé như thế nào?',
+  'Còn bao nhiêu vé?',
+  'Giá từng khán đài?',
   'Nhà tài trợ gồm những ai?',
 ];
 
@@ -30,7 +30,7 @@ export default function ChatbotWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: 'bot',
-      content: 'Xin chào! Mình là trợ lý SLNA Ticketing. Bạn có thể hỏi về lịch thi đấu, giá vé, cách mua vé, sân Vinh, nhà tài trợ hoặc tài khoản.',
+      content: 'Xin chào! Mình là trợ lý SLNA Ticketing. Mình có thể tra dữ liệu mới nhất trong hệ thống về lịch đấu, kết quả, giá và số vé còn lại, nhà tài trợ, thanh toán, CCCD hoặc tài khoản.',
     },
   ]);
   const listRef = useRef<HTMLDivElement>(null);
@@ -51,7 +51,7 @@ export default function ChatbotWidget() {
     scrollToBottom();
 
     try {
-      const response = await axiosClient.post('/chatbot/ask', { question: trimmed }) as unknown as ChatbotResponse;
+      const response = await axiosClient.post<ChatbotResponse>('/chatbot/ask', { question: trimmed });
       setMessages((current) => [...current, { role: 'bot', content: response.answer }]);
       if (response.suggestions?.length) setSuggestions(response.suggestions);
     } catch {
@@ -120,6 +120,7 @@ export default function ChatbotWidget() {
                 onChange={(event) => setInput(event.target.value)}
                 onPressEnter={() => ask(input)}
                 placeholder="Nhập câu hỏi..."
+                maxLength={500}
                 className="rounded-xl"
               />
               <Button

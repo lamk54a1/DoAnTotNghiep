@@ -8,17 +8,6 @@ const STAND_PRICES = {
   D: 20000,
 };
 
-const ensureMatchColumns = (db = pool) => db.query(`
-  ALTER TABLE matches ADD COLUMN IF NOT EXISTS free_stands text[] DEFAULT '{}'::text[];
-  ALTER TABLE matches ADD COLUMN IF NOT EXISTS competition_name varchar(120) DEFAULT 'V-League 2026';
-  ALTER TABLE matches ADD COLUMN IF NOT EXISTS stand_prices jsonb DEFAULT '{"A":100000,"B":50000,"C":20000,"D":20000}'::jsonb;
-`);
-
-const ensureTicketStatusValues = async (db = pool) => {
-  await db.query("ALTER TYPE ticket_status ADD VALUE IF NOT EXISTS 'PAPER_RESERVED'");
-  await db.query("ALTER TYPE ticket_status ADD VALUE IF NOT EXISTS 'PAPER_SOLD'");
-};
-
 const normalizeFreeStands = (freeStands) => {
   if (!Array.isArray(freeStands)) return [];
   return [...new Set(freeStands.filter((stand) => Object.prototype.hasOwnProperty.call(STAND_PRICES, stand)))];
@@ -62,7 +51,6 @@ const syncAvailableTicketPrices = async (matchId, freeStands, standPrices) => {
 const getMatches = async (req, res) => {
   const { scope } = req.query;
   try {
-    await ensureMatchColumns();
     let whereClause = '';
     let orderClause = 'ORDER BY match_date ASC';
     let limitClause = '';
@@ -93,7 +81,7 @@ const getMatches = async (req, res) => {
     const result = await pool.query(query);
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: 'Không thể tải danh sách trận đấu.' });
   }
 };
 
@@ -101,7 +89,6 @@ const getMatches = async (req, res) => {
 const getMatchById = async (req, res) => {
   const { id } = req.params;
   try {
-    await ensureMatchColumns();
     const query = `
       SELECT 
         id, opponent, opponent_logo AS "opponentLogo", 
@@ -119,7 +106,7 @@ const getMatchById = async (req, res) => {
     }
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: 'Không thể tải trận đấu.' });
   }
 };
 
@@ -127,7 +114,6 @@ const getMatchById = async (req, res) => {
 const createMatch = async (req, res) => {
   const { opponent, opponentLogo, matchDate, stadium, description, bannerImage, status, homeScore, awayScore, freeStands, standPrices, competitionName } = req.body;
   try {
-    await ensureMatchColumns();
     const normalizedFreeStands = normalizeFreeStands(freeStands);
     const normalizedStandPrices = normalizeStandPrices(standPrices);
     const ticketPriceMin = getTicketPriceMin(normalizedStandPrices, normalizedFreeStands);
@@ -141,7 +127,7 @@ const createMatch = async (req, res) => {
     await writeAuditLog({ userId: req.user.id, action: 'MATCH_CREATED', entityType: 'match', entityId: result.rows[0].id, metadata: { opponent, competitionName } });
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: 'Không thể tạo trận đấu.' });
   }
 };
 
@@ -150,7 +136,6 @@ const updateMatch = async (req, res) => {
   const { id } = req.params;
   const { opponent, opponentLogo, matchDate, stadium, description, bannerImage, status, homeScore, awayScore, freeStands, standPrices, competitionName } = req.body;
   try {
-    await ensureMatchColumns();
     const normalizedFreeStands = normalizeFreeStands(freeStands);
     const normalizedStandPrices = normalizeStandPrices(standPrices);
     const ticketPriceMin = getTicketPriceMin(normalizedStandPrices, normalizedFreeStands);
@@ -185,14 +170,13 @@ const updateMatch = async (req, res) => {
     await writeAuditLog({ userId: req.user.id, action: 'MATCH_UPDATED', entityType: 'match', entityId: id, metadata: { opponent, competitionName } });
     res.json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ message: 'Không thể cập nhật trận đấu.' });
   }
 };
 
 const deleteMatch = async (req, res) => {
   const { id } = req.params;
   try {
-    await ensureTicketStatusValues();
     const soldTickets = await pool.query(
       "SELECT 1 FROM tickets WHERE match_id = $1 AND status NOT IN ('AVAILABLE', 'PAPER_RESERVED') LIMIT 1",
       [id]
@@ -211,7 +195,7 @@ const deleteMatch = async (req, res) => {
 
     res.json({ message: 'Đã xóa trận đấu.' });
   } catch (err) {
-    res.status(500).json({ message: 'Không thể xóa trận đấu.', error: err.message });
+    res.status(500).json({ message: 'Không thể xóa trận đấu.' });
   }
 };
 

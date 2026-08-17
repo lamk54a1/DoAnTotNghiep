@@ -21,8 +21,8 @@ export default function AdminAuditLogsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axiosClient.get('/admin/audit-logs')
-      .then((data) => setLogs(data as unknown as AuditLog[]))
+    axiosClient.get<AuditLog[]>('/admin/audit-logs')
+      .then(setLogs)
       .finally(() => setLoading(false));
   }, []);
 

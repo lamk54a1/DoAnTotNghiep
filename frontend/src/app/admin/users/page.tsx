@@ -15,7 +15,7 @@ export default function AdminUsersPage() {
   const fetchUsers = async () => {
     try {
       const data = await axiosClient.get<IUser[]>('/admin/users');
-      setUsers(data as unknown as IUser[]);
+      setUsers(data);
     } finally {
       setLoading(false);
     }

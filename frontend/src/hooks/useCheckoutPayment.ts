@@ -9,28 +9,25 @@ import { IOrderResponse, PaymentMethod } from '../interfaces/IOrder';
 interface CheckoutPaymentParams {
   selectedSeats: string[];
   paymentMethod: PaymentMethod;
-  confirmPayment: () => void;
-  onSuccess: (ticketCode: string, confirmedSeats: string[]) => void;
+  onOrderCreated: (order: IOrderResponse, confirmedSeats: string[]) => void;
 }
 
 export function useCheckoutPayment({
   selectedSeats,
   paymentMethod,
-  confirmPayment,
-  onSuccess,
+  onOrderCreated,
 }: CheckoutPaymentParams) {
   const { message } = App.useApp();
-  const [isVerifying, setIsVerifying] = useState(false);
+  const [isCreatingOrder, setIsCreatingOrder] = useState(false);
 
-  const verifyPayment = async () => {
-    setIsVerifying(true);
+  const createPendingOrder = async () => {
+    setIsCreatingOrder(true);
     try {
       const userInfoStr = localStorage.getItem('user_info');
       const matchIdStr = localStorage.getItem('current_match_id');
 
       if (!userInfoStr) {
         message.error('Vui lòng đăng nhập lại để thanh toán!');
-        setIsVerifying(false);
         return;
       }
 
@@ -41,20 +38,19 @@ export function useCheckoutPayment({
         matchId: Number(matchIdStr),
       };
 
-      const resData = await axiosClient.post('/orders', payload) as unknown as IOrderResponse;
+      const resData = await axiosClient.post<IOrderResponse>('/orders', payload);
 
-      confirmPayment();
-      onSuccess(resData.orderQrCode, seatsSnapshot);
-      message.success('Đã tạo đơn hàng. Vui lòng chờ xác nhận thanh toán!');
+      onOrderCreated(resData, seatsSnapshot);
+      message.success('Đã tạo đơn và khóa ghế trong 15 phút.');
     } catch (error: unknown) {
       console.error(error);
       message.error(axios.isAxiosError(error) && error.response?.data?.message
         ? error.response.data.message
         : 'Giao dịch thất bại, ghế không tồn tại hoặc đã có người mua!');
     } finally {
-      setIsVerifying(false);
+      setIsCreatingOrder(false);
     }
   };
 
-  return { isVerifying, verifyPayment };
+  return { isCreatingOrder, createPendingOrder };
 }

@@ -10,7 +10,6 @@ export interface IUser {
   cccdVerifiedAt?: Date | string;
   role: 'USER' | 'ADMIN';   // Phân quyền người dùng hoặc quản trị viên
   avatar?: string;
-  password?: string;        // Lưu hash mật khẩu (dùng ở Backend)
   address?: string;         // Địa chỉ (nếu muốn làm tính năng ship vé cứng)
   status: 'ACTIVE' | 'BANNED';
   createdAt: Date | string; // Ngày tạo tài khoản
@@ -34,7 +33,6 @@ export interface IRegisterPayload {
 
 export interface IAuthResponse {
   message: string;
-  access_token: string;
   user: {
     id: number;
     email: string;

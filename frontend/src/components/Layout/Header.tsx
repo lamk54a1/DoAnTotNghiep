@@ -5,12 +5,12 @@ import { usePathname, useRouter } from 'next/navigation';
 import { ShoppingCartOutlined, UserOutlined, LogoutOutlined, DashboardOutlined, IdcardOutlined } from '@ant-design/icons';
 import { Badge, Dropdown, MenuProps } from 'antd';
 import { useBooking } from '../../hooks/useBooking'; // Đường dẫn tương đối của bạn
-import { IUser } from '../../interfaces/IUser'; // Import interface User (đường dẫn tuỳ theo cấu trúc của bạn)
-import { AUTH_SESSION_CHANGED, clearAuthSession, getStoredUser } from '../../utils/authSession';
+import { AUTH_SESSION_CHANGED, clearAuthSession, getStoredUser, StoredUser } from '../../utils/authSession';
+import { authApi } from '../../api/authApi';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
-  const [user, setUser] = useState<IUser | null>(null); // Trạng thái lưu user đăng nhập
+  const [user, setUser] = useState<StoredUser | null>(null); // Chỉ lưu dữ liệu hiển thị không nhạy cảm
   const { selectedSeats } = useBooking();
   const router = useRouter();
   const pathname = usePathname();
@@ -39,8 +39,12 @@ const Header = () => {
   }, [pathname]);
 
   // Hàm xử lý Đăng xuất
-  const handleLogout = () => {
-    clearAuthSession();
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } finally {
+      clearAuthSession();
+    }
     router.push('/login'); // Đá về trang đăng nhập
   };
 

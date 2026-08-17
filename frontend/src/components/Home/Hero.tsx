@@ -12,7 +12,7 @@ const Hero = () => {
   useEffect(() => {
     void axiosClient.get<IMatch[]>('/matches?scope=featured')
       .then((data) => {
-        const matches = data as unknown as IMatch[];
+        const matches = data;
         setFeaturedMatch(matches[0] || null);
       })
       .catch(() => setFeaturedMatch(null));

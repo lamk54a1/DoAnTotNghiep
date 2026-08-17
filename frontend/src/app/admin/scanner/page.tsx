@@ -30,7 +30,7 @@ export default function AdminScannerPage() {
     if (!ticketQrCode.trim()) return;
     try {
       setLoading(true);
-      const res = await axiosClient.post('/tickets/scan', { ticketQrCode }) as unknown as { message: string; ticket: ScanTicket };
+      const res = await axiosClient.post<{ message: string; ticket: ScanTicket }>('/tickets/scan', { ticketQrCode });
       setTicket(res.ticket);
       setScanStatus('success');
       setScanMessage(res.message);

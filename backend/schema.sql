@@ -6,7 +6,7 @@ END $$;
 
 DO $$
 BEGIN
-  CREATE TYPE order_status AS ENUM ('PENDING', 'PAID', 'CANCELLED');
+  CREATE TYPE order_status AS ENUM ('PENDING', 'SUCCESS', 'CANCELLED');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
   auth_provider VARCHAR(20) DEFAULT 'LOCAL',
   provider_id VARCHAR(255),
   profile_completed BOOLEAN DEFAULT false,
+  token_version INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
@@ -59,6 +60,8 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_method VARCHAR(30),
   order_qr_code VARCHAR(80),
   payment_qr_code TEXT,
+  transaction_id VARCHAR(120),
+  expires_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -88,6 +91,9 @@ CREATE INDEX IF NOT EXISTS tickets_match_id_idx ON tickets (match_id);
 CREATE INDEX IF NOT EXISTS tickets_match_status_idx ON tickets (match_id, status);
 CREATE INDEX IF NOT EXISTS tickets_hold_expiry_idx ON tickets (held_until) WHERE status = 'HELD';
 CREATE INDEX IF NOT EXISTS tickets_paper_printed_idx ON tickets (match_id, status, is_printed);
+CREATE INDEX IF NOT EXISTS orders_pending_expiry_idx ON orders (expires_at) WHERE status = 'PENDING';
+CREATE UNIQUE INDEX IF NOT EXISTS orders_order_qr_code_unique_idx ON orders (order_qr_code) WHERE order_qr_code IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS tickets_ticket_qr_code_unique_idx ON tickets (ticket_qr_code) WHERE ticket_qr_code IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS sponsors (
   id SERIAL PRIMARY KEY,

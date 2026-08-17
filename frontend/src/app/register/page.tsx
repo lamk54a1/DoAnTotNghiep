@@ -1,11 +1,13 @@
 'use client';
-import { Form, Input, Button, Card, App as AntApp } from 'antd';
+import { Form, Input, Button, Card, Divider, App as AntApp } from 'antd';
 import { authApi } from '../../api/authApi';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { IRegisterPayload } from '../../interfaces/IUser';
 import { useEffect } from 'react';
+
+const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
 
 function RegisterPage() {
   const router = useRouter();
@@ -23,7 +25,7 @@ function RegisterPage() {
       void confirmPassword;
       
       // Gọi API đăng ký từ authApi 
-      const res = await authApi.register(payload) as unknown as { message: string };
+      const res = await authApi.register(payload);
       
       notification.success({
         title: 'Đăng ký thành công',
@@ -32,9 +34,11 @@ function RegisterPage() {
 
       // Đăng ký xong thì chuyển hướng ngay về trang đăng nhập
       router.push('/login');
-    } catch (error) {
-      // Lỗi đã được xử lý tự động qua Interceptor của axiosClient
-      console.error(error);
+    } catch (error: unknown) {
+      const description = typeof error === 'object' && error && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+        : undefined;
+      notification.error({ title: 'Đăng ký thất bại', description: description || 'Vui lòng kiểm tra lại thông tin.' });
     }
   };
 
@@ -96,7 +100,8 @@ function RegisterPage() {
             name="password" 
             rules={[
               { required: true, message: 'Vui lòng nhập mật khẩu!' },
-              { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự!' }
+              { min: 8, message: 'Mật khẩu phải có ít nhất 8 ký tự!' },
+              { pattern: /^(?=.*[A-Za-z])(?=.*\d).+$/, message: 'Mật khẩu phải có cả chữ và số!' }
             ]}
           >
             <Input.Password placeholder="Nhập mật khẩu bí mật" className="h-10 rounded-lg" />
@@ -130,6 +135,12 @@ function RegisterPage() {
               ĐĂNG KÝ NGAY
             </Button>
           </Form.Item>
+
+          <Divider plain>Hoặc đăng ký với</Divider>
+          <div className="grid grid-cols-2 gap-3">
+            <Button href={`${apiBaseUrl}/auth/oauth/google?mode=register`}>Google</Button>
+            <Button href={`${apiBaseUrl}/auth/oauth/facebook?mode=register`}>Facebook</Button>
+          </div>
 
 
           <div className="text-center mt-4 text-xs font-medium text-gray-500">

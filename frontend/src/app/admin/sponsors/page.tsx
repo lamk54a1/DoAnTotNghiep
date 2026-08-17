@@ -30,7 +30,7 @@ export default function AdminSponsorsPage() {
   const fetchSponsors = async () => {
     try {
       const data = await axiosClient.get<ISponsor[]>('/sponsors/admin');
-      setSponsors(data as unknown as ISponsor[]);
+      setSponsors(data);
     } finally {
       setLoading(false);
     }
@@ -61,9 +61,9 @@ export default function AdminSponsorsPage() {
       try {
         const data = new FormData();
         data.append('image', file);
-        const response = await axiosClient.post('/uploads/sponsor-logo', data, {
+        const response = await axiosClient.post<{ path: string }>('/uploads/sponsor-logo', data, {
           headers: { 'Content-Type': 'multipart/form-data' },
-        }) as unknown as { path: string };
+        });
         form.setFieldValue('logoUrl', response.path);
         notification.success({ title: 'Đã upload logo' });
       } catch (error) {

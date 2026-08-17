@@ -1,36 +1,46 @@
 const pool = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 const { writeAuditLog } = require('../utils/auditLog');
+const { ORDER_EXPIRY_MINUTES, releaseExpiredOrders, expirePendingOrders } = require('../utils/orderLifecycle');
 
-const ensureUserIdentityColumns = (db = pool) => db.query(`
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd varchar(12);
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_cccd varchar(12);
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_status varchar(20) DEFAULT 'NOT_SUBMITTED';
-    ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_verified_at timestamp;
-    UPDATE users
-    SET cccd_status = 'VERIFIED',
-        cccd_verified_at = COALESCE(cccd_verified_at, NOW())
-    WHERE cccd IS NOT NULL
-    AND (cccd_status IS NULL OR cccd_status <> 'VERIFIED');
-`);
+const paymentMethods = new Set(['BANK_TRANSFER', 'MOMO', 'VNPAY', 'CASH']);
 
-const ensureTicketHoldColumns = (db = pool) => db.query(`
-    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS held_by integer REFERENCES users(id) ON DELETE SET NULL;
-    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS held_until timestamp;
-`);
+const buildPaymentQrCode = ({ totalAmount, orderQrCode }) => {
+    const bankId = String(process.env.BANK_ID || '').trim();
+    const accountNo = String(process.env.BANK_ACCOUNT_NO || '').trim();
+    const accountName = String(process.env.BANK_ACCOUNT_NAME || '').trim();
+    if (!bankId || !accountNo || !accountName) return null;
+
+    const query = new URLSearchParams({
+        amount: String(totalAmount),
+        addInfo: `THANH TOAN VE ${orderQrCode}`,
+        accountName,
+    });
+    return `https://img.vietqr.io/image/${encodeURIComponent(bankId)}-${encodeURIComponent(accountNo)}-compact2.png?${query}`;
+};
 
 const createOrder = async (req, res) => {
-    const { paymentMethod, tickets, matchId } = req.body;
+    const { tickets } = req.body;
+    const matchId = Number(req.body.matchId);
+    const normalizedPaymentMethod = String(req.body.paymentMethod || '').toUpperCase();
     const userId = req.user.id;
+    const uniqueTickets = Array.isArray(tickets)
+        ? [...new Set(tickets.map((ticket) => String(ticket).trim()).filter(Boolean))]
+        : [];
+
+    if (!Number.isInteger(matchId) || matchId <= 0 || uniqueTickets.length === 0 || uniqueTickets.length > 4 || uniqueTickets.length !== tickets?.length) {
+        return res.status(400).json({ message: 'Mỗi đơn hàng phải có từ 1 đến 4 ghế hợp lệ.' });
+    }
+    if (uniqueTickets.some((ticket) => ticket.length > 30)) {
+        return res.status(400).json({ message: 'Danh sách ghế không hợp lệ.' });
+    }
+    if (!paymentMethods.has(normalizedPaymentMethod)) {
+        return res.status(400).json({ message: 'Phương thức thanh toán không hợp lệ.' });
+    }
+
     const client = await pool.connect();
 
     try {
-        await ensureUserIdentityColumns(client);
-        await ensureTicketHoldColumns(client);
-        if (!Array.isArray(tickets) || tickets.length === 0 || tickets.length > 4) {
-            return res.status(400).json({ message: 'Mỗi đơn hàng phải có từ 1 đến 4 ghế.' });
-        }
-
         const userIdentityResult = await client.query(
             'SELECT cccd, cccd_status FROM users WHERE id = $1',
             [userId]
@@ -41,12 +51,8 @@ const createOrder = async (req, res) => {
         }
         const buyerCccd = userIdentityResult.rows[0].cccd;
 
-        const uniqueTickets = [...new Set(tickets)];
-        if (uniqueTickets.length !== tickets.length) {
-            return res.status(400).json({ message: 'Danh sách ghế không hợp lệ.' });
-        }
-
         await client.query('BEGIN');
+        await releaseExpiredOrders(client);
 
         const matchResult = await client.query(
             'SELECT status FROM matches WHERE id = $1 FOR UPDATE',
@@ -116,48 +122,40 @@ const createOrder = async (req, res) => {
         }
 
         const totalAmount = ticketPrices.rows.reduce((sum, ticket) => sum + Number(ticket.price), 0);
-        const paymentMethodMap = {
-            bank: 'BANK_TRANSFER',
-            BANK_TRANSFER: 'BANK_TRANSFER',
-            momo: 'MOMO',
-            MOMO: 'MOMO',
-            vnpay: 'VNPAY',
-            VNPAY: 'VNPAY',
-            cash: 'CASH',
-            CASH: 'CASH'
-        };
-        const normalizedPaymentMethod = paymentMethodMap[paymentMethod] || 'BANK_TRANSFER';
-
-        // 1. Tạo QR Code đơn hàng
+        // Mã này chỉ dùng để đối soát đơn, không phải QR vào sân.
         const orderQrCode = `ORDER-${uuidv4().substring(0, 8).toUpperCase()}`;
-        
-        // 2. Tạo link VietQR
-        const paymentQrCode = `https://img.vietqr.io/image/vietcombank-123456-compact.png?amount=${totalAmount}&addInfo=${encodeURIComponent('THANH TOAN VE ' + orderQrCode)}`;
+        const paymentQrCode = normalizedPaymentMethod === 'BANK_TRANSFER'
+            ? buildPaymentQrCode({ totalAmount, orderQrCode })
+            : null;
+
+        if (normalizedPaymentMethod === 'BANK_TRANSFER' && !paymentQrCode) {
+            throw Object.assign(new Error('Máy chủ chưa cấu hình tài khoản nhận chuyển khoản.'), { statusCode: 503 });
+        }
 
         // 3. Insert đơn hàng
         const orderRes = await client.query(
-            `INSERT INTO orders (user_id, total_amount, status, payment_method, order_qr_code, payment_qr_code) 
-             VALUES ($1, $2, 'PENDING', $3, $4, $5) RETURNING *`,
-            [userId, totalAmount, normalizedPaymentMethod, orderQrCode, paymentQrCode]
+            `INSERT INTO orders (
+                user_id, total_amount, status, payment_method, order_qr_code, payment_qr_code, expires_at
+             ) VALUES ($1, $2, 'PENDING', $3, $4, $5, NOW() + ($6 * INTERVAL '1 minute'))
+             RETURNING *`,
+            [userId, totalAmount, normalizedPaymentMethod, orderQrCode, paymentQrCode, ORDER_EXPIRY_MINUTES]
         );
         const newOrder = orderRes.rows[0];
 
         // 4. Cập nhật trực tiếp dựa trên cột seat_code nguyên bản của Database Lãm
         const updatedTickets = [];
         for (const seatCode of uniqueTickets) {
-            const ticketQr = `TICKET-${uuidv4().substring(0, 12).toUpperCase()}`;
-            
             const tRes = await client.query(
                 `UPDATE tickets 
-                 SET status = 'SOLD', order_id = $1, ticket_qr_code = $2,
+                 SET status = 'SOLD', order_id = $1, ticket_qr_code = NULL,
                      held_by = NULL, held_until = NULL
-                 WHERE match_id = $3 
-                 AND seat_code = $4 
+                 WHERE match_id = $2
+                 AND seat_code = $3
                  AND status = 'HELD'
-                 AND held_by = $5
+                 AND held_by = $4
                  AND held_until > NOW()
                  RETURNING *`,
-                [newOrder.id, ticketQr, matchId, seatCode, userId]
+                [newOrder.id, matchId, seatCode, userId]
             );
 
             if (tRes.rowCount === 0) {
@@ -172,13 +170,18 @@ const createOrder = async (req, res) => {
         res.status(201).json({
             id: newOrder.id,
             orderQrCode: newOrder.order_qr_code,
+            paymentQrCode: newOrder.payment_qr_code,
+            expiresAt: newOrder.expires_at,
+            totalAmount: newOrder.total_amount,
+            status: newOrder.status,
             tickets: updatedTickets
         });
 
     } catch (err) {
         await client.query('ROLLBACK');
         console.error("=== LỖI TẠO ĐƠN HÀNG BACKEND ===", err.message);
-        res.status(400).json({ message: err.message });
+        const statusCode = err.statusCode || (err.message.includes('ghế') || err.message.includes('giữ') ? 409 : 500);
+        res.status(statusCode).json({ message: statusCode === 500 ? 'Không thể tạo đơn hàng.' : err.message });
     } finally {
         client.release();
     }
@@ -188,7 +191,6 @@ const getPurchasedTicketCountByMatch = async (req, res) => {
     const { matchId } = req.params;
 
     try {
-        await ensureUserIdentityColumns();
         const result = await pool.query(
             `SELECT COUNT(t.id)::int AS "ticketCount"
              FROM tickets t
@@ -205,12 +207,13 @@ const getPurchasedTicketCountByMatch = async (req, res) => {
         res.json({ ticketCount: result.rows[0].ticketCount || 0 });
     } catch (err) {
         console.error('Không thể kiểm tra số vé đã mua:', err.message);
-        res.json({ ticketCount: 0 });
+        res.status(500).json({ message: 'Không thể kiểm tra giới hạn vé đã mua.' });
     }
 };
 
 const getMyOrders = async (req, res) => {
     try {
+        await expirePendingOrders(pool);
         const result = await pool.query(
             `SELECT
                 o.id,
@@ -218,6 +221,8 @@ const getMyOrders = async (req, res) => {
                 o.status,
                 o.payment_method AS "paymentMethod",
                 o.order_qr_code AS "orderQrCode",
+                o.payment_qr_code AS "paymentQrCode",
+                o.expires_at AS "expiresAt",
                 o.created_at AS "createdAt",
                 COALESCE(
                     JSON_AGG(

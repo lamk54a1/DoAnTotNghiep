@@ -18,7 +18,7 @@ export default function SponsorsSection() {
 
   useEffect(() => {
     void axiosClient.get<ISponsor[]>('/sponsors')
-      .then((data) => setSponsors(data as unknown as ISponsor[]))
+      .then(setSponsors)
       .catch(() => setSponsors([]));
   }, []);
 

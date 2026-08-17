@@ -3,54 +3,23 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { writeAuditLog } = require('../utils/auditLog');
-
-if (!process.env.JWT_SECRET) {
-  throw new Error('Thiếu JWT_SECRET trong .env. Vui lòng cấu hình secret trước khi chạy backend.');
-}
+const { clearSessionCookie, setSessionCookie } = require('../utils/session');
 
 const jwtSecret = process.env.JWT_SECRET;
-
-const ensureUserIdentityColumns = () => pool.query(`
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd varchar(12);
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_cccd varchar(12);
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_status varchar(20) DEFAULT 'NOT_SUBMITTED';
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_verified_at timestamp;
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS address text;
-  CREATE UNIQUE INDEX IF NOT EXISTS users_cccd_unique_idx ON users (cccd) WHERE cccd IS NOT NULL;
-  UPDATE users
-  SET cccd_status = 'VERIFIED',
-      cccd_verified_at = COALESCE(cccd_verified_at, NOW())
-  WHERE cccd IS NOT NULL
-  AND (cccd_status IS NULL OR cccd_status <> 'VERIFIED');
-`);
 
 const normalizeCccd = (value) => String(value || '').replace(/\D/g, '');
 const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
-const ensureSocialColumns = (db = pool) => db.query(`
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider varchar(20) DEFAULT 'LOCAL';
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS provider_id varchar(255);
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_completed boolean DEFAULT false;
-  UPDATE users
-  SET profile_completed = true
-  WHERE COALESCE(full_name, '') <> ''
-    AND COALESCE(phone_number, '') <> ''
-    AND COALESCE(address, '') <> '';
-  CREATE UNIQUE INDEX IF NOT EXISTS users_provider_unique_idx
-  ON users (auth_provider, provider_id) WHERE provider_id IS NOT NULL;
-`);
-
-const createAccessToken = (user) => jwt.sign(
-  { id: user.id, role: user.role },
-  jwtSecret,
-  { expiresIn: '30d' }
+const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const isStrongPassword = (value) => (
+  String(value || '').length >= 8
+  && /[A-Za-z]/.test(value)
+  && /\d/.test(value)
 );
 
 const getProfile = async (req, res) => {
   try {
-    await ensureUserIdentityColumns();
-    await ensureSocialColumns();
     const result = await pool.query(
       `SELECT
         id,
@@ -98,8 +67,6 @@ const updateProfile = async (req, res) => {
   }
 
   try {
-    await ensureUserIdentityColumns();
-    await ensureSocialColumns();
     const result = await pool.query(
       `UPDATE users
        SET full_name = $1, phone_number = $2, address = $3, profile_completed = true
@@ -140,8 +107,6 @@ const updateIdentity = async (req, res) => {
   }
 
   try {
-    await ensureUserIdentityColumns();
-    await ensureSocialColumns();
 
     const currentUserResult = await pool.query(
       'SELECT id, cccd FROM users WHERE id = $1',
@@ -189,7 +154,7 @@ const updateIdentity = async (req, res) => {
       return res.status(409).json({ message: 'Tài khoản này đã cập nhật CCCD. Không thể cập nhật lại.' });
     }
 
-    await writeAuditLog({ userId: req.user.id, action: 'CCCD_SUBMITTED', entityType: 'user', entityId: req.user.id, metadata: { pendingCccd: cccd } });
+    await writeAuditLog({ userId: req.user.id, action: 'CCCD_SUBMITTED', entityType: 'user', entityId: req.user.id, metadata: { cccdLastFour: cccd.slice(-4) } });
     res.json({ message: 'Đã gửi CCCD cho admin duyệt.', user: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
@@ -201,45 +166,50 @@ const updateIdentity = async (req, res) => {
 
 // ĐĂNG KÝ
 const register = async (req, res) => {
-  const { email, password, fullName, phoneNumber, address } = req.body;
+  const email = normalizeEmail(req.body.email);
+  const password = String(req.body.password || '');
+  const fullName = String(req.body.fullName || '').trim();
+  const phoneNumber = String(req.body.phoneNumber || '').trim();
+  const address = String(req.body.address || '').trim();
 
-  if (!String(address || '').trim()) {
-    return res.status(400).json({ message: 'Vui lòng nhập địa chỉ.' });
-  }
+  if (!isValidEmail(email)) return res.status(400).json({ message: 'Email không hợp lệ.' });
+  if (fullName.length < 2 || fullName.length > 120) return res.status(400).json({ message: 'Họ tên phải có từ 2 đến 120 ký tự.' });
+  if (!/^0\d{9}$/.test(phoneNumber)) return res.status(400).json({ message: 'Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng 0.' });
+  if (address.length < 8 || address.length > 500) return res.status(400).json({ message: 'Địa chỉ phải có từ 8 đến 500 ký tự.' });
+  if (!isStrongPassword(password)) return res.status(400).json({ message: 'Mật khẩu phải có ít nhất 8 ký tự, gồm chữ và số.' });
 
   try {
-    await ensureUserIdentityColumns();
-    await ensureSocialColumns();
-    // 1. Kiểm tra tài khoản tồn tại chưa
-    const userExist = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const userExist = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
     if (userExist.rows.length > 0) {
       return res.status(400).json({ message: 'Email này đã được sử dụng!' });
     }
 
     // 2. Mã hóa mật khẩu
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 12);
 
     // 3. Lưu vào database (Mặc định role là USER)
     const newUser = await pool.query(
       `INSERT INTO users (email, password, full_name, phone_number, address, role, status, auth_provider, profile_completed)
        VALUES ($1, $2, $3, $4, $5, 'USER', 'ACTIVE', 'LOCAL', true)
        RETURNING id, email, full_name, role`,
-      [email, hashedPassword, fullName, phoneNumber, String(address).trim()]
+      [email, hashedPassword, fullName, phoneNumber, address]
     );
 
     res.status(201).json({ message: 'Đăng ký tài khoản thành công!', user: newUser.rows[0] });
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ message: 'Email này đã được sử dụng!' });
     res.status(500).json({ message: 'Lỗi hệ thống khi đăng ký.' });
   }
 };
 
 // ĐĂNG NHẬP
 const login = async (req, res) => {
-  const { email, password } = req.body;
+  const email = normalizeEmail(req.body.email);
+  const password = String(req.body.password || '');
+  if (!isValidEmail(email) || !password) {
+    return res.status(400).json({ message: 'Email hoặc mật khẩu không chính xác!' });
+  }
   try {
-    await ensureUserIdentityColumns();
-    await ensureSocialColumns();
     // 1. Tìm user theo email
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) {
@@ -260,12 +230,11 @@ const login = async (req, res) => {
     }
 
     // 4. Tạo mã Token JWT (Lưu ID và Quyền của User vào đây)
-    const token = createAccessToken(user);
+    setSessionCookie(res, user);
 
     // 5. Trả dữ liệu về cho Frontend
     res.json({
       message: 'Đăng nhập thành công!',
-      access_token: token,
       user: {
         id: user.id,
         email: user.email,
@@ -284,17 +253,24 @@ const login = async (req, res) => {
 
 const changePassword = async (req, res) => {
   const { currentPassword, newPassword } = req.body;
-  if (String(newPassword || '').length < 8) {
-    return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 8 ký tự.' });
+  if (!isStrongPassword(newPassword)) {
+    return res.status(400).json({ message: 'Mật khẩu mới phải có ít nhất 8 ký tự, gồm chữ và số.' });
   }
 
   try {
-    const result = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+    const result = await pool.query('SELECT password, auth_provider FROM users WHERE id = $1', [req.user.id]);
     if (result.rowCount === 0) return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+    if (result.rows[0].auth_provider !== 'LOCAL') {
+      return res.status(400).json({ message: 'Mật khẩu của tài khoản mạng xã hội được quản lý bởi nhà cung cấp đăng nhập.' });
+    }
     const isMatch = await bcrypt.compare(String(currentPassword || ''), result.rows[0].password);
     if (!isMatch) return res.status(400).json({ message: 'Mật khẩu hiện tại không chính xác.' });
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    await pool.query("UPDATE users SET password = $1, auth_provider = 'LOCAL' WHERE id = $2", [hashedPassword, req.user.id]);
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    const updated = await pool.query(
+      "UPDATE users SET password = $1, auth_provider = 'LOCAL', token_version = token_version + 1 WHERE id = $2 RETURNING *",
+      [hashedPassword, req.user.id]
+    );
+    setSessionCookie(res, updated.rows[0]);
     res.json({ message: 'Đổi mật khẩu thành công.' });
   } catch (err) {
     res.status(500).json({ message: 'Không thể đổi mật khẩu.' });
@@ -309,15 +285,19 @@ const changeEmail = async (req, res) => {
   }
 
   try {
-    const current = await pool.query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+    const current = await pool.query('SELECT password, auth_provider FROM users WHERE id = $1', [req.user.id]);
     if (current.rowCount === 0) return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+    if (current.rows[0].auth_provider !== 'LOCAL') {
+      return res.status(400).json({ message: 'Email của tài khoản mạng xã hội được quản lý bởi nhà cung cấp đăng nhập.' });
+    }
     if (!await bcrypt.compare(currentPassword, current.rows[0].password)) {
       return res.status(400).json({ message: 'Mật khẩu hiện tại không chính xác.' });
     }
     const result = await pool.query(
-      'UPDATE users SET email = $1 WHERE id = $2 RETURNING email',
+      'UPDATE users SET email = $1, token_version = token_version + 1 WHERE id = $2 RETURNING *',
       [email, req.user.id]
     );
+    setSessionCookie(res, result.rows[0]);
     res.json({ message: 'Đổi email thành công.', email: result.rows[0].email });
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ message: 'Email này đã được sử dụng.' });
@@ -391,20 +371,27 @@ const oauthCallback = async (req, res) => {
     const userResponse = await fetch(`${config.userUrl}${separator}access_token=${encodeURIComponent(finalTokenData.access_token)}`, {
       headers: provider === 'google' ? { Authorization: `Bearer ${finalTokenData.access_token}` } : undefined,
     });
+    if (!userResponse.ok) throw new Error('Không đọc được thông tin tài khoản mạng xã hội.');
     const socialUser = await userResponse.json();
     const email = normalizeEmail(socialUser.email);
     if (!socialUser.id && !socialUser.sub) throw new Error('Không đọc được tài khoản mạng xã hội.');
     if (!email) throw new Error('Tài khoản mạng xã hội chưa cung cấp email.');
+    if (provider === 'google' && socialUser.email_verified !== true) {
+      throw new Error('Email Google chưa được xác minh.');
+    }
 
-    await ensureUserIdentityColumns();
-    await ensureSocialColumns();
     const providerId = String(socialUser.sub || socialUser.id);
+    const providerName = provider.toUpperCase();
     let userResult = await pool.query(
       'SELECT * FROM users WHERE auth_provider = $1 AND provider_id = $2',
-      [provider.toUpperCase(), providerId]
+      [providerName, providerId]
     );
     if (userResult.rowCount === 0) {
-      userResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+      const emailResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+      if (emailResult.rowCount > 0 && emailResult.rows[0].auth_provider !== providerName) {
+        throw new Error('Email này đã có tài khoản. Vui lòng đăng nhập bằng mật khẩu để tránh liên kết nhầm tài khoản.');
+      }
+      userResult = emailResult;
     }
     if (userResult.rowCount === 0) {
       const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
@@ -412,18 +399,18 @@ const oauthCallback = async (req, res) => {
         `INSERT INTO users (email, password, full_name, role, status, auth_provider, provider_id, address, profile_completed)
          VALUES ($1, $2, $3, 'USER', 'ACTIVE', $4, $5, '', false)
          RETURNING *`,
-        [email, randomPassword, socialUser.name || email.split('@')[0], provider.toUpperCase(), providerId]
+        [email, randomPassword, socialUser.name || email.split('@')[0], providerName, providerId]
       );
     } else {
       await pool.query(
         'UPDATE users SET auth_provider = $1, provider_id = COALESCE(provider_id, $2) WHERE id = $3',
-        [provider.toUpperCase(), providerId, userResult.rows[0].id]
+        [providerName, providerId, userResult.rows[0].id]
       );
       userResult = await pool.query('SELECT * FROM users WHERE id = $1', [userResult.rows[0].id]);
     }
     const user = userResult.rows[0];
     if (user.status === 'BANNED') throw new Error('Tài khoản đã bị khóa.');
-    const token = createAccessToken(user);
+    setSessionCookie(res, user);
     const userPayload = Buffer.from(JSON.stringify({
       id: user.id,
       email: user.email,
@@ -432,7 +419,7 @@ const oauthCallback = async (req, res) => {
       profileCompleted: Boolean(user.profile_completed),
       authProvider: user.auth_provider,
     })).toString('base64url');
-    res.redirect(`${frontendUrl}/auth/callback?token=${encodeURIComponent(token)}&user=${encodeURIComponent(userPayload)}`);
+    res.redirect(`${frontendUrl}/auth/callback?user=${encodeURIComponent(userPayload)}`);
   } catch (err) {
     let mode = 'login';
     try {
@@ -442,4 +429,9 @@ const oauthCallback = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getProfile, updateProfile, updateIdentity, changePassword, changeEmail, oauthStart, oauthCallback };
+const logout = (_req, res) => {
+  clearSessionCookie(res);
+  res.json({ message: 'Đã đăng xuất.' });
+};
+
+module.exports = { register, login, logout, getProfile, updateProfile, updateIdentity, changePassword, changeEmail, oauthStart, oauthCallback, isStrongPassword };

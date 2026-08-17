@@ -11,12 +11,11 @@ export default function OAuthCallbackPage() {
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      const token = params.get('token');
       const encodedUser = params.get('user');
-      if (!token || !encodedUser) throw new Error();
+      if (!encodedUser) throw new Error();
       const base64 = encodedUser.replace(/-/g, '+').replace(/_/g, '/');
       const user = JSON.parse(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')));
-      saveAuthSession(token, user);
+      saveAuthSession(user);
       window.history.replaceState({}, '', '/auth/callback');
       router.replace(user.role === 'ADMIN'
         ? '/admin/dashboard'

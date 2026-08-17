@@ -33,12 +33,12 @@ export default function AdminDashboard() {
       if (selectedMatchId) params.set('matchId', String(selectedMatchId));
 
       const [statsResult, matchesResult] = await Promise.allSettled([
-        axiosClient.get(`/admin/stats?${params.toString()}`),
-        axiosClient.get('/matches'),
+        axiosClient.get<DashboardStats>(`/admin/stats?${params.toString()}`),
+        axiosClient.get<IMatch[]>('/matches'),
       ]);
 
       if (statsResult.status === 'fulfilled') {
-        setStats(statsResult.value as unknown as DashboardStats);
+        setStats(statsResult.value);
       } else if (axios.isAxiosError(statsResult.reason) && statsResult.reason.response?.status === 403) {
         notification.warning({
           message: 'Phiên quản trị không hợp lệ',
@@ -49,7 +49,7 @@ export default function AdminDashboard() {
       }
 
       if (matchesResult.status === 'fulfilled') {
-        setMatches(matchesResult.value as unknown as IMatch[]);
+        setMatches(matchesResult.value);
       } else {
         notification.error({ message: 'Không thể tải danh sách trận đấu cho bộ lọc.' });
       }

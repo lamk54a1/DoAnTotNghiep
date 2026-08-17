@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLog');
 const { v4: uuidv4 } = require('uuid');
+const { releaseExpiredOrders, expirePendingOrders } = require('../utils/orderLifecycle');
 
 const STAND_CONFIGS = [
     { prefix: 'A', rows: 80, seatsPerRow: 100, price: 100000 },
@@ -8,38 +9,6 @@ const STAND_CONFIGS = [
     { prefix: 'C', rows: 30, seatsPerRow: 100, price: 20000 },
     { prefix: 'D', rows: 30, seatsPerRow: 100, price: 20000 },
 ];
-
-const ensureFreeStandsColumn = (db = pool) => db.query(
-    `ALTER TABLE matches ADD COLUMN IF NOT EXISTS free_stands text[] DEFAULT '{}'::text[];
-     ALTER TABLE matches ADD COLUMN IF NOT EXISTS stand_prices jsonb DEFAULT '{"A":100000,"B":50000,"C":20000,"D":20000}'::jsonb;`
-);
-
-const ensureTicketScanColumn = (db = pool) => db.query(
-    `ALTER TABLE tickets ADD COLUMN IF NOT EXISTS is_scanned boolean DEFAULT false;
-     CREATE INDEX IF NOT EXISTS tickets_match_id_idx ON tickets (match_id);
-     CREATE INDEX IF NOT EXISTS tickets_match_status_idx ON tickets (match_id, status);
-     CREATE INDEX IF NOT EXISTS tickets_match_seat_code_idx ON tickets (match_id, seat_code);`
-);
-
-const ensureTicketStatusValues = async (db = pool) => {
-    await db.query("ALTER TYPE ticket_status ADD VALUE IF NOT EXISTS 'PAPER_RESERVED'");
-    await db.query("ALTER TYPE ticket_status ADD VALUE IF NOT EXISTS 'PAPER_SOLD'");
-    await db.query("ALTER TYPE ticket_status ADD VALUE IF NOT EXISTS 'HELD'");
-};
-
-const ensureTicketHoldColumns = (db = pool) => db.query(`
-    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS held_by integer REFERENCES users(id) ON DELETE SET NULL;
-    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS held_until timestamp;
-    CREATE INDEX IF NOT EXISTS tickets_hold_expiry_idx ON tickets (held_until) WHERE status = 'HELD';
-`);
-
-const ensurePaperPrintColumns = (db = pool) => db.query(`
-    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS is_printed boolean DEFAULT false;
-    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS printed_at timestamp;
-    ALTER TABLE tickets ADD COLUMN IF NOT EXISTS printed_by integer REFERENCES users(id) ON DELETE SET NULL;
-    CREATE INDEX IF NOT EXISTS tickets_paper_printed_idx
-    ON tickets (match_id, status, is_printed);
-`);
 
 const releaseExpiredHolds = (db = pool) => db.query(`
     UPDATE tickets
@@ -51,15 +20,13 @@ const releaseExpiredHolds = (db = pool) => db.query(`
 const getTicketsByMatch = async (req, res) => {
     const { matchId } = req.params;
     try {
-        await ensureTicketScanColumn();
-        await ensureTicketStatusValues();
-        await ensureTicketHoldColumns();
+        await expirePendingOrders(pool);
         await releaseExpiredHolds();
         const query = `
-            SELECT 
-                id, match_id AS "matchId", order_id AS "orderId",
+            SELECT
+                id, match_id AS "matchId",
                 seat_code AS "seatCode", sector, row, seat_number AS "seatNumber",
-                price, status, ticket_qr_code AS "ticketQrCode", is_scanned AS "isScanned",
+                price, status,
                 held_until AS "heldUntil",
                 (held_by = $2) AS "heldByCurrentUser"
             FROM tickets 
@@ -70,7 +37,7 @@ const getTicketsByMatch = async (req, res) => {
         res.json(result.rows); 
     } catch (err) {
         console.error('Không thể lấy danh sách ghế:', err.message);
-        res.status(500).json({ message: "Không thể lấy danh sách ghế", error: err.message });
+        res.status(500).json({ message: "Không thể lấy danh sách ghế" });
     }
 };
 
@@ -84,10 +51,28 @@ const holdSeats = async (req, res) => {
 
     const client = await pool.connect();
     try {
-        await ensureTicketStatusValues(client);
-        await ensureTicketHoldColumns(client);
         await client.query('BEGIN');
+        await releaseExpiredOrders(client);
         await releaseExpiredHolds(client);
+
+        const eligibility = await client.query(
+            `SELECT u.cccd, u.cccd_status AS "cccdStatus", m.status AS "matchStatus"
+             FROM users u CROSS JOIN matches m
+             WHERE u.id = $1 AND m.id = $2`,
+            [req.user.id, matchId]
+        );
+        if (eligibility.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Không tìm thấy trận đấu hoặc tài khoản.' });
+        }
+        if (!eligibility.rows[0].cccd || eligibility.rows[0].cccdStatus !== 'VERIFIED') {
+            await client.query('ROLLBACK');
+            return res.status(403).json({ message: 'Bạn cần được duyệt CCCD trước khi giữ ghế.' });
+        }
+        if (eligibility.rows[0].matchStatus !== 'ON_SALE') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Trận đấu này hiện không mở bán vé.' });
+        }
 
         const result = await client.query(
             `UPDATE tickets
@@ -119,8 +104,6 @@ const releaseSeats = async (req, res) => {
     const seats = [...new Set(Array.isArray(req.body.seats) ? req.body.seats.map(String) : [])];
 
     try {
-        await ensureTicketStatusValues();
-        await ensureTicketHoldColumns();
         const result = await pool.query(
             `UPDATE tickets
              SET status = 'AVAILABLE', held_by = NULL, held_until = NULL
@@ -148,7 +131,7 @@ const getSoldSeatsByMatch = async (req, res) => {
         const soldSeats = result.rows.map(row => row.seatCode);
         res.json(soldSeats);
     } catch (err) {
-        res.status(500).json({ message: "Không thể tải danh sách ghế đã bán", error: err.message });
+        res.status(500).json({ message: "Không thể tải danh sách ghế đã bán" });
     }
 };
 
@@ -166,7 +149,6 @@ const generateAllSeats = async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        await ensureFreeStandsColumn(client);
         const matchResult = await client.query('SELECT id, free_stands, stand_prices FROM matches WHERE id = $1', [matchId]);
         if (matchResult.rowCount === 0) {
             await client.query('ROLLBACK');
@@ -232,7 +214,7 @@ const generateAllSeats = async (req, res) => {
         res.json({ message: `Đã bổ sung ${result.rowCount} ghế còn thiếu cho khán đài ${selectedStands.join(', ')}.` });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ error: err.message });
+        res.status(500).json({ message: 'Không thể khởi tạo kho vé.' });
     } finally {
         client.release();
     }
@@ -241,9 +223,6 @@ const generateAllSeats = async (req, res) => {
 const getTicketInventoryByMatch = async (req, res) => {
     const { matchId } = req.params;
     try {
-        await ensureTicketScanColumn();
-        await ensureTicketStatusValues();
-        await ensurePaperPrintColumns();
         const result = await pool.query(
             `SELECT
                 SUBSTRING(seat_code FROM 1 FOR 1) AS stand,
@@ -282,16 +261,13 @@ const getTicketInventoryByMatch = async (req, res) => {
 
         res.json(inventory);
     } catch (err) {
-        res.status(500).json({ message: 'Không thể tải tồn kho vé.', error: err.message });
+        res.status(500).json({ message: 'Không thể tải tồn kho vé.' });
     }
 };
 
 const getPublicTicketInventoryByMatch = async (req, res) => {
     const { matchId } = req.params;
     try {
-        await ensureTicketScanColumn();
-        await ensureTicketStatusValues();
-        await ensurePaperPrintColumns();
         await releaseExpiredHolds();
         const result = await pool.query(
             `SELECT
@@ -325,7 +301,7 @@ const getPublicTicketInventoryByMatch = async (req, res) => {
 
         res.json(inventory);
     } catch (err) {
-        res.status(500).json({ message: 'Không thể tải tồn kho vé.', error: err.message });
+        res.status(500).json({ message: 'Không thể tải tồn kho vé.' });
     }
 };
 
@@ -349,8 +325,6 @@ const updatePaperTickets = async (req, res) => {
 
     const client = await pool.connect();
     try {
-        await ensureTicketStatusValues();
-        await ensurePaperPrintColumns(client);
         const statusTransitions = {
             RESERVE: { from: 'AVAILABLE', to: 'PAPER_RESERVED' },
             RELEASE: { from: 'PAPER_RESERVED', to: 'AVAILABLE' },
@@ -439,7 +413,7 @@ const updatePaperTickets = async (req, res) => {
         });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Không thể cập nhật vé giấy.', error: err.message });
+        res.status(500).json({ message: 'Không thể cập nhật vé giấy.' });
     } finally {
         client.release();
     }
@@ -463,8 +437,6 @@ const getPaperTicketsByMatch = async (req, res) => {
     }
 
     try {
-        await ensureTicketStatusValues();
-        await ensurePaperPrintColumns();
         const missingQrResult = await pool.query(
             `SELECT t.id
              FROM tickets t
@@ -505,7 +477,7 @@ const getPaperTicketsByMatch = async (req, res) => {
 
         res.json(result.rows);
     } catch (err) {
-        res.status(500).json({ message: 'Không thể tải danh sách vé giấy.', error: err.message });
+        res.status(500).json({ message: 'Không thể tải danh sách vé giấy.' });
     }
 };
 
@@ -523,7 +495,6 @@ const markPaperTicketsPrinted = async (req, res) => {
 
     const client = await pool.connect();
     try {
-        await ensurePaperPrintColumns(client);
         await client.query('BEGIN');
         const result = await client.query(
             `UPDATE tickets
@@ -556,11 +527,16 @@ const markPaperTicketsPrinted = async (req, res) => {
         });
     } catch (err) {
         await client.query('ROLLBACK');
-        res.status(500).json({ message: 'Không thể đánh dấu vé đã in.', error: err.message });
+        res.status(500).json({ message: 'Không thể đánh dấu vé đã in.' });
     } finally {
         client.release();
     }
 };
+
+const isTicketAdmissionAllowed = (ticket) => (
+    ticket.status === 'PAPER_SOLD'
+    || (ticket.status === 'SOLD' && ['SUCCESS', 'PAID'].includes(ticket.orderStatus))
+);
 
 const scanTicket = async (req, res) => {
     const ticketQrCode = String(req.body.ticketQrCode || '').trim().toUpperCase();
@@ -572,7 +548,6 @@ const scanTicket = async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        await ensureTicketScanColumn(client);
 
         const ticketResult = await client.query(
             `SELECT
@@ -601,9 +576,7 @@ const scanTicket = async (req, res) => {
         }
 
         const ticket = ticketResult.rows[0];
-        const isOnlineTicketValid = ticket.status === 'SOLD' && ticket.orderStatus !== 'CANCELLED';
-        const isPaperTicketValid = ticket.status === 'PAPER_SOLD';
-        if (!isOnlineTicketValid && !isPaperTicketValid) {
+        if (!isTicketAdmissionAllowed(ticket)) {
             await client.query('ROLLBACK');
             return res.status(409).json({ message: 'Vé không hợp lệ hoặc đơn đã bị hủy.', ticket });
         }
@@ -626,4 +599,4 @@ const scanTicket = async (req, res) => {
     }
 };
 
-module.exports = { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, getPublicTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats };
+module.exports = { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, getPublicTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats, isTicketAdmissionAllowed };

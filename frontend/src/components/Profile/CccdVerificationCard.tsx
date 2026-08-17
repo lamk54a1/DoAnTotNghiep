@@ -52,7 +52,7 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
 
     try {
       setSaving(true);
-      const res = await authApi.updateIdentity(detectedCccd) as unknown as { message: string; user: IUser };
+      const res = await authApi.updateIdentity(detectedCccd);
       onVerified(res.user);
 
       const currentUserInfo = JSON.parse(localStorage.getItem('user_info') || '{}');

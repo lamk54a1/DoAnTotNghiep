@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App as AntApp, Button, Card, Form, Input, Result, Spin, Tag } from 'antd';
+import { App as AntApp, Button, Card, Form, Input, Modal, Result, Spin, Tag } from 'antd';
 import { IdcardOutlined, LockOutlined, MailOutlined, SaveOutlined, UserOutlined } from '@ant-design/icons';
 import { authApi } from '../../api/authApi';
 import { IUser } from '../../interfaces/IUser';
@@ -20,11 +20,15 @@ export default function ProfilePage() {
   const [unauthorized, setUnauthorized] = useState(false);
   const [changingEmail, setChangingEmail] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [emailForm] = Form.useForm();
+  const [passwordForm] = Form.useForm();
 
   useEffect(() => {
     queueMicrotask(() => {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
+      const storedUser = localStorage.getItem('user_info');
+      if (!storedUser) {
         setUnauthorized(true);
         setLoading(false);
         return;
@@ -32,7 +36,7 @@ export default function ProfilePage() {
 
       authApi.getProfile()
         .then((data) => {
-          const user = data as unknown as IUser;
+          const user = data;
           setProfile(user);
         })
         .catch(() => setUnauthorized(true))
@@ -43,7 +47,7 @@ export default function ProfilePage() {
   const handleSave = async (values: ProfileFormValues) => {
     try {
       setSaving(true);
-      const res = await authApi.updateProfile(values) as unknown as { message: string; user: IUser };
+      const res = await authApi.updateProfile(values);
       setProfile(res.user);
 
       saveStoredUser({
@@ -65,11 +69,13 @@ export default function ProfilePage() {
   const handleChangeEmail = async (values: { email: string; currentPassword: string }) => {
     try {
       setChangingEmail(true);
-      const res = await authApi.changeEmail(values) as unknown as { message: string; email: string };
+      const res = await authApi.changeEmail(values);
       setProfile((current) => current ? { ...current, email: res.email } : current);
       const storedUser = JSON.parse(localStorage.getItem('user_info') || '{}');
       saveStoredUser({ ...storedUser, email: res.email });
       notification.success({ title: 'Đã đổi email', description: res.message });
+      emailForm.resetFields();
+      setEmailModalOpen(false);
     } finally {
       setChangingEmail(false);
     }
@@ -81,8 +87,10 @@ export default function ProfilePage() {
       const res = await authApi.changePassword({
         currentPassword: values.currentPassword,
         newPassword: values.newPassword,
-      }) as unknown as { message: string };
+      });
       notification.success({ title: 'Đã đổi mật khẩu', description: res.message });
+      passwordForm.resetFields();
+      setPasswordModalOpen(false);
     } finally {
       setChangingPassword(false);
     }
@@ -104,6 +112,9 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  const isLocalAccount = profile?.authProvider === 'LOCAL';
+  const providerLabel = profile?.authProvider === 'GOOGLE' ? 'Google' : 'Facebook';
 
   return (
     <div className="min-h-screen bg-[#f8fafc] px-4 pb-16 pt-28 font-montserrat">
@@ -203,55 +214,87 @@ export default function ProfilePage() {
               </Form>
             </Card>
 
-            <div className="grid gap-6 md:grid-cols-2">
-              <Card title={<span className="font-black text-[#003078]"><MailOutlined /> Đổi email</span>} className="rounded-[28px] border-none shadow-md">
-                <Form layout="vertical" onFinish={handleChangeEmail}>
-                  <Form.Item name="email" label="Email mới" rules={[{ required: true, type: 'email', message: 'Nhập email hợp lệ.' }]}>
-                    <Input className="h-11 rounded-xl" />
-                  </Form.Item>
-                  <Form.Item name="currentPassword" label="Mật khẩu hiện tại" rules={[{ required: true, message: 'Nhập mật khẩu hiện tại.' }]}>
-                    <Input.Password className="h-11 rounded-xl" />
-                  </Form.Item>
-                  <Button htmlType="submit" type="primary" loading={changingEmail} className="h-11 rounded-xl bg-[#003078] font-bold">
-                    Đổi email
-                  </Button>
-                </Form>
-              </Card>
-
-              <Card title={<span className="font-black text-[#003078]"><LockOutlined /> Đổi mật khẩu</span>} className="rounded-[28px] border-none shadow-md">
-                <Form layout="vertical" onFinish={handleChangePassword}>
-                  <Form.Item name="currentPassword" label="Mật khẩu hiện tại" rules={[{ required: true, message: 'Nhập mật khẩu hiện tại.' }]}>
-                    <Input.Password className="h-11 rounded-xl" />
-                  </Form.Item>
-                  <Form.Item name="newPassword" label="Mật khẩu mới" rules={[{ required: true }, { min: 8, message: 'Tối thiểu 8 ký tự.' }]}>
-                    <Input.Password className="h-11 rounded-xl" />
-                  </Form.Item>
-                  <Form.Item
-                    name="confirmPassword"
-                    label="Nhập lại mật khẩu"
-                    dependencies={['newPassword']}
-                    rules={[
-                      { required: true, message: 'Nhập lại mật khẩu mới.' },
-                      ({ getFieldValue }) => ({
-                        validator(_, value) {
-                          return !value || getFieldValue('newPassword') === value
-                            ? Promise.resolve()
-                            : Promise.reject(new Error('Mật khẩu nhập lại không khớp.'));
-                        },
-                      }),
-                    ]}
-                  >
-                    <Input.Password className="h-11 rounded-xl" />
-                  </Form.Item>
-                  <Button htmlType="submit" type="primary" loading={changingPassword} className="h-11 rounded-xl bg-[#003078] font-bold">
-                    Đổi mật khẩu
-                  </Button>
-                </Form>
-              </Card>
-            </div>
+            <Card title={<span className="font-black text-[#003078]"><LockOutlined /> Bảo mật tài khoản</span>} className="rounded-[28px] border-none shadow-md">
+              {isLocalAccount ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-gray-100 p-5">
+                    <p className="m-0 font-black text-[#003078]"><MailOutlined /> Email đăng nhập</p>
+                    <p className="mb-5 mt-2 break-all text-sm text-gray-500">{profile?.email}</p>
+                    <Button onClick={() => setEmailModalOpen(true)} className="h-10 rounded-xl font-bold">Thay đổi email</Button>
+                  </div>
+                  <div className="rounded-2xl border border-gray-100 p-5">
+                    <p className="m-0 font-black text-[#003078]"><LockOutlined /> Mật khẩu</p>
+                    <p className="mb-5 mt-2 text-sm text-gray-500">Mật khẩu luôn được mã hóa và không hiển thị trên trang hồ sơ.</p>
+                    <Button onClick={() => setPasswordModalOpen(true)} className="h-10 rounded-xl font-bold">Đổi mật khẩu</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-2xl bg-blue-50 p-5 text-sm leading-6 text-[#003078]">
+                  Tài khoản này đăng nhập bằng <strong>{providerLabel}</strong>. Email và mật khẩu được quản lý bởi {providerLabel}, hệ thống không lưu hoặc hiển thị mật khẩu của bạn.
+                </div>
+              )}
+            </Card>
           </div>
         </div>
       </div>
+
+      <Modal
+        title="Thay đổi email đăng nhập"
+        open={emailModalOpen}
+        onCancel={() => { emailForm.resetFields(); setEmailModalOpen(false); }}
+        onOk={() => emailForm.submit()}
+        okText="Xác nhận đổi email"
+        cancelText="Hủy"
+        confirmLoading={changingEmail}
+        destroyOnHidden
+      >
+        <p className="text-sm leading-6 text-gray-500">Vì đây là thay đổi nhạy cảm, hãy nhập mật khẩu hiện tại để xác nhận đúng chủ tài khoản.</p>
+        <Form form={emailForm} layout="vertical" onFinish={handleChangeEmail} autoComplete="off">
+          <Form.Item name="email" label="Email mới" rules={[{ required: true, type: 'email', message: 'Nhập email hợp lệ.' }]}>
+            <Input autoComplete="email" className="h-11 rounded-xl" />
+          </Form.Item>
+          <Form.Item name="currentPassword" label="Xác nhận bằng mật khẩu hiện tại" rules={[{ required: true, message: 'Nhập mật khẩu hiện tại.' }]}>
+            <Input.Password autoComplete="off" visibilityToggle={false} className="h-11 rounded-xl" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title="Đổi mật khẩu"
+        open={passwordModalOpen}
+        onCancel={() => { passwordForm.resetFields(); setPasswordModalOpen(false); }}
+        onOk={() => passwordForm.submit()}
+        okText="Lưu mật khẩu mới"
+        cancelText="Hủy"
+        confirmLoading={changingPassword}
+        destroyOnHidden
+      >
+        <Form form={passwordForm} layout="vertical" onFinish={handleChangePassword}>
+          <Form.Item name="currentPassword" label="Mật khẩu hiện tại" rules={[{ required: true, message: 'Nhập mật khẩu hiện tại.' }]}>
+            <Input.Password autoComplete="current-password" visibilityToggle={false} className="h-11 rounded-xl" />
+          </Form.Item>
+          <Form.Item name="newPassword" label="Mật khẩu mới" rules={[{ required: true, message: 'Nhập mật khẩu mới.' }, { min: 8, message: 'Tối thiểu 8 ký tự.' }]}>
+            <Input.Password autoComplete="new-password" visibilityToggle={false} className="h-11 rounded-xl" />
+          </Form.Item>
+          <Form.Item
+            name="confirmPassword"
+            label="Nhập lại mật khẩu"
+            dependencies={['newPassword']}
+            rules={[
+              { required: true, message: 'Nhập lại mật khẩu mới.' },
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  return !value || getFieldValue('newPassword') === value
+                    ? Promise.resolve()
+                    : Promise.reject(new Error('Mật khẩu nhập lại không khớp.'));
+                },
+              }),
+            ]}
+          >
+            <Input.Password autoComplete="new-password" visibilityToggle={false} className="h-11 rounded-xl" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }

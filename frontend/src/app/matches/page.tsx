@@ -12,7 +12,7 @@ export default function MatchesPage() {
 
   useEffect(() => {
     void axiosClient.get<IMatch[]>('/matches?scope=schedule')
-      .then((data) => setMatches(data as unknown as IMatch[]))
+      .then(setMatches)
       .finally(() => setLoading(false));
   }, []);
 

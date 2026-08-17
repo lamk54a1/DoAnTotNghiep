@@ -18,15 +18,15 @@ export default function CompleteProfilePage() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (!token) {
+    const storedUser = localStorage.getItem('user_info');
+    if (!storedUser) {
       router.replace('/login');
       return;
     }
 
     void authApi.getProfile()
       .then((data) => {
-        const profile = data as unknown as IUser;
+        const profile = data;
         if (profile.profileCompleted) {
           router.replace('/');
           return;
@@ -44,7 +44,7 @@ export default function CompleteProfilePage() {
   const submit = async (values: ProfileValues) => {
     try {
       setSaving(true);
-      const response = await authApi.updateProfile(values) as unknown as { message: string; user: IUser };
+      const response = await authApi.updateProfile(values);
       const currentUser = JSON.parse(localStorage.getItem('user_info') || '{}');
       saveStoredUser({
         ...currentUser,

@@ -11,8 +11,8 @@ const MatchList = () => {
   useEffect(() => {
     const fetchMatches = async () => {
       try {
-        const data = await axiosClient.get('/matches?scope=featured');
-        setMatches(data as unknown as IMatch[]);
+        const data = await axiosClient.get<IMatch[]>('/matches?scope=featured');
+        setMatches(data);
       } catch (err) {
         console.error("Lỗi lấy danh sách trận đấu:", err);
       } finally {

@@ -7,7 +7,7 @@ import OrderSummaryCard from '../../components/Checkout/OrderSummaryCard';
 import PaymentMethodPanel from '../../components/Checkout/PaymentMethodPanel';
 import PaymentSuccess from '../../components/Checkout/PaymentSuccess';
 import { useCheckoutPayment } from '../../hooks/useCheckoutPayment';
-import { PaymentMethod } from '../../interfaces/IOrder';
+import { IOrderResponse, PaymentMethod } from '../../interfaces/IOrder';
 
 const CheckoutPage = () => {
   const { selectedSeats, totalPrice, confirmPayment } = useBooking();
@@ -17,24 +17,23 @@ const CheckoutPage = () => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('BANK_TRANSFER');
   const [ticketCode, setTicketCode] = useState('');
   const [confirmedSeats, setConfirmedSeats] = useState<string[]>([]);
+  const [pendingOrder, setPendingOrder] = useState<IOrderResponse | null>(null);
 
-  const BANK_ID = "vietcombank";
-  const ACCOUNT_NO = "1027799416";
-  const ACCOUNT_NAME = "NGUYEN VIET LAM";
-
-  const vietQrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${totalPrice}&addInfo=${encodeURIComponent(`Thanh toan ve SLNA ${selectedSeats.join(' ')}`)}&accountName=${encodeURIComponent(ACCOUNT_NAME)}`;
-
-  const { isVerifying, verifyPayment } = useCheckoutPayment({
+  const { isCreatingOrder, createPendingOrder } = useCheckoutPayment({
     selectedSeats,
     paymentMethod,
-    confirmPayment,
-    onSuccess: (orderQrCode, seatsSnapshot) => {
-      setTicketCode(orderQrCode);
+    onOrderCreated: (order, seatsSnapshot) => {
+      setPendingOrder(order);
+      setTicketCode(order.orderQrCode);
       setConfirmedSeats(seatsSnapshot);
-      setIsSuccess(true);
       setCurrentStep(2);
     },
   });
+
+  const finishCheckout = () => {
+    confirmPayment();
+    setIsSuccess(true);
+  };
 
   if (isSuccess) {
     return <PaymentSuccess ticketCode={ticketCode} confirmedSeats={confirmedSeats} />;
@@ -54,11 +53,12 @@ const CheckoutPage = () => {
           <div className="lg:col-span-2 space-y-6">
             <PaymentMethodPanel
               paymentMethod={paymentMethod}
-              totalPrice={totalPrice}
-              vietQrUrl={vietQrUrl}
-              isVerifying={isVerifying}
+              totalPrice={pendingOrder?.totalAmount ?? totalPrice}
+              order={pendingOrder}
+              isCreatingOrder={isCreatingOrder}
               onPaymentMethodChange={setPaymentMethod}
-              onVerifyPayment={verifyPayment}
+              onCreateOrder={createPendingOrder}
+              onFinish={finishCheckout}
             />
           </div>
           <div className="lg:col-span-1">

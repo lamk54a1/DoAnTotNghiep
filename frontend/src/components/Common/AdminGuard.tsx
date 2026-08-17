@@ -2,6 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Spin } from 'antd';
+import { authApi } from '../../api/authApi';
+import { clearAuthSession, saveStoredUser } from '../../utils/authSession';
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -9,21 +11,23 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      const userInfo = localStorage.getItem('user_info');
-      if (!userInfo) {
-        router.push('/login');
-        return;
-      }
-
-      const user = JSON.parse(userInfo);
-      if (user.role === 'ADMIN') {
-        setIsAdmin(true);
-      } else {
-        router.push('/'); // Không phải Admin thì đá về trang chủ công cộng
-      }
-      setLoading(false);
-    });
+    let active = true;
+    authApi.getProfile()
+      .then((user) => {
+        if (!active) return;
+        saveStoredUser(user);
+        if (user.role === 'ADMIN') setIsAdmin(true);
+        else router.replace('/');
+      })
+      .catch(() => {
+        if (!active) return;
+        clearAuthSession();
+        router.replace('/login');
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => { active = false; };
   }, [router]);
 
   if (loading) {

@@ -37,12 +37,12 @@ export function useBookingMatch(matchId?: string) {
     }
 
     try {
-      const matchData = await axiosClient.get<IMatch>(`/matches/${matchId}`) as unknown as IMatch;
+      const matchData = await axiosClient.get<IMatch>(`/matches/${matchId}`);
       setMatch(matchData);
       if (matchData.status !== 'ON_SALE') return;
 
       const ticketsData = await axiosClient.get<ITicket[]>(`/tickets/${matchId}`);
-      const tickets = ticketsData as unknown as ITicket[];
+      const tickets = ticketsData;
       setExistingSeats(tickets.map((ticket) => ticket.seatCode));
       setTicketPrices(Object.fromEntries(tickets.map((ticket) => [ticket.seatCode, Number(ticket.price || 0)])));
       const myHeldTickets = tickets.filter((ticket) => ticket.status === 'HELD' && ticket.heldByCurrentUser);
@@ -70,11 +70,11 @@ export function useBookingMatch(matchId?: string) {
         return acc;
       }, createEmptyStandInventory()));
 
-      const token = localStorage.getItem('access_token');
-      if (token) {
+      const storedUser = localStorage.getItem('user_info');
+      if (storedUser) {
         try {
           const countData = await axiosClient.get<{ ticketCount: number }>(`/orders/match/${matchId}/count`);
-          setPurchasedTicketCount(Number((countData as unknown as { ticketCount: number }).ticketCount || 0));
+          setPurchasedTicketCount(Number(countData.ticketCount || 0));
         } catch (countError) {
           console.error('Lỗi khi kiểm tra giới hạn vé đã mua:', countError);
           setPurchasedTicketCount(0);

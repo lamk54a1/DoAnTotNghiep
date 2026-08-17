@@ -2,22 +2,6 @@ const pool = require('../config/db');
 
 const SPONSOR_LEVELS = ['DIAMOND', 'GOLD', 'SILVER', 'PARTNER'];
 
-const ensureSponsorsTable = (db = pool) => db.query(`
-  CREATE TABLE IF NOT EXISTS sponsors (
-    id serial PRIMARY KEY,
-    name varchar(160) NOT NULL,
-    level varchar(20) NOT NULL DEFAULT 'PARTNER',
-    logo_url text NOT NULL,
-    website_url text,
-    sort_order integer NOT NULL DEFAULT 0,
-    is_active boolean NOT NULL DEFAULT true,
-    created_at timestamp NOT NULL DEFAULT NOW(),
-    updated_at timestamp NOT NULL DEFAULT NOW()
-  );
-  CREATE INDEX IF NOT EXISTS sponsors_display_idx
-  ON sponsors (is_active, level, sort_order, id);
-`);
-
 const sponsorSelect = `
   id,
   name,
@@ -42,7 +26,6 @@ const validateSponsor = ({ name, level, logoUrl, websiteUrl }) => {
 
 const getPublicSponsors = async (_req, res) => {
   try {
-    await ensureSponsorsTable();
     const result = await pool.query(
       `SELECT ${sponsorSelect}
        FROM sponsors
@@ -65,7 +48,6 @@ const getPublicSponsors = async (_req, res) => {
 
 const getSponsors = async (_req, res) => {
   try {
-    await ensureSponsorsTable();
     const result = await pool.query(
       `SELECT ${sponsorSelect} FROM sponsors ORDER BY sort_order ASC, id ASC`
     );
@@ -81,7 +63,6 @@ const createSponsor = async (req, res) => {
 
   const { name, level, logoUrl, websiteUrl, sortOrder = 0, isActive = true } = req.body;
   try {
-    await ensureSponsorsTable();
     const result = await pool.query(
       `INSERT INTO sponsors (name, level, logo_url, website_url, sort_order, is_active)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -100,7 +81,6 @@ const updateSponsor = async (req, res) => {
 
   const { name, level, logoUrl, websiteUrl, sortOrder = 0, isActive = true } = req.body;
   try {
-    await ensureSponsorsTable();
     const result = await pool.query(
       `UPDATE sponsors
        SET name = $1, level = $2, logo_url = $3, website_url = $4,
@@ -118,7 +98,6 @@ const updateSponsor = async (req, res) => {
 
 const deleteSponsor = async (req, res) => {
   try {
-    await ensureSponsorsTable();
     const result = await pool.query('DELETE FROM sponsors WHERE id = $1 RETURNING id', [req.params.id]);
     if (result.rowCount === 0) return res.status(404).json({ message: 'Không tìm thấy nhà tài trợ.' });
     res.json({ message: 'Đã xóa nhà tài trợ.' });

@@ -82,9 +82,9 @@ export default function AdminMatchesPage() {
     const formData = new FormData();
     formData.append('image', file);
 
-    const res = await axiosClient.post('/uploads/match-image', formData, {
+    const res = await axiosClient.post<{ path: string }>('/uploads/match-image', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-    }) as unknown as { path: string };
+    });
 
     return res.path.startsWith('http') ? res.path : `${API_ORIGIN}${res.path}`;
   };
@@ -112,7 +112,7 @@ export default function AdminMatchesPage() {
   const fetchMatches = async () => {
     try {
       const data = await axiosClient.get<IMatch[]>('/matches');
-      setMatches(data as unknown as IMatch[]);
+      setMatches(data);
     } catch (error) {
       console.error('Lỗi tải trận đấu:', error);
     } finally {
@@ -189,7 +189,7 @@ export default function AdminMatchesPage() {
   const loadInventory = async (matchId: number) => {
     try {
       const data = await axiosClient.get<ITicketInventory>(`/tickets/admin/inventory/${matchId}`);
-      setInventory({ ...EMPTY_INVENTORY, ...(data as unknown as Partial<ITicketInventory>) });
+      setInventory({ ...EMPTY_INVENTORY, ...data });
     } finally {
       setLoadingInventory(false);
     }
@@ -210,7 +210,7 @@ export default function AdminMatchesPage() {
         stand: paperStand,
         quantity: paperQuantity,
         mode,
-      }) as unknown as { message?: string };
+      });
       notification.success({
         title: {
           RESERVE: 'Đã giữ vé giấy',
@@ -241,8 +241,8 @@ export default function AdminMatchesPage() {
         axiosClient.get<PaperTicket[]>(`/tickets/paper/${inventoryMatch.id}?stand=${paperStand}`),
         axiosClient.get<ISponsor[]>('/sponsors'),
       ]);
-      setPaperTickets(ticketData as unknown as PaperTicket[]);
-      setSponsors(sponsorData as unknown as ISponsor[]);
+      setPaperTickets(ticketData);
+      setSponsors(sponsorData);
     } catch (error) {
       notification.error({
         title: 'Không thể tải vé giấy',
@@ -257,9 +257,9 @@ export default function AdminMatchesPage() {
     if (!inventoryMatch || paperTickets.length === 0) return;
     try {
       setLoadingPaperTickets(true);
-      const response = await axiosClient.post(`/tickets/paper/${inventoryMatch.id}/print`, {
+      const response = await axiosClient.post<{ message?: string }>(`/tickets/paper/${inventoryMatch.id}/print`, {
         ticketIds: paperTickets.map((ticket) => ticket.id),
-      }) as unknown as { message?: string };
+      });
       setPaperTickets((current) => current.map((ticket) => ({ ...ticket, isPrinted: true })));
       await loadInventory(inventoryMatch.id);
       notification.warning({
@@ -289,7 +289,7 @@ export default function AdminMatchesPage() {
       
       const res = await axiosClient.post<{ message?: string }>(`/tickets/generate/${generatingMatch.id}`, {
         stands: selectedGenerateStands,
-      }) as unknown as { message?: string };
+      });
       
       notification.success({ 
         title: 'Thành công!',

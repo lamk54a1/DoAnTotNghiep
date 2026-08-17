@@ -11,6 +11,10 @@ export const authApi = {
     return axiosClient.post('/auth/register', data);
   },
 
+  logout: (): Promise<{ message: string }> => {
+    return axiosClient.post('/auth/logout');
+  },
+
   getProfile: (): Promise<IUser> => {
     return axiosClient.get('/auth/profile');
   },

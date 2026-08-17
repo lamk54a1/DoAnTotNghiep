@@ -1,20 +1,35 @@
 const pool = require('../config/db');
 const ExcelJS = require('exceljs');
-const { ensureAuditLogsTable, writeAuditLog } = require('../utils/auditLog');
+const { v4: uuidv4 } = require('uuid');
+const { writeAuditLog } = require('../utils/auditLog');
+const { releaseExpiredOrders } = require('../utils/orderLifecycle');
 
-const ensureUserIdentityColumns = () => pool.query(`
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd varchar(12);
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS pending_cccd varchar(12);
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_status varchar(20) DEFAULT 'NOT_SUBMITTED';
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS cccd_verified_at timestamp;
-  ALTER TABLE users ADD COLUMN IF NOT EXISTS address text;
-  CREATE UNIQUE INDEX IF NOT EXISTS users_cccd_unique_idx ON users (cccd) WHERE cccd IS NOT NULL;
-`);
+const assignTicketQrCodes = async (client, orderIds) => {
+  const tickets = await client.query(
+    `SELECT id FROM tickets
+     WHERE order_id = ANY($1::int[]) AND ticket_qr_code IS NULL
+     FOR UPDATE`,
+    [orderIds]
+  );
+  for (const ticket of tickets.rows) {
+    await client.query(
+      'UPDATE tickets SET ticket_qr_code = $1 WHERE id = $2',
+      [`TICKET-${uuidv4().substring(0, 12).toUpperCase()}`, ticket.id]
+    );
+  }
+};
 
 const getDashboardStats = async (req, res) => {
   const { year, matchId } = req.query;
   const filters = ["o.status = 'SUCCESS'"];
   const params = [];
+
+  if (year && (!Number.isInteger(Number(year)) || Number(year) < 2000 || Number(year) > 2100)) {
+    return res.status(400).json({ message: 'Năm thống kê không hợp lệ.' });
+  }
+  if (matchId && (!Number.isInteger(Number(matchId)) || Number(matchId) <= 0)) {
+    return res.status(400).json({ message: 'Mã trận đấu không hợp lệ.' });
+  }
 
   if (year) {
     params.push(Number(year));
@@ -69,7 +84,7 @@ const getDashboardStats = async (req, res) => {
       `SELECT m.id, m.opponent, COUNT(o.id)::int AS "ticketsSold"
        FROM matches m
        LEFT JOIN tickets t ON t.match_id = m.id AND t.status = 'SOLD'
-       LEFT JOIN orders o ON o.id = t.order_id AND o.status <> 'CANCELLED'
+       LEFT JOIN orders o ON o.id = t.order_id AND o.status = 'SUCCESS'
        GROUP BY m.id, m.opponent
        ORDER BY "ticketsSold" DESC
        LIMIT 8`
@@ -128,6 +143,7 @@ const updateOrderStatus = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await releaseExpiredOrders(client);
 
     const currentOrderResult = await client.query(
       'SELECT id, status FROM orders WHERE id = $1 FOR UPDATE',
@@ -139,18 +155,19 @@ const updateOrderStatus = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
     }
 
-    if (currentOrderResult.rows[0].status === 'SUCCESS' && status === 'CANCELLED') {
-      await client.query('ROLLBACK');
-      return res.status(409).json({ message: 'Đơn hàng đã thành công, không thể hủy vé.' });
+    const currentStatus = currentOrderResult.rows[0].status;
+    if (currentStatus === status) {
+      await client.query('COMMIT');
+      return res.json({ message: 'Trạng thái đơn hàng không thay đổi.', id: Number(id), status });
     }
 
-    if (currentOrderResult.rows[0].status === 'CANCELLED' && status === 'SUCCESS') {
+    if (currentStatus !== 'PENDING') {
       await client.query('ROLLBACK');
-      return res.status(409).json({ message: 'Đơn hàng đã hủy không thể chuyển lại thành công.' });
+      return res.status(409).json({ message: 'Chỉ đơn đang chờ xử lý mới có thể được duyệt hoặc hủy.' });
     }
 
     const orderResult = await client.query(
-      'UPDATE orders SET status = $1 WHERE id = $2 RETURNING id, status',
+      'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, status',
       [status, id]
     );
 
@@ -161,6 +178,8 @@ const updateOrderStatus = async (req, res) => {
          WHERE order_id = $1`,
         [id]
       );
+    } else if (status === 'SUCCESS') {
+      await assignTicketQrCodes(client, [Number(id)]);
     }
 
     await client.query('COMMIT');
@@ -193,6 +212,7 @@ const bulkUpdateOrderStatus = async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await releaseExpiredOrders(client);
 
     const ordersResult = await client.query(
       `SELECT id, status
@@ -213,7 +233,7 @@ const bulkUpdateOrderStatus = async (req, res) => {
 
     const updateResult = await client.query(
       `UPDATE orders
-       SET status = $1
+       SET status = $1, updated_at = NOW()
        WHERE id = ANY($2::int[])
        AND status = 'PENDING'
        RETURNING id, status`,
@@ -227,6 +247,8 @@ const bulkUpdateOrderStatus = async (req, res) => {
          WHERE order_id = ANY($1::int[])`,
         [pendingOrderIds]
       );
+    } else {
+      await assignTicketQrCodes(client, pendingOrderIds);
     }
 
     await client.query('COMMIT');
@@ -253,7 +275,6 @@ const bulkUpdateOrderStatus = async (req, res) => {
 
 const getUsers = async (req, res) => {
   try {
-    await ensureUserIdentityColumns();
     const result = await pool.query(`
       SELECT
         id,
@@ -288,7 +309,7 @@ const updateUserStatus = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE users
-       SET status = $1
+       SET status = $1, token_version = token_version + 1
        WHERE id = $2 AND role <> 'ADMIN'
        RETURNING id, status`,
       [status, id]
@@ -313,7 +334,6 @@ const reviewUserIdentity = async (req, res) => {
   }
 
   try {
-    await ensureUserIdentityColumns();
     const userResult = await pool.query(
       'SELECT id, pending_cccd, cccd FROM users WHERE id = $1 AND role <> $2',
       [id, 'ADMIN']
@@ -357,7 +377,7 @@ const reviewUserIdentity = async (req, res) => {
       action: decision === 'APPROVE' ? 'CCCD_APPROVED' : 'CCCD_REJECTED',
       entityType: 'user',
       entityId: id,
-      metadata: { pendingCccd: user.pending_cccd }
+      metadata: { cccdLastFour: user.pending_cccd.slice(-4) }
     });
 
     res.json({ message: decision === 'APPROVE' ? 'Đã duyệt CCCD.' : 'Đã từ chối CCCD.', ...result.rows[0] });
@@ -371,7 +391,6 @@ const reviewUserIdentity = async (req, res) => {
 
 const getAuditLogs = async (req, res) => {
   try {
-    await ensureAuditLogsTable();
     const result = await pool.query(`
       SELECT
         al.id,

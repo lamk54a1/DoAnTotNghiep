@@ -61,15 +61,15 @@ const BookingPage = () => {
 
   useEffect(() => {
     queueMicrotask(() => {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
+      const storedUser = localStorage.getItem('user_info');
+      if (!storedUser) {
         setUnauthorized(true);
         setLoadingProfile(false);
         return;
       }
 
       authApi.getProfile()
-        .then((data) => setProfile(data as unknown as IUser))
+        .then(setProfile)
         .catch(() => setUnauthorized(true))
         .finally(() => setLoadingProfile(false));
     });
