@@ -1,0 +1,3 @@
+ALTER TABLE knowledge_documents
+  ADD COLUMN IF NOT EXISTS image_url VARCHAR(2000),
+  ADD COLUMN IF NOT EXISTS category VARCHAR(150);

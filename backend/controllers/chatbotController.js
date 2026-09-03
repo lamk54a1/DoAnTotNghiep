@@ -1,4 +1,12 @@
 const pool = require('../config/db');
+const { generateConversationalAnswer } = require('../services/aiChatService');
+const {
+  SOURCES,
+  getOfficialSquad,
+  getLatestOfficialKnowledge,
+  isAllowedUrl,
+  searchOfficialKnowledge,
+} = require('../services/officialNewsService');
 
 const normalize = (value) => String(value || '')
   .toLowerCase()
@@ -210,14 +218,85 @@ const fallbackAnswer = () => [
   'Bạn hãy hỏi ví dụ: “Trận sắp tới khi nào?”, “Giá vé bao nhiêu?”, “Xem vé ở đâu?”.',
 ].join('\n');
 
+const getSafeCitations = (documents) => documents.flatMap((document) => {
+  const source = SOURCES.find((item) => item.publisher === document.publisher);
+  if (!source || !isAllowedUrl(document.url, source)) return [];
+  return [{
+    title: document.title,
+    url: document.url,
+    publisher: document.publisher,
+    publishedAt: document.publishedAt || null,
+    fetchedAt: document.fetchedAt || null,
+  }];
+});
+
+const answerFromOfficialDocuments = (documents) => {
+  if (documents.length === 0) {
+    return 'Mình chưa tìm thấy thông tin phù hợp trong các nguồn chính thức đã được đồng bộ. Mình sẽ không suy đoán khi chưa có nguồn xác minh.';
+  }
+  return [
+    'Thông tin mình tìm được từ các nguồn chính thức:',
+    ...documents.map((document) => {
+      const fullExcerpt = String(document.summary || document.content || '').replace(/\s+/g, ' ').trim();
+      const excerpt = fullExcerpt.length > 360
+        ? `${fullExcerpt.slice(0, 360).replace(/\s+\S*$/, '')}…`
+        : fullExcerpt;
+      return `- ${document.title}${excerpt ? `: ${excerpt}` : ''}`;
+    }),
+    'Bạn có thể mở các nguồn bên dưới để kiểm tra nội dung đầy đủ.',
+  ].join('\n');
+};
+
+const documentsForAi = (documents) => (Array.isArray(documents) ? documents : []).map((document) => [
+  `Tiêu đề: ${document.title}`,
+  `Nhà xuất bản: ${document.publisher}`,
+  `URL: ${document.url}`,
+  `Nội dung: ${String(document.content || document.summary || '').replace(/\s+/g, ' ').trim()}`,
+].join('\n')).join('\n\n');
+
+const squadForAi = (squad) => squad.players.map((player) => [
+  `Tên: ${player.name}`,
+  `Số áo: ${player.number}`,
+  `Vị trí: ${player.position}`,
+  player.birthDate ? `Ngày sinh: ${player.birthDate}` : null,
+  player.hometown ? `Quê quán: ${player.hometown}` : null,
+  player.height ? `Chiều cao: ${player.height} cm` : null,
+  player.weight ? `Cân nặng: ${player.weight} kg` : null,
+].filter(Boolean).join('; ')).join('\n');
+
+const answerFromOfficialSquad = (squad) => {
+  if (!squad || squad.players.length === 0) {
+    return 'Mình chưa có danh sách cầu thủ đã được xác minh từ trang đội hình chính thức của SLNA. Mình sẽ không lấy các bài tin VPF không liên quan để thay thế.';
+  }
+  const positions = ['Thủ môn', 'Hậu vệ', 'Tiền vệ', 'Tiền đạo'];
+  return [
+    'Theo danh sách đội 1 trên trang chính thức của SLNA:',
+    ...positions.flatMap((position) => {
+      const players = squad.players.filter((player) => normalize(player.position) === normalize(position));
+      return players.length > 0
+        ? [`- ${position}: ${players.map((player) => `${player.name} (số ${player.number})`).join(', ')}.`]
+        : [];
+    }),
+    'Danh sách có thể thay đổi theo đăng ký của câu lạc bộ; bạn có thể kiểm tra nguồn chính thức bên dưới.',
+  ].join('\n');
+};
+
 const askChatbot = async (req, res) => {
   const question = String(req.body?.question || '').trim();
   if (!question) return res.status(400).json({ message: 'Vui lòng nhập câu hỏi.' });
   if (question.length > 500) return res.status(400).json({ message: 'Câu hỏi không được dài quá 500 ký tự.' });
 
   const text = normalize(question);
+  const historyText = normalize((Array.isArray(req.body?.history) ? req.body.history : [])
+    .slice(-4)
+    .map((message) => String(message?.content || '').slice(0, 1200))
+    .join(' '));
+  const isSquadFollowUp = /(ai|nguoi nao|anh ay|cau ay|so may|bao nhieu tuoi|tre nhat|lon tuoi|cao nhat|thap nhat|que o dau|vi tri nao)/.test(text)
+    && /(cau thu|doi hinh|thu mon|hau ve|tien ve|tien dao)/.test(historyText);
   try {
     let answer;
+    let sources = [];
+    let aiGrounding = '';
     const selectedMatch = await getMatchByQuestion(question);
     if (/(con bao nhieu ve|con ve|het ve|so ve|ve trong|ve con lai|ton kho)/.test(text)) answer = await answerTicketAvailability(selectedMatch);
     else if (/(gia|bao nhieu|khan dai|ve bao)/.test(text)) answer = await answerTicketPrice(selectedMatch);
@@ -233,10 +312,50 @@ const askChatbot = async (req, res) => {
     else if (/(tai khoan|dang nhap|mat khau|email|thong tin ca nhan)/.test(text)) answer = answerAccount();
     else if (/(chinh sach|quy dinh|gioi han|hoan|huy|luu y)/.test(text)) answer = answerPolicy();
     else if (/(lien he|cong ty|mst|ma so thue|hotline)/.test(text)) answer = answerContact();
-    else answer = fallbackAnswer();
+    else if ((/(cau thu|doi hinh|danh sach.*(clb|slna|song lam)|thu mon|hau ve|tien ve|tien dao)/.test(text)
+      && /(slna|song lam|clb|doi bong)/.test(text)) || isSquadFollowUp) {
+      const squad = await getOfficialSquad();
+      answer = answerFromOfficialSquad(squad);
+      sources = squad ? getSafeCitations([squad]) : [];
+      if (squad) aiGrounding = squadForAi(squad);
+    } else if (/(tin moi|tin tuc moi|moi nhat|tin gan day)/.test(text)) {
+      const preferredSource = /(slna|song lam)/.test(text) ? 'SLNAFC' : /(vleague|v-league|vpf)/.test(text) ? 'VPF' : null;
+      const documents = await getLatestOfficialKnowledge(3, preferredSource);
+      answer = answerFromOfficialDocuments(documents);
+      sources = getSafeCitations(documents);
+      aiGrounding = documentsForAi(documents);
+    } else if (/(tin tuc|cau thu|doi hinh|hlv|huan luyen|bang xep hang|vleague|v-league|chuyen nhuong|chan thuong|song lam|clb)/.test(text)) {
+      const preferredSource = /(slna|song lam|clb)/.test(text) ? 'SLNAFC' : /(vleague|v-league|vpf)/.test(text) ? 'VPF' : null;
+      const documents = await searchOfficialKnowledge(question, 3, preferredSource);
+      answer = answerFromOfficialDocuments(documents);
+      sources = getSafeCitations(documents);
+      aiGrounding = documentsForAi(documents);
+    } else {
+      const documents = await searchOfficialKnowledge(question, 3);
+      if (documents.length > 0) {
+        answer = answerFromOfficialDocuments(documents);
+        sources = getSafeCitations(documents);
+        aiGrounding = documentsForAi(documents);
+      } else {
+        answer = fallbackAnswer();
+      }
+    }
+
+    try {
+      const conversationalAnswer = await generateConversationalAnswer({
+        question,
+        history: req.body?.history,
+        groundedAnswer: aiGrounding || answer,
+        sources,
+      });
+      if (conversationalAnswer) answer = conversationalAnswer;
+    } catch (aiError) {
+      console.error('Không thể tạo câu trả lời hội thoại, dùng phương án dự phòng:', aiError.message);
+    }
 
     res.json({
       answer,
+      sources,
       suggestions: ['Trận sắp tới khi nào?', 'Còn bao nhiêu vé?', 'Giá từng khán đài?', 'Thanh toán vé thế nào?'],
     });
   } catch (err) {
@@ -244,4 +363,4 @@ const askChatbot = async (req, res) => {
   }
 };
 
-module.exports = { askChatbot };
+module.exports = { askChatbot, answerFromOfficialSquad };

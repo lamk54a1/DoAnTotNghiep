@@ -7,6 +7,7 @@ dotenv.config({ path: path.join(__dirname, '.env.local'), override: true });
 const pool = require('./config/db');
 const adminRoutes = require('./routes/adminRoutes');
 const { expirePendingOrders } = require('./utils/orderLifecycle');
+const { syncOfficialNews } = require('./services/officialNewsService');
 
 const app = express();
 if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
@@ -47,6 +48,7 @@ const authRoutes = require('./routes/authRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 const sponsorRoutes = require('./routes/sponsorRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
+const newsRoutes = require('./routes/newsRoutes');
 
 // Route kiểm tra hệ thống công khai
 app.get('/', (req, res) => {
@@ -61,6 +63,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/sponsors', sponsorRoutes);
 app.use('/api/chatbot', chatbotRoutes);
+app.use('/api/news', newsRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use((err, _req, res, _next) => {
@@ -83,3 +86,17 @@ const expiryTimer = setInterval(() => {
   expirePendingOrders(pool).catch((error) => console.error('Không thể dọn đơn hết hạn:', error.message));
 }, 60 * 1000);
 expiryTimer.unref();
+
+if (process.env.OFFICIAL_NEWS_SYNC_ENABLED !== '0') {
+  const configuredMinutes = Number(process.env.OFFICIAL_NEWS_SYNC_INTERVAL_MINUTES || 30);
+  const intervalMinutes = Math.max(Number.isFinite(configuredMinutes) ? configuredMinutes : 30, 15);
+  const runOfficialNewsSync = () => {
+    syncOfficialNews()
+      .then((results) => console.log('Đồng bộ nguồn chính thức:', results))
+      .catch((error) => console.error('Không thể đồng bộ nguồn chính thức:', error.message));
+  };
+  const initialSyncTimer = setTimeout(runOfficialNewsSync, 5000);
+  initialSyncTimer.unref();
+  const officialNewsTimer = setInterval(runOfficialNewsSync, intervalMinutes * 60 * 1000);
+  officialNewsTimer.unref();
+}

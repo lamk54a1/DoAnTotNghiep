@@ -8,11 +8,20 @@ import axiosClient from '../../api/axiosClient';
 type ChatMessage = {
   role: 'bot' | 'user';
   content: string;
+  sources?: ChatSource[];
+};
+
+type ChatSource = {
+  title: string;
+  url: string;
+  publisher: string;
+  publishedAt?: string | null;
 };
 
 interface ChatbotResponse {
   answer: string;
   suggestions?: string[];
+  sources?: ChatSource[];
 }
 
 const defaultSuggestions = [
@@ -51,8 +60,15 @@ export default function ChatbotWidget() {
     scrollToBottom();
 
     try {
-      const response = await axiosClient.post<ChatbotResponse>('/chatbot/ask', { question: trimmed });
-      setMessages((current) => [...current, { role: 'bot', content: response.answer }]);
+      const history = messages.slice(-10).map((message) => ({
+        role: message.role === 'bot' ? 'assistant' : 'user',
+        content: message.content,
+      }));
+      const response = await axiosClient.post<ChatbotResponse>('/chatbot/ask', {
+        question: trimmed,
+        history,
+      });
+      setMessages((current) => [...current, { role: 'bot', content: response.answer, sources: response.sources }]);
       if (response.suggestions?.length) setSuggestions(response.suggestions);
     } catch {
       setMessages((current) => [...current, {
@@ -90,7 +106,26 @@ export default function ChatbotWidget() {
                     ? 'bg-[#003078] font-bold text-white'
                     : 'border border-gray-100 bg-white text-gray-700 shadow-sm'
                 }`}>
-                  {message.content}
+                  <div>{message.content}</div>
+                  {message.sources && message.sources.length > 0 && (
+                    <div className="mt-3 border-t border-gray-100 pt-2">
+                      <p className="m-0 mb-1 font-black text-[#003078]">Nguồn chính thức</p>
+                      <ul className="m-0 space-y-1 pl-4">
+                        {message.sources.map((source) => (
+                          <li key={source.url}>
+                            <a
+                              href={source.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-blue-700 underline underline-offset-2"
+                            >
+                              {source.publisher}: {source.title}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
