@@ -29,15 +29,15 @@ export default function PaymentSuccess({ ticketCode, confirmedSeats, paid = fals
               <p className="mt-1 text-xl font-black italic text-[#003078]">{ticketCode}</p>
             </div>
             <div>
-              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Ghế đang chờ xác nhận</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{paid ? 'Ghế đã xác nhận' : 'Ghế đang chờ xác nhận'}</span>
               <div className="mt-2 flex flex-wrap gap-2">
-                {confirmedSeats.map((seat) => <Tag key={seat} color="gold" className="m-0 border-none font-bold">{seat}</Tag>)}
+                {confirmedSeats.map((seat) => <Tag key={seat} color={paid ? 'green' : 'gold'} className="m-0 border-none font-bold">{seat}</Tag>)}
               </div>
             </div>
           </div>
         </Card>
         <Button block size="large" icon={<HomeOutlined />} className="h-14 rounded-2xl font-bold" onClick={() => window.location.href = '/my-tickets'}>
-          XEM TRẠNG THÁI ĐƠN
+          {paid ? 'XEM VÉ CỦA TÔI' : 'XEM TRẠNG THÁI ĐƠN'}
         </Button>
       </div>
     </div>
