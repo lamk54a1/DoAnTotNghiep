@@ -4,17 +4,15 @@ import { useState } from 'react';
 import axios from 'axios';
 import { App } from 'antd';
 import axiosClient from '../api/axiosClient';
-import { IOrderResponse, PaymentMethod } from '../interfaces/IOrder';
+import { IOrderResponse } from '../interfaces/IOrder';
 
 interface CheckoutPaymentParams {
   selectedSeats: string[];
-  paymentMethod: PaymentMethod;
   onOrderCreated: (order: IOrderResponse, confirmedSeats: string[]) => void;
 }
 
 export function useCheckoutPayment({
   selectedSeats,
-  paymentMethod,
   onOrderCreated,
 }: CheckoutPaymentParams) {
   const { message } = App.useApp();
@@ -33,7 +31,7 @@ export function useCheckoutPayment({
 
       const seatsSnapshot = [...selectedSeats];
       const payload = {
-        paymentMethod,
+        paymentMethod: 'SEPAY',
         tickets: seatsSnapshot,
         matchId: Number(matchIdStr),
       };

@@ -25,7 +25,7 @@ SEPAY_CHECKOUT_ENABLED=0
 
 Không gửi Secret Key qua chat, không đưa vào frontend hoặc Git. Nếu có `backend/.env.local` trên VPS thì tệp đó ghi đè `.env`: kiểm tra cả hai tệp để tránh QR trỏ về tài khoản cũ. Khởi động lại `slna-api` sau khi đổi cấu hình. Cả chuyển khoản thủ công lẫn SePay dùng chung `BANK_ID`, `BANK_ACCOUNT_NO`, `BANK_ACCOUNT_NAME`; mã nguồn frontend không chứa số tài khoản. Các đơn/QR đã tạo trước lúc đổi ngân hàng không được tự cập nhật, hãy để chúng hết hạn hoặc xử lý riêng trước khi nhận tiền mới.
 
-`SEPAY_ENABLED=1` cho phép endpoint webhook nhận thử/giao dịch, còn `SEPAY_CHECKOUT_ENABLED=0` vẫn ẩn phương thức SePay khỏi khách. Chỉ đổi `SEPAY_CHECKOUT_ENABLED=1` và khởi động lại service sau khi **Gửi thử** trả thành công, một giao dịch tiền vào thật xuất hiện trong SePay và bạn đã kiểm tra đúng tài khoản/QR. Khi `SEPAY_ENABLED=0`, webhook không nhận và SePay bị ẩn; chuyển khoản thủ công vẫn hoạt động theo quy trình duyệt hiện tại.
+`SEPAY_ENABLED=1` cho phép endpoint webhook nhận thử/giao dịch, còn `SEPAY_CHECKOUT_ENABLED=0` khóa việc tạo đơn mới. Chỉ đổi `SEPAY_CHECKOUT_ENABLED=1` và khởi động lại service sau khi **Gửi thử** trả thành công, một giao dịch tiền vào thật xuất hiện trong SePay và bạn đã kiểm tra đúng tài khoản/QR. Khi `SEPAY_ENABLED=0`, webhook không nhận và không thể tạo đơn mới. Checkout chỉ hỗ trợ SePay; các đơn chuyển khoản thủ công/tiền mặt cũ vẫn được giữ để tra cứu và đối soát.
 
 ## Kiểm thử và vận hành
 

@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const { isSepayCheckoutEnabled, verifySepaySignature, normalizeTransfer } = require('../services/sepayService');
 const { handleSepayWebhook, processSepayTransfer } = require('../controllers/sepayController');
-const { buildPaymentQrCode } = require('../controllers/orderController');
+const { buildPaymentQrCode, createOrder } = require('../controllers/orderController');
 const pool = require('../config/db');
 
 test.after(async () => {
@@ -37,24 +37,34 @@ test('SePay từ chối ID và số tiền không hợp lệ', () => {
   assert.equal(normalizeTransfer(transfer).paymentCode, transfer.code);
 });
 
-test('QR chuyển khoản thủ công và SePay cùng dùng tài khoản MB đã cấu hình', () => {
+test('QR SePay dùng tài khoản MB và mã đơn đã cấu hình', () => {
   const keys = ['BANK_ID', 'BANK_ACCOUNT_NO', 'BANK_ACCOUNT_NAME'];
   const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
   Object.assign(process.env, { BANK_ID: 'MB', BANK_ACCOUNT_NO: '123456789', BANK_ACCOUNT_NAME: 'TEST ACCOUNT' });
   try {
-    const args = { totalAmount: 50000, orderQrCode: transfer.code };
-    const manual = new URL(buildPaymentQrCode({ ...args, paymentMethod: 'BANK_TRANSFER' }));
-    const automatic = new URL(buildPaymentQrCode({ ...args, paymentMethod: 'SEPAY' }));
-    assert.equal(manual.pathname, '/image/MB-123456789-compact2.png');
-    assert.equal(automatic.pathname, manual.pathname);
-    assert.equal(manual.searchParams.get('addInfo'), `THANH TOAN VE ${transfer.code}`);
-    assert.equal(automatic.searchParams.get('addInfo'), transfer.code);
-    assert.equal(automatic.searchParams.get('accountName'), 'TEST ACCOUNT');
+    const qr = new URL(buildPaymentQrCode({ totalAmount: 50000, orderQrCode: transfer.code }));
+    assert.equal(qr.pathname, '/image/MB-123456789-compact2.png');
+    assert.equal(qr.searchParams.get('addInfo'), transfer.code);
+    assert.equal(qr.searchParams.get('accountName'), 'TEST ACCOUNT');
   } finally {
     for (const [key, value] of Object.entries(original)) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
+  }
+});
+
+test('API từ chối tạo đơn mới bằng chuyển khoản thủ công hoặc tiền mặt', async () => {
+  for (const paymentMethod of ['BANK_TRANSFER', 'CASH', '']) {
+    const req = { body: { matchId: 1, tickets: ['D1-01'], paymentMethod }, user: { id: 1 } };
+    const res = {
+      statusCode: 200,
+      status(code) { this.statusCode = code; return this; },
+      json(body) { this.body = body; return this; },
+    };
+    await createOrder(req, res);
+    assert.equal(res.statusCode, 400);
+    assert.match(res.body.message, /chỉ hỗ trợ thanh toán qua SePay/i);
   }
 });
 

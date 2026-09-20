@@ -1,11 +1,8 @@
 const pool = require('../config/db');
-const { v4: uuidv4 } = require('uuid');
 const crypto = require('node:crypto');
 const { writeAuditLog } = require('../utils/auditLog');
 const { ORDER_EXPIRY_MINUTES, releaseExpiredOrders, expirePendingOrders } = require('../utils/orderLifecycle');
 const { isSepayCheckoutEnabled } = require('../services/sepayService');
-
-const paymentMethods = new Set(['BANK_TRANSFER', 'CASH', 'SEPAY']);
 
 const isSepayReady = async () => {
     if (!isSepayCheckoutEnabled()) return false;
@@ -13,7 +10,7 @@ const isSepayReady = async () => {
     return result.rows[0]?.ready === true;
 };
 
-const buildPaymentQrCode = ({ totalAmount, orderQrCode, paymentMethod }) => {
+const buildPaymentQrCode = ({ totalAmount, orderQrCode }) => {
     const bankId = String(process.env.BANK_ID || '').trim();
     const accountNo = String(process.env.BANK_ACCOUNT_NO || '').trim();
     const accountName = String(process.env.BANK_ACCOUNT_NAME || '').trim();
@@ -21,7 +18,7 @@ const buildPaymentQrCode = ({ totalAmount, orderQrCode, paymentMethod }) => {
 
     const query = new URLSearchParams({
         amount: String(totalAmount),
-        addInfo: paymentMethod === 'SEPAY' ? orderQrCode : `THANH TOAN VE ${orderQrCode}`,
+        addInfo: orderQrCode,
         accountName,
     });
     return `https://img.vietqr.io/image/${encodeURIComponent(bankId)}-${encodeURIComponent(accountNo)}-compact2.png?${query}`;
@@ -42,15 +39,13 @@ const createOrder = async (req, res) => {
     if (uniqueTickets.some((ticket) => ticket.length > 30)) {
         return res.status(400).json({ message: 'Danh sách ghế không hợp lệ.' });
     }
-    if (!paymentMethods.has(normalizedPaymentMethod)) {
-        return res.status(400).json({ message: 'Phương thức thanh toán không hợp lệ.' });
+    if (normalizedPaymentMethod !== 'SEPAY') {
+        return res.status(400).json({ message: 'Hiện chỉ hỗ trợ thanh toán qua SePay.' });
     }
-    if (normalizedPaymentMethod === 'SEPAY') {
-        try {
-            if (!await isSepayReady()) return res.status(503).json({ message: 'SePay chưa sẵn sàng. Vui lòng chọn phương thức thanh toán khác.' });
-        } catch {
-            return res.status(503).json({ message: 'SePay chưa sẵn sàng. Vui lòng chọn phương thức thanh toán khác.' });
-        }
+    try {
+        if (!await isSepayReady()) return res.status(503).json({ message: 'SePay chưa sẵn sàng. Vui lòng thử lại sau.' });
+    } catch {
+        return res.status(503).json({ message: 'SePay chưa sẵn sàng. Vui lòng thử lại sau.' });
     }
 
     const client = await pool.connect();
@@ -137,18 +132,14 @@ const createOrder = async (req, res) => {
         }
 
         const totalAmount = ticketPrices.rows.reduce((sum, ticket) => sum + Number(ticket.price), 0);
-        if (normalizedPaymentMethod === 'SEPAY' && (!Number.isSafeInteger(totalAmount) || totalAmount < 1000)) {
+        if (!Number.isSafeInteger(totalAmount) || totalAmount < 1000) {
             throw Object.assign(new Error('Đơn thanh toán SePay phải từ 1.000đ.'), { statusCode: 400 });
         }
         // Mã này chỉ dùng để đối soát đơn, không phải QR vào sân.
-        const orderQrCode = normalizedPaymentMethod === 'SEPAY'
-            ? `SLNA${crypto.randomBytes(6).toString('hex').toUpperCase()}`
-            : `ORDER-${uuidv4().substring(0, 8).toUpperCase()}`;
-        const paymentQrCode = ['BANK_TRANSFER', 'SEPAY'].includes(normalizedPaymentMethod)
-            ? buildPaymentQrCode({ totalAmount, orderQrCode, paymentMethod: normalizedPaymentMethod })
-            : null;
+        const orderQrCode = `SLNA${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
+        const paymentQrCode = buildPaymentQrCode({ totalAmount, orderQrCode });
 
-        if (['BANK_TRANSFER', 'SEPAY'].includes(normalizedPaymentMethod) && !paymentQrCode) {
+        if (!paymentQrCode) {
             throw Object.assign(new Error('Máy chủ chưa cấu hình tài khoản nhận chuyển khoản.'), { statusCode: 503 });
         }
 
