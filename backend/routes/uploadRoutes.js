@@ -54,6 +54,7 @@ const uploadImage = (folder) => (req, res) => {
 
 router.post('/match-image', isAdmin, uploadImage('matches'));
 router.post('/sponsor-logo', isAdmin, uploadImage('sponsors'));
+router.post('/home-banner', isAdmin, uploadImage('banners'));
 
 module.exports = router;
 module.exports.detectImageType = detectImageType;

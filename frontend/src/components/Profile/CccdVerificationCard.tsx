@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { App as AntApp, Button, Card, Upload } from 'antd';
+import { App as AntApp, Button, Card, Input, Upload } from 'antd';
 import { CameraOutlined, IdcardOutlined, LockOutlined, UploadOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { authApi } from '../../api/authApi';
@@ -19,6 +19,7 @@ interface CccdVerificationCardProps {
 export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, onVerified }: CccdVerificationCardProps) {
   const { notification } = AntApp.useApp();
   const [detectedCccd, setDetectedCccd] = useState('');
+  const [detectedAddress, setDetectedAddress] = useState('');
   const [selectedFileName, setSelectedFileName] = useState('');
   const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -26,14 +27,16 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
   const handleBeforeUpload: UploadProps['beforeUpload'] = async (file) => {
     setProcessing(true);
     setDetectedCccd('');
+    setDetectedAddress('');
     setSelectedFileName(file.name);
 
     try {
-      const extractedCccd = await extractCccdFromImage(file);
-      setDetectedCccd(extractedCccd);
+      const extracted = await extractCccdFromImage(file);
+      setDetectedCccd(extracted.cccd);
+      setDetectedAddress(extracted.address);
       notification.success({
         title: 'Đã đọc được CCCD',
-        description: `Số CCCD: ${extractedCccd}`,
+        description: extracted.address ? 'Đã đọc được số CCCD và địa chỉ từ mã QR.' : 'Đã đọc được số CCCD. Không tìm thấy địa chỉ trong mã QR.',
       });
     } catch (error) {
       notification.error({
@@ -52,7 +55,7 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
 
     try {
       setSaving(true);
-      const res = await authApi.updateIdentity(detectedCccd);
+      const res = await authApi.updateIdentity(detectedCccd, detectedAddress.trim() || undefined);
       onVerified(res.user);
 
       const currentUserInfo = JSON.parse(localStorage.getItem('user_info') || '{}');
@@ -60,6 +63,7 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
         ...currentUserInfo,
         cccd: res.user.cccd,
         cccdStatus: res.user.cccdStatus,
+        address: res.user.address,
       });
 
       notification.success({
@@ -119,7 +123,7 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
           <p className="m-0 text-xs font-black uppercase tracking-widest text-gray-400">Xác minh CCCD</p>
           <h3 className="mb-2 mt-1 text-xl font-black uppercase text-[#003078]">Upload mặt trước CCCD</h3>
           <p className="m-0 text-sm leading-6 text-gray-500">
-            Hệ thống sẽ tự đọc số CCCD từ mã QR trên ảnh. Sau khi lưu, bạn không thể đổi CCCD nữa.
+            Hệ thống đọc số CCCD và địa chỉ thường trú từ mã QR trên ảnh. Hãy kiểm tra địa chỉ trước khi lưu; ảnh không được tải lên máy chủ.
           </p>
         </div>
       </div>
@@ -144,12 +148,25 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
           <p className="mb-0 mt-2 text-lg font-black tracking-wider text-[#003078]">
             {detectedCccd || 'Đang chờ đọc số CCCD...'}
           </p>
+          {detectedCccd && (
+            <div className="mt-3">
+              <label htmlFor="cccd-address" className="mb-2 block text-xs font-bold text-gray-600">Địa chỉ thường trú từ CCCD (có thể chỉnh lại)</label>
+              <Input.TextArea
+                id="cccd-address"
+                rows={2}
+                maxLength={500}
+                value={detectedAddress}
+                onChange={(event) => setDetectedAddress(event.target.value)}
+                placeholder="Mã QR không có địa chỉ? Bạn có thể nhập hoặc giữ nguyên địa chỉ hiện tại."
+              />
+            </div>
+          )}
         </div>
       )}
 
       <Button
         type="primary"
-        disabled={!detectedCccd}
+        disabled={!detectedCccd || (detectedAddress.trim().length > 0 && detectedAddress.trim().length < 8)}
         loading={saving}
         onClick={handleSaveIdentity}
         className="mt-4 h-11 rounded-xl bg-[#003078] px-8 font-black uppercase"

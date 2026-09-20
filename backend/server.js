@@ -49,6 +49,7 @@ const uploadRoutes = require('./routes/uploadRoutes');
 const sponsorRoutes = require('./routes/sponsorRoutes');
 const chatbotRoutes = require('./routes/chatbotRoutes');
 const newsRoutes = require('./routes/newsRoutes');
+const siteRoutes = require('./routes/siteRoutes');
 
 // Route kiểm tra hệ thống công khai
 app.get('/', (req, res) => {
@@ -64,6 +65,7 @@ app.use('/api/uploads', uploadRoutes);
 app.use('/api/sponsors', sponsorRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/site', siteRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use((err, _req, res, _next) => {

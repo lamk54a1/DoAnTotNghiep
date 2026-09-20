@@ -12,12 +12,14 @@ import {
   ShoppingOutlined,
   TeamOutlined,
   BankOutlined,
+  PictureOutlined,
 } from '@ant-design/icons';
 import AdminGuard from '../Common/AdminGuard';
 
 const navigation = [
   { href: '/admin/dashboard', label: 'Tổng quan', icon: <DashboardOutlined /> },
   { href: '/admin/matches', label: 'Trận đấu', icon: <CalendarOutlined /> },
+  { href: '/admin/appearance', label: 'Banner', icon: <PictureOutlined /> },
   { href: '/admin/orders', label: 'Đơn hàng', icon: <ShoppingOutlined /> },
   { href: '/admin/users', label: 'Người dùng', icon: <TeamOutlined /> },
   { href: '/admin/sponsors', label: 'Nhà tài trợ', icon: <BankOutlined /> },

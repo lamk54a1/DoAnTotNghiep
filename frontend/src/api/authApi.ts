@@ -23,9 +23,13 @@ export const authApi = {
     return axiosClient.put('/auth/profile', data);
   },
 
-  updateIdentity: (cccd: string): Promise<{ message: string; user: IUser }> => {
-    return axiosClient.put('/auth/identity', { cccd });
+  updateIdentity: (cccd: string, address?: string): Promise<{ message: string; user: IUser }> => {
+    return axiosClient.put('/auth/identity', { cccd, address });
   },
+
+  getPasswordResetStatus: (): Promise<{ available: boolean }> => axiosClient.get('/auth/password-reset/status'),
+  requestPasswordReset: (email: string): Promise<{ message: string }> => axiosClient.post('/auth/forgot-password', { email }),
+  resetPassword: (token: string, password: string): Promise<{ message: string }> => axiosClient.post('/auth/reset-password', { token, password }),
 
   changePassword: (data: { currentPassword: string; newPassword: string }): Promise<{ message: string }> => {
     return axiosClient.put('/auth/password', data);

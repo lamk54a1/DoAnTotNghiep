@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { CalendarOutlined, EnvironmentOutlined, FireOutlined, TrophyOutlined } from '@ant-design/icons';
-import axiosClient from '../../api/axiosClient';
+import axiosClient, { API_ORIGIN } from '../../api/axiosClient';
 import { IMatch } from '../../interfaces';
 import MatchCountdown from './MatchCountdown';
 
 const Hero = () => {
   const [featuredMatch, setFeaturedMatch] = useState<IMatch | null>(null);
+  const [customBanner, setCustomBanner] = useState<string | null>(null);
 
   useEffect(() => {
     void axiosClient.get<IMatch[]>('/matches?scope=featured')
@@ -16,9 +17,13 @@ const Hero = () => {
         setFeaturedMatch(matches[0] || null);
       })
       .catch(() => setFeaturedMatch(null));
+    void axiosClient.get<{ bannerImage: string | null }>('/site/home-banner')
+      .then((data) => setCustomBanner(data.bannerImage))
+      .catch(() => setCustomBanner(null));
   }, []);
 
-  const bannerImage = featuredMatch?.bannerImage || '/images/sVinh.jpg';
+  const selectedBanner = customBanner || featuredMatch?.bannerImage || '/images/sVinh.jpg';
+  const bannerImage = selectedBanner.startsWith('/uploads/') ? `${API_ORIGIN}${selectedBanner}` : selectedBanner;
 
   return (
     <section className="bg-gray-50 px-6 pb-12 pt-10">

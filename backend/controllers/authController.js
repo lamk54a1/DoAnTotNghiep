@@ -101,9 +101,13 @@ const updateProfile = async (req, res) => {
 
 const updateIdentity = async (req, res) => {
   const cccd = normalizeCccd(req.body.cccd);
+  const address = typeof req.body.address === 'string' ? req.body.address.trim() : '';
 
   if (!cccd || !/^\d{12}$/.test(cccd)) {
     return res.status(400).json({ message: 'Không đọc được CCCD hợp lệ từ ảnh. Vui lòng chụp rõ mặt trước CCCD.' });
+  }
+  if (address && (address.length < 8 || address.length > 500)) {
+    return res.status(400).json({ message: 'Địa chỉ từ CCCD phải có từ 8 đến 500 ký tự.' });
   }
 
   try {
@@ -132,8 +136,8 @@ const updateIdentity = async (req, res) => {
 
     const result = await pool.query(
       `UPDATE users
-       SET pending_cccd = $1, cccd_status = 'PENDING'
-       WHERE id = $2 AND cccd IS NULL
+       SET pending_cccd = $1, cccd_status = 'PENDING', address = COALESCE($2, address)
+       WHERE id = $3 AND cccd IS NULL
        RETURNING
         id,
         email,
@@ -147,7 +151,7 @@ const updateIdentity = async (req, res) => {
         role,
         status,
         created_at AS "createdAt"`,
-      [cccd, req.user.id]
+      [cccd, address || null, req.user.id]
     );
 
     if (result.rowCount === 0) {

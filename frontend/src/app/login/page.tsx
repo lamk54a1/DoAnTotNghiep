@@ -87,6 +87,10 @@ export default function LoginPage() {
             </Button>
           </Form.Item>
 
+          <div className="mb-5 text-right text-sm">
+            <Link href="/forgot-password" className="font-bold text-[#003078] hover:underline">Quên mật khẩu?</Link>
+          </div>
+
           <Divider plain>Hoặc đăng nhập với</Divider>
           <div className="grid grid-cols-2 gap-3">
             <Button href={`${apiBaseUrl}/auth/oauth/google?mode=login`}>Google</Button>

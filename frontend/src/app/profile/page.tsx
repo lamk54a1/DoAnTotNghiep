@@ -161,7 +161,7 @@ export default function ProfilePage() {
 
             <Card className="rounded-[28px] border-none shadow-md">
               <Form
-                key={profile?.id}
+                key={`${profile?.id}-${profile?.address || ''}`}
                 layout="vertical"
                 onFinish={handleSave}
                 initialValues={{
