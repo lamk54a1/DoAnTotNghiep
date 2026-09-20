@@ -4,7 +4,7 @@ Tích hợp này dùng VietQR của tài khoản ngân hàng đã khai báo và 
 
 ## Chuẩn bị trong SePay
 
-1. Đăng ký/đăng nhập `my.sepay.vn`, liên kết đúng tài khoản ngân hàng nhận tiền.
+1. Đăng ký/đăng nhập `my.sepay.vn`, liên kết đúng tài khoản MB cá nhân nhận tiền; xác nhận trạng thái kết nối API thành công. Không dùng tài khoản Vietcombank cũ cho webhook/QR mới.
 2. Trong **Cấu hình Công ty → Cấu trúc mã thanh toán**, tạo mẫu tiền tố `SLNA`, hậu tố **12 ký tự chữ và số**. Mã tạo ra có dạng `SLNA12ABCDEF3456`.
 3. Tạo webhook loại **Tiền vào**, định dạng **JSON**, chọn đúng tài khoản ngân hàng, bật tự động gửi lại khi lỗi. URL: `https://api.veslnafc.xyz/api/payments/sepay/webhook`.
 4. Chọn xác thực **HMAC-SHA256** và giữ kín Secret Key. Không dùng kiểu "Không xác thực" hoặc chỉ API Key cho endpoint này.
@@ -15,18 +15,19 @@ Tích hợp này dùng VietQR của tài khoản ngân hàng đã khai báo và 
 Sau khi chạy migration `008_add_sepay_transactions.sql`, thêm vào `/srv/slna/app/backend/.env`:
 
 ```dotenv
-BANK_ID=<mã ngân hàng dùng cho VietQR>
-BANK_ACCOUNT_NO=<số tài khoản đã liên kết trong SePay>
-BANK_ACCOUNT_NAME=<tên chủ tài khoản>
+BANK_ID=MB
+BANK_ACCOUNT_NO=<số tài khoản MB đã liên kết trong SePay>
+BANK_ACCOUNT_NAME=<tên chủ tài khoản MB đúng như ngân hàng hiển thị, không dấu>
 SEPAY_WEBHOOK_SECRET=<Secret Key HMAC của webhook>
 SEPAY_ENABLED=1
 ```
 
-Không gửi Secret Key qua chat, không đưa vào frontend hoặc Git. Khởi động lại `slna-api` sau khi đổi `.env`. Khi chưa có đủ cấu hình hoặc `SEPAY_ENABLED=0`, lựa chọn SePay sẽ ẩn khỏi trang thanh toán; chuyển khoản thủ công vẫn hoạt động theo quy trình duyệt hiện tại.
+Không gửi Secret Key qua chat, không đưa vào frontend hoặc Git. Nếu có `backend/.env.local` trên VPS thì tệp đó ghi đè `.env`: kiểm tra cả hai tệp để tránh QR trỏ về tài khoản cũ. Khởi động lại `slna-api` sau khi đổi cấu hình. Cả chuyển khoản thủ công lẫn SePay dùng chung `BANK_ID`, `BANK_ACCOUNT_NO`, `BANK_ACCOUNT_NAME`; mã nguồn frontend không chứa số tài khoản. Các đơn/QR đã tạo trước lúc đổi ngân hàng không được tự cập nhật, hãy để chúng hết hạn hoặc xử lý riêng trước khi nhận tiền mới. Khi chưa có đủ cấu hình hoặc `SEPAY_ENABLED=0`, lựa chọn SePay sẽ ẩn khỏi trang thanh toán; chuyển khoản thủ công vẫn hoạt động theo quy trình duyệt hiện tại.
 
 ## Kiểm thử và vận hành
 
 - Chạy `npm test` để kiểm tra chữ ký, chống trùng và đối soát bằng dữ liệu giả lập **cục bộ**.
+- Nút **Gửi thử** trong SePay dùng ID giao dịch mẫu `0`; backend xác thực HMAC và trả thành công nhưng không ghi DB, không tạo vé. Đây chỉ kiểm tra đường truyền, không chứng minh giao dịch ngân hàng thật đã vào hệ thống.
 - SePay **Test mode phải dùng backend và database staging riêng**. Không trỏ webhook Test mode vào API production vì tiền giả lập có thể tạo vé thật trong production.
 - Sau khi thử staging, chỉ kích hoạt Live với tài khoản ngân hàng thật và Secret Key Live. Thử một giao dịch thật giá trị nhỏ, kiểm tra cả lịch sử SePay, sao kê ngân hàng, trạng thái đơn và QR vé.
 - Chuyển khoản sai số tiền, sai tài khoản, sai mã hoặc đến sau khi đơn hết hạn sẽ không tự cấp vé. Admin xem tại **Đối soát SePay**; xử lý hoàn tiền/đối soát trên SePay và ngân hàng.

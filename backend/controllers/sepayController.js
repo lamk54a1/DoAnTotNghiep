@@ -68,6 +68,12 @@ const handleSepayWebhook = async (req, res) => {
     return res.status(400).json({ success: false });
   }
 
+  // SePay's "Gửi thử" uses a mock transaction with id 0. Acknowledge it only
+  // after signature verification, without writing a transaction or issuing tickets.
+  if (payload && !Array.isArray(payload) && payload.id === 0) {
+    return res.json({ success: true });
+  }
+
   const client = await pool.connect().catch((error) => {
     console.error('Không kết nối được DB cho webhook SePay:', error.message);
     return null;
