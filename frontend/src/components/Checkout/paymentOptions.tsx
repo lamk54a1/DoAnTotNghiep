@@ -6,7 +6,7 @@ export const sepayPaymentOption: {
   description: string;
   icon: React.ReactNode;
 } = {
-  title: 'SePay · xác nhận tự động',
-  description: 'Quét VietQR; hệ thống chỉ phát hành vé khi SePay báo tiền vào đúng số tiền và mã đơn.',
+  title: 'Quét Mã QR để thanh toán',
+  description: 'Hệ thống chỉ phát hành vé khi chuyển đúng nội dung và xác nhận thanh toán thành công',
   icon: <QrcodeOutlined />,
 };
