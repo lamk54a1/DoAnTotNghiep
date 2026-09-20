@@ -3,6 +3,7 @@ import axiosClient from './axiosClient';
 import { ILoginPayload, IRegisterPayload, IAuthResponse, IUser } from '../interfaces/IUser';
 
 export const authApi = {
+  getOAuthProviders: (): Promise<{ google: boolean; facebook: boolean }> => axiosClient.get('/auth/oauth/providers'),
   login: (data: ILoginPayload): Promise<IAuthResponse> => {
     return axiosClient.post('/auth/login', data);
   },

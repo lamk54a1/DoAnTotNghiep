@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 process.env.JWT_SECRET ||= 'test-secret-at-least-32-characters-long';
 
 const { isTicketAdmissionAllowed } = require('../controllers/ticketController');
-const { isStrongPassword } = require('../controllers/authController');
+const { isStrongPassword, oauthStart, oauthCallback, oauthProviders } = require('../controllers/authController');
 const { detectImageType } = require('../routes/uploadRoutes');
 const { releaseExpiredOrders } = require('../utils/orderLifecycle');
 const pool = require('../config/db');
@@ -25,6 +25,36 @@ test('mật khẩu đăng ký phải có ít nhất 8 ký tự, chữ và số',
   assert.equal(isStrongPassword('short1'), false);
   assert.equal(isStrongPassword('onlyletters'), false);
   assert.equal(isStrongPassword('secure123'), true);
+});
+
+test('OAuth chỉ bật khi có cấu hình và ràng buộc state với cookie trình duyệt', async () => {
+  const previous = { id: process.env.GOOGLE_CLIENT_ID, secret: process.env.GOOGLE_CLIENT_SECRET };
+  process.env.GOOGLE_CLIENT_ID = 'test-client-id';
+  process.env.GOOGLE_CLIENT_SECRET = 'test-client-secret';
+  const res = {
+    cookie(name, value, options) { this.cookieData = { name, value, options }; },
+    clearCookie(name, options) { this.cleared = { name, options }; },
+    redirect(url) { this.redirectUrl = url; },
+    json(body) { this.body = body; },
+  };
+  try {
+    oauthProviders({}, res);
+    assert.equal(res.body.google, true);
+    oauthStart({ params: { provider: 'google' }, query: { mode: 'login' } }, res);
+    const authUrl = new URL(res.redirectUrl);
+    assert.equal(authUrl.searchParams.get('state'), res.cookieData.value);
+    assert.equal(res.cookieData.options.httpOnly, true);
+    assert.equal(res.cookieData.options.sameSite, 'lax');
+
+    await oauthCallback({ params: { provider: 'google' }, query: { state: res.cookieData.value, code: 'fake' }, headers: {} }, res);
+    assert.match(res.redirectUrl, /oauth_error=/);
+    assert.ok(res.cleared);
+  } finally {
+    if (previous.id === undefined) delete process.env.GOOGLE_CLIENT_ID;
+    else process.env.GOOGLE_CLIENT_ID = previous.id;
+    if (previous.secret === undefined) delete process.env.GOOGLE_CLIENT_SECRET;
+    else process.env.GOOGLE_CLIENT_SECRET = previous.secret;
+  }
 });
 
 test('nhận diện ảnh dựa trên magic bytes thay vì tên file', () => {

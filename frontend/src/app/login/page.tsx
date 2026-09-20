@@ -4,7 +4,7 @@ import { authApi } from '../../api/authApi';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ILoginPayload, IAuthResponse } from '../../interfaces/IUser';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { saveAuthSession } from '../../utils/authSession';
 
 const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
@@ -13,6 +13,11 @@ export default function LoginPage() {
   const router = useRouter();
   // 1. Khai báo API notification bằng Hook để tiêu thụ được Context
   const [api, contextHolder] = notification.useNotification();
+  const [oauthProviders, setOauthProviders] = useState({ google: false, facebook: false });
+
+  useEffect(() => {
+    void authApi.getOAuthProviders().then(setOauthProviders).catch(() => {});
+  }, []);
 
   useEffect(() => {
     const error = new URLSearchParams(window.location.search).get('oauth_error');
@@ -93,9 +98,12 @@ export default function LoginPage() {
 
           <Divider plain>Hoặc đăng nhập với</Divider>
           <div className="grid grid-cols-2 gap-3">
-            <Button href={`${apiBaseUrl}/auth/oauth/google?mode=login`}>Google</Button>
-            <Button href={`${apiBaseUrl}/auth/oauth/facebook?mode=login`}>Facebook</Button>
+            <Button disabled={!oauthProviders.google} href={`${apiBaseUrl}/auth/oauth/google?mode=login`}>Google</Button>
+            <Button disabled={!oauthProviders.facebook} href={`${apiBaseUrl}/auth/oauth/facebook?mode=login`}>Facebook</Button>
           </div>
+          {!oauthProviders.google && !oauthProviders.facebook && (
+            <p className="mt-2 text-center text-xs text-gray-500">Đăng nhập mạng xã hội chưa được kích hoạt.</p>
+          )}
 
           <div className="text-center mt-4 text-xs font-medium text-gray-500">
             Chưa có tài khoản?{' '}

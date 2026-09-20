@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, logout, getProfile, updateProfile, updateIdentity, changePassword, changeEmail, oauthStart, oauthCallback } = require('../controllers/authController');
+const { register, login, logout, getProfile, updateProfile, updateIdentity, changePassword, changeEmail, oauthStart, oauthCallback, oauthProviders } = require('../controllers/authController');
 const { verifyToken } = require('../middleware/authMiddleware');
 const { createRateLimit } = require('../middleware/rateLimit');
 const { getPasswordResetStatus, requestPasswordReset, resetPassword } = require('../controllers/passwordResetController');
@@ -22,6 +22,7 @@ router.put('/profile', verifyToken, updateProfile);
 router.put('/identity', verifyToken, updateIdentity);
 router.put('/password', verifyToken, changePassword);
 router.put('/email', verifyToken, changeEmail);
+router.get('/oauth/providers', oauthProviders);
 router.get('/oauth/:provider', oauthStart);
 router.get('/oauth/:provider/callback', oauthCallback);
 

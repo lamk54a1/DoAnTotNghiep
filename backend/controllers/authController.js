@@ -328,6 +328,25 @@ const oauthConfig = {
   },
 };
 
+const oauthStateCookie = 'slna_oauth_state';
+const oauthStateCookieOptions = () => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/api/auth/oauth',
+});
+
+const readOauthStateCookie = (req) => {
+  const part = String(req.headers.cookie || '').split(';').map((item) => item.trim())
+    .find((item) => item.startsWith(`${oauthStateCookie}=`));
+  return part ? part.slice(oauthStateCookie.length + 1) : '';
+};
+
+const oauthProviders = (_req, res) => res.json({
+  google: Boolean(oauthConfig.google.clientId() && oauthConfig.google.clientSecret()),
+  facebook: Boolean(oauthConfig.facebook.clientId() && oauthConfig.facebook.clientSecret()),
+});
+
 const oauthStart = (req, res) => {
   const provider = String(req.params.provider || '').toLowerCase();
   const mode = req.query.mode === 'register' ? 'register' : 'login';
@@ -337,6 +356,7 @@ const oauthStart = (req, res) => {
   }
   const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/oauth/${provider}/callback`;
   const state = jwt.sign({ provider, mode, nonce: crypto.randomBytes(12).toString('hex') }, jwtSecret, { expiresIn: '10m' });
+  res.cookie(oauthStateCookie, state, { ...oauthStateCookieOptions(), maxAge: 10 * 60 * 1000 });
   const params = new URLSearchParams({
     client_id: config.clientId(),
     redirect_uri: redirectUri,
@@ -350,8 +370,15 @@ const oauthStart = (req, res) => {
 const oauthCallback = async (req, res) => {
   const provider = String(req.params.provider || '').toLowerCase();
   const config = oauthConfig[provider];
+  const expectedState = readOauthStateCookie(req);
+  res.clearCookie(oauthStateCookie, oauthStateCookieOptions());
   try {
-    const stateData = jwt.verify(String(req.query.state || ''), jwtSecret);
+    const receivedState = String(req.query.state || '');
+    if (!expectedState || !receivedState || expectedState.length !== receivedState.length
+      || !crypto.timingSafeEqual(Buffer.from(expectedState), Buffer.from(receivedState))) {
+      throw new Error('Phiên đăng nhập đã hết hạn hoặc không hợp lệ. Vui lòng thử lại.');
+    }
+    const stateData = jwt.verify(receivedState, jwtSecret, { algorithms: ['HS256'] });
     if (!config || stateData.provider !== provider || !req.query.code) throw new Error('Yêu cầu OAuth không hợp lệ.');
     const redirectUri = `${process.env.BACKEND_URL || 'http://localhost:5000'}/api/auth/oauth/${provider}/callback`;
     const tokenParams = new URLSearchParams({
@@ -391,13 +418,10 @@ const oauthCallback = async (req, res) => {
       [providerName, providerId]
     );
     if (userResult.rowCount === 0) {
-      const emailResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-      if (emailResult.rowCount > 0 && emailResult.rows[0].auth_provider !== providerName) {
-        throw new Error('Email này đã có tài khoản. Vui lòng đăng nhập bằng mật khẩu để tránh liên kết nhầm tài khoản.');
+      const emailResult = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+      if (emailResult.rowCount > 0) {
+        throw new Error('Email này đã có tài khoản. Vui lòng dùng phương thức đăng nhập đã đăng ký.');
       }
-      userResult = emailResult;
-    }
-    if (userResult.rowCount === 0) {
       const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10);
       userResult = await pool.query(
         `INSERT INTO users (email, password, full_name, role, status, auth_provider, provider_id, address, profile_completed)
@@ -405,25 +429,11 @@ const oauthCallback = async (req, res) => {
          RETURNING *`,
         [email, randomPassword, socialUser.name || email.split('@')[0], providerName, providerId]
       );
-    } else {
-      await pool.query(
-        'UPDATE users SET auth_provider = $1, provider_id = COALESCE(provider_id, $2) WHERE id = $3',
-        [providerName, providerId, userResult.rows[0].id]
-      );
-      userResult = await pool.query('SELECT * FROM users WHERE id = $1', [userResult.rows[0].id]);
     }
     const user = userResult.rows[0];
     if (user.status === 'BANNED') throw new Error('Tài khoản đã bị khóa.');
     setSessionCookie(res, user);
-    const userPayload = Buffer.from(JSON.stringify({
-      id: user.id,
-      email: user.email,
-      fullName: user.full_name,
-      role: user.role,
-      profileCompleted: Boolean(user.profile_completed),
-      authProvider: user.auth_provider,
-    })).toString('base64url');
-    res.redirect(`${frontendUrl}/auth/callback?user=${encodeURIComponent(userPayload)}`);
+    res.redirect(`${frontendUrl}/auth/callback`);
   } catch (err) {
     let mode = 'login';
     try {
@@ -438,4 +448,4 @@ const logout = (_req, res) => {
   res.json({ message: 'Đã đăng xuất.' });
 };
 
-module.exports = { register, login, logout, getProfile, updateProfile, updateIdentity, changePassword, changeEmail, oauthStart, oauthCallback, isStrongPassword };
+module.exports = { register, login, logout, getProfile, updateProfile, updateIdentity, changePassword, changeEmail, oauthStart, oauthCallback, oauthProviders, isStrongPassword };
