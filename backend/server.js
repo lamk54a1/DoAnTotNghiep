@@ -21,6 +21,7 @@ app.use(cors({
 }));
 app.use((req, res, next) => {
   if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
+  if (req.path === '/api/payments/sepay/webhook') return next();
   const origin = req.headers.origin;
   const allowedOrigin = String(process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
   if (origin && origin.replace(/\/$/, '') !== allowedOrigin) {
@@ -35,6 +36,9 @@ app.use((_req, res, next) => {
   res.setHeader('Permissions-Policy', 'camera=(self), microphone=(), geolocation=()');
   next();
 });
+const { handleSepayWebhook } = require('./controllers/sepayController');
+// SePay signs the original bytes. Register this route before express.json().
+app.post('/api/payments/sepay/webhook', express.raw({ type: 'application/json', limit: '10kb' }), handleSepayWebhook);
 app.use(express.json({ limit: '100kb' }));
 app.use('/api/admin', adminRoutes);
 

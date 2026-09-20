@@ -95,6 +95,20 @@ CREATE INDEX IF NOT EXISTS orders_pending_expiry_idx ON orders (expires_at) WHER
 CREATE UNIQUE INDEX IF NOT EXISTS orders_order_qr_code_unique_idx ON orders (order_qr_code) WHERE order_qr_code IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS tickets_ticket_qr_code_unique_idx ON tickets (ticket_qr_code) WHERE ticket_qr_code IS NOT NULL;
 
+CREATE TABLE IF NOT EXISTS sepay_transactions (
+  transaction_id BIGINT PRIMARY KEY,
+  order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+  payment_code VARCHAR(80),
+  account_number VARCHAR(80) NOT NULL,
+  amount INTEGER NOT NULL,
+  status VARCHAR(32) NOT NULL,
+  payload JSONB NOT NULL,
+  received_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS sepay_transactions_review_idx
+  ON sepay_transactions (received_at DESC) WHERE status <> 'MATCHED';
+
 CREATE TABLE IF NOT EXISTS sponsors (
   id SERIAL PRIMARY KEY,
   name VARCHAR(160) NOT NULL,

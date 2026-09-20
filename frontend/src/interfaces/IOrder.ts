@@ -1,6 +1,6 @@
 import { ITicket } from './ITicket';
 
-export type PaymentMethod = 'VNPAY' | 'MOMO' | 'CASH' | 'BANK_TRANSFER';
+export type PaymentMethod = 'SEPAY' | 'CASH' | 'BANK_TRANSFER';
 
 export interface IOrderResponse {
   id: number;
@@ -9,6 +9,7 @@ export interface IOrderResponse {
   expiresAt: string;
   totalAmount: number;
   status: 'PENDING';
+  paymentMethod: PaymentMethod;
 }
 
 export interface IOrder {

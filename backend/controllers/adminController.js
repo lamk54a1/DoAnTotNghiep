@@ -1,23 +1,8 @@
 const pool = require('../config/db');
 const ExcelJS = require('exceljs');
-const { v4: uuidv4 } = require('uuid');
 const { writeAuditLog } = require('../utils/auditLog');
 const { releaseExpiredOrders } = require('../utils/orderLifecycle');
-
-const assignTicketQrCodes = async (client, orderIds) => {
-  const tickets = await client.query(
-    `SELECT id FROM tickets
-     WHERE order_id = ANY($1::int[]) AND ticket_qr_code IS NULL
-     FOR UPDATE`,
-    [orderIds]
-  );
-  for (const ticket of tickets.rows) {
-    await client.query(
-      'UPDATE tickets SET ticket_qr_code = $1 WHERE id = $2',
-      [`TICKET-${uuidv4().substring(0, 12).toUpperCase()}`, ticket.id]
-    );
-  }
-};
+const { assignTicketQrCodes } = require('../utils/ticketQr');
 
 const getDashboardStats = async (req, res) => {
   const { year, matchId } = req.query;
@@ -146,7 +131,7 @@ const updateOrderStatus = async (req, res) => {
     await releaseExpiredOrders(client);
 
     const currentOrderResult = await client.query(
-      'SELECT id, status FROM orders WHERE id = $1 FOR UPDATE',
+      'SELECT id, status, payment_method FROM orders WHERE id = $1 FOR UPDATE',
       [id]
     );
 
@@ -164,6 +149,10 @@ const updateOrderStatus = async (req, res) => {
     if (currentStatus !== 'PENDING') {
       await client.query('ROLLBACK');
       return res.status(409).json({ message: 'Chỉ đơn đang chờ xử lý mới có thể được duyệt hoặc hủy.' });
+    }
+    if (status === 'SUCCESS' && currentOrderResult.rows[0].payment_method === 'SEPAY') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: 'Đơn SePay chỉ được xác nhận bằng webhook thanh toán hợp lệ.' });
     }
 
     const orderResult = await client.query(
@@ -215,7 +204,7 @@ const bulkUpdateOrderStatus = async (req, res) => {
     await releaseExpiredOrders(client);
 
     const ordersResult = await client.query(
-      `SELECT id, status
+      `SELECT id, status, payment_method
        FROM orders
        WHERE id = ANY($1::int[])
        FOR UPDATE`,
@@ -223,7 +212,7 @@ const bulkUpdateOrderStatus = async (req, res) => {
     );
 
     const pendingOrderIds = ordersResult.rows
-      .filter((order) => order.status === 'PENDING')
+      .filter((order) => order.status === 'PENDING' && (status !== 'SUCCESS' || order.payment_method !== 'SEPAY'))
       .map((order) => order.id);
 
     if (pendingOrderIds.length === 0) {
@@ -270,6 +259,21 @@ const bulkUpdateOrderStatus = async (req, res) => {
     res.status(500).json({ message: 'Không thể cập nhật hàng loạt đơn hàng.' });
   } finally {
     client.release();
+  }
+};
+
+const getSepayReviewTransactions = async (_req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT transaction_id AS "transactionId", order_id AS "orderId",
+              payment_code AS "paymentCode", account_number AS "accountNumber",
+              amount, status, received_at AS "receivedAt"
+       FROM sepay_transactions WHERE status <> 'MATCHED'
+       ORDER BY received_at DESC LIMIT 100`
+    );
+    return res.json(result.rows);
+  } catch {
+    return res.status(500).json({ message: 'Không thể tải giao dịch cần đối soát.' });
   }
 };
 
@@ -505,5 +509,6 @@ module.exports = {
   updateUserStatus,
   reviewUserIdentity,
   getAuditLogs,
-  exportOrdersReport
+  exportOrdersReport,
+  getSepayReviewTransactions
 };

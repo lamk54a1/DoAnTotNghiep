@@ -1,5 +1,5 @@
 import React from 'react';
-import { BankOutlined, MobileOutlined, QrcodeOutlined, ShopOutlined } from '@ant-design/icons';
+import { BankOutlined, QrcodeOutlined, ShopOutlined } from '@ant-design/icons';
 import { PaymentMethod } from '../../interfaces/IOrder';
 
 export const paymentOptions: Array<{
@@ -11,19 +11,13 @@ export const paymentOptions: Array<{
   {
     value: 'BANK_TRANSFER',
     title: 'Chuyển khoản VietQR',
-    description: 'Quét QR ngân hàng, nội dung chuyển khoản tự động theo đơn.',
+    description: 'Chuyển khoản thủ công; admin kiểm tra tiền vào rồi mới xác nhận vé.',
     icon: <BankOutlined />,
   },
   {
-    value: 'MOMO',
-    title: 'Ví MoMo',
-    description: 'Mô phỏng thanh toán ví điện tử MoMo cho đơn vé SLNA.',
-    icon: <MobileOutlined />,
-  },
-  {
-    value: 'VNPAY',
-    title: 'Thẻ ATM / VNPAY',
-    description: 'Thanh toán qua cổng VNPAY bằng ATM nội địa hoặc QR Pay.',
+    value: 'SEPAY',
+    title: 'SePay · xác nhận tự động',
+    description: 'Quét VietQR; hệ thống chỉ phát hành vé khi SePay báo tiền vào đúng số tiền và mã đơn.',
     icon: <QrcodeOutlined />,
   },
   {

@@ -12,6 +12,7 @@ export const useBooking = () => {
     (seats: string[], prices: Record<string, number>) => dispatch(replaceHeldSelection({ seats, prices })),
     [dispatch]
   );
+  const confirmPayment = useCallback(() => dispatch(confirmPaymentSuccess()), [dispatch]);
 
   const handleToggleSeat = (seatId: string, price?: number) => {
     if (!selectedSeats.includes(seatId) && !soldSeats.includes(seatId) && selectedSeats.length >= 4) {
@@ -26,7 +27,7 @@ export const useBooking = () => {
     soldSeats,
     totalPrice,
     handleToggleSeat,
-    confirmPayment: () => dispatch(confirmPaymentSuccess()),
+    confirmPayment,
     reset: () => dispatch(resetBooking()),
     replaceHeldSeats,
   };

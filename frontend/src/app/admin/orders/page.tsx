@@ -73,7 +73,7 @@ export default function AdminOrdersPage() {
     selectedRowKeys,
     onChange: setSelectedRowKeys,
     getCheckboxProps: (record) => ({
-      disabled: record.status !== 'PENDING',
+      disabled: record.status !== 'PENDING' || record.paymentMethod === 'SEPAY',
     }),
   };
 
@@ -107,7 +107,7 @@ export default function AdminOrdersPage() {
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="m-0 text-sm font-bold text-[#003078]">Đã chọn {selectedRowKeys.length} đơn chờ xử lý</p>
-            <p className="m-0 text-xs text-gray-400">Chỉ các đơn trạng thái PENDING mới có thể chọn để duyệt hàng loạt.</p>
+            <p className="m-0 text-xs text-gray-400">Đơn SePay chỉ được xác nhận qua webhook đã kiểm tra chữ ký; không thể duyệt tay.</p>
           </div>
           <Popconfirm
             title="Duyệt hàng loạt các đơn đã chọn?"
@@ -153,6 +153,8 @@ export default function AdminOrdersPage() {
                 <Tag color="green">Đã xác nhận, không thể hủy</Tag>
               ) : record.status === 'CANCELLED' ? (
                 <Tag color="red">Đã hủy</Tag>
+              ) : record.paymentMethod === 'SEPAY' ? (
+                <Space><Tag color="blue">Chờ webhook SePay</Tag><Popconfirm title="Hủy đơn và trả lại ghế?" onConfirm={() => updateStatus(record.id, 'CANCELLED')}><Button danger size="small">Hủy</Button></Popconfirm></Space>
               ) : (
               <Space>
                 <Select

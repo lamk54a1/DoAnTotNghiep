@@ -1,11 +1,13 @@
 const pool = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
+const crypto = require('node:crypto');
 const { writeAuditLog } = require('../utils/auditLog');
 const { ORDER_EXPIRY_MINUTES, releaseExpiredOrders, expirePendingOrders } = require('../utils/orderLifecycle');
+const { isSepayConfigured } = require('../services/sepayService');
 
-const paymentMethods = new Set(['BANK_TRANSFER', 'MOMO', 'VNPAY', 'CASH']);
+const paymentMethods = new Set(['BANK_TRANSFER', 'CASH', 'SEPAY']);
 
-const buildPaymentQrCode = ({ totalAmount, orderQrCode }) => {
+const buildPaymentQrCode = ({ totalAmount, orderQrCode, paymentMethod }) => {
     const bankId = String(process.env.BANK_ID || '').trim();
     const accountNo = String(process.env.BANK_ACCOUNT_NO || '').trim();
     const accountName = String(process.env.BANK_ACCOUNT_NAME || '').trim();
@@ -13,7 +15,7 @@ const buildPaymentQrCode = ({ totalAmount, orderQrCode }) => {
 
     const query = new URLSearchParams({
         amount: String(totalAmount),
-        addInfo: `THANH TOAN VE ${orderQrCode}`,
+        addInfo: paymentMethod === 'SEPAY' ? orderQrCode : `THANH TOAN VE ${orderQrCode}`,
         accountName,
     });
     return `https://img.vietqr.io/image/${encodeURIComponent(bankId)}-${encodeURIComponent(accountNo)}-compact2.png?${query}`;
@@ -36,6 +38,9 @@ const createOrder = async (req, res) => {
     }
     if (!paymentMethods.has(normalizedPaymentMethod)) {
         return res.status(400).json({ message: 'Phương thức thanh toán không hợp lệ.' });
+    }
+    if (normalizedPaymentMethod === 'SEPAY' && !isSepayConfigured()) {
+        return res.status(503).json({ message: 'SePay chưa được cấu hình. Vui lòng chọn phương thức thanh toán khác.' });
     }
 
     const client = await pool.connect();
@@ -122,13 +127,18 @@ const createOrder = async (req, res) => {
         }
 
         const totalAmount = ticketPrices.rows.reduce((sum, ticket) => sum + Number(ticket.price), 0);
+        if (normalizedPaymentMethod === 'SEPAY' && (!Number.isSafeInteger(totalAmount) || totalAmount < 1000)) {
+            throw Object.assign(new Error('Đơn thanh toán SePay phải từ 1.000đ.'), { statusCode: 400 });
+        }
         // Mã này chỉ dùng để đối soát đơn, không phải QR vào sân.
-        const orderQrCode = `ORDER-${uuidv4().substring(0, 8).toUpperCase()}`;
-        const paymentQrCode = normalizedPaymentMethod === 'BANK_TRANSFER'
-            ? buildPaymentQrCode({ totalAmount, orderQrCode })
+        const orderQrCode = normalizedPaymentMethod === 'SEPAY'
+            ? `SLNA${crypto.randomBytes(6).toString('hex').toUpperCase()}`
+            : `ORDER-${uuidv4().substring(0, 8).toUpperCase()}`;
+        const paymentQrCode = ['BANK_TRANSFER', 'SEPAY'].includes(normalizedPaymentMethod)
+            ? buildPaymentQrCode({ totalAmount, orderQrCode, paymentMethod: normalizedPaymentMethod })
             : null;
 
-        if (normalizedPaymentMethod === 'BANK_TRANSFER' && !paymentQrCode) {
+        if (['BANK_TRANSFER', 'SEPAY'].includes(normalizedPaymentMethod) && !paymentQrCode) {
             throw Object.assign(new Error('Máy chủ chưa cấu hình tài khoản nhận chuyển khoản.'), { statusCode: 503 });
         }
 
@@ -174,6 +184,7 @@ const createOrder = async (req, res) => {
             expiresAt: newOrder.expires_at,
             totalAmount: newOrder.total_amount,
             status: newOrder.status,
+            paymentMethod: newOrder.payment_method,
             tickets: updatedTickets
         });
 
@@ -208,6 +219,26 @@ const getPurchasedTicketCountByMatch = async (req, res) => {
     } catch (err) {
         console.error('Không thể kiểm tra số vé đã mua:', err.message);
         res.status(500).json({ message: 'Không thể kiểm tra giới hạn vé đã mua.' });
+    }
+};
+
+const getPaymentOptions = (_req, res) => res.json({ sepayAvailable: isSepayConfigured() });
+
+const getOrderStatus = async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ message: 'Mã đơn không hợp lệ.' });
+    try {
+        const result = await pool.query(
+            `SELECT id,
+                    CASE WHEN status = 'PENDING' AND expires_at <= NOW() THEN 'CANCELLED' ELSE status::text END AS status,
+                    payment_method AS "paymentMethod", expires_at AS "expiresAt"
+             FROM orders WHERE id = $1 AND user_id = $2`,
+            [id, req.user.id]
+        );
+        if (result.rowCount === 0) return res.status(404).json({ message: 'Không tìm thấy đơn hàng.' });
+        return res.json(result.rows[0]);
+    } catch {
+        return res.status(500).json({ message: 'Không thể kiểm tra trạng thái đơn hàng.' });
     }
 };
 
@@ -257,4 +288,4 @@ const getMyOrders = async (req, res) => {
     }
 };
 
-module.exports = { createOrder, getPurchasedTicketCountByMatch, getMyOrders };
+module.exports = { createOrder, getPurchasedTicketCountByMatch, getMyOrders, getPaymentOptions, getOrderStatus, buildPaymentQrCode };

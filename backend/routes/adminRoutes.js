@@ -9,7 +9,8 @@ const {
   updateUserStatus,
   reviewUserIdentity,
   getAuditLogs,
-  exportOrdersReport
+  exportOrdersReport,
+  getSepayReviewTransactions
 } = require('../controllers/adminController');
 const { isAdmin } = require('../middleware/authMiddleware');
 
@@ -17,6 +18,7 @@ router.use(isAdmin);
 router.get('/stats', getDashboardStats);
 router.get('/reports/orders.xlsx', exportOrdersReport);
 router.get('/orders', getOrders);
+router.get('/payments/sepay/review', getSepayReviewTransactions);
 router.patch('/orders/bulk/status', bulkUpdateOrderStatus);
 router.patch('/orders/:id/status', updateOrderStatus);
 router.get('/users', getUsers);

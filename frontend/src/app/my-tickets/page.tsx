@@ -17,6 +17,7 @@ interface MyOrder {
   totalAmount: number;
   status: 'PENDING' | 'SUCCESS' | 'CANCELLED';
   orderQrCode: string;
+  paymentMethod?: 'BANK_TRANSFER' | 'SEPAY' | 'CASH';
   paymentQrCode?: string | null;
   expiresAt?: string | null;
   createdAt: string;
@@ -72,7 +73,7 @@ export default function MyTicketsPage() {
                 <Image src={order.paymentQrCode} alt={`QR thanh toán đơn ${order.orderQrCode}`} width={150} height={150} unoptimized className="h-[150px] w-[150px] rounded-xl bg-white object-contain" />
                 <div className="text-sm text-amber-900">
                   <p className="font-black">Đơn đang chờ thanh toán/xác nhận</p>
-                  <p>Nội dung chuyển khoản: <b>THANH TOAN VE {order.orderQrCode}</b></p>
+                  <p>Nội dung chuyển khoản: <b>{order.paymentMethod === 'SEPAY' ? order.orderQrCode : `THANH TOAN VE ${order.orderQrCode}`}</b></p>
                   {order.expiresAt && <p>Hết hạn: <b>{dayjs(order.expiresAt).format('DD/MM/YYYY HH:mm')}</b></p>}
                 </div>
               </div>

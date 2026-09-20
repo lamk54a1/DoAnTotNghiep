@@ -1,6 +1,5 @@
 import Image from 'next/image';
-import { LoadingOutlined } from '@ant-design/icons';
-import { Alert, Button, Card, Radio, Spin, Tag } from 'antd';
+import { Alert, Button, Card, Radio, Tag } from 'antd';
 import { IOrderResponse, PaymentMethod } from '../../interfaces/IOrder';
 import { paymentOptions } from './paymentOptions';
 
@@ -8,7 +7,9 @@ interface PaymentMethodPanelProps {
   paymentMethod: PaymentMethod;
   totalPrice: number;
   order: IOrderResponse | null;
+  orderStatus: 'PENDING' | 'SUCCESS' | 'CANCELLED';
   isCreatingOrder: boolean;
+  sepayAvailable: boolean;
   onPaymentMethodChange: (paymentMethod: PaymentMethod) => void;
   onCreateOrder: () => void;
   onFinish: () => void;
@@ -18,7 +19,9 @@ export default function PaymentMethodPanel({
   paymentMethod,
   totalPrice,
   order,
+  orderStatus,
   isCreatingOrder,
+  sepayAvailable,
   onPaymentMethodChange,
   onCreateOrder,
   onFinish,
@@ -30,7 +33,7 @@ export default function PaymentMethodPanel({
     <Card className="rounded-3xl border-none shadow-sm" title={<span className="font-black italic uppercase text-[#003078]">Thanh toán đơn vé</span>}>
       <Radio.Group disabled={Boolean(order)} onChange={(event) => onPaymentMethodChange(event.target.value)} value={paymentMethod} className="w-full">
         <div className="grid gap-4 md:grid-cols-2">
-          {paymentOptions.map((option) => (
+          {paymentOptions.filter((option) => option.value !== 'SEPAY' || sepayAvailable).map((option) => (
             <label
               key={option.value}
               className={`rounded-2xl border-2 p-5 transition-all ${order ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'} ${paymentMethod === option.value ? 'border-[#003078] bg-blue-50/70 shadow-sm' : 'border-gray-100 bg-white hover:border-blue-100'}`}
@@ -71,24 +74,22 @@ export default function PaymentMethodPanel({
             <Tag color="blue" className="m-0 px-4 py-2">Hết hạn: {expiryText}</Tag>
           </div>
 
-          {paymentMethod === 'BANK_TRANSFER' && order.paymentQrCode ? (
+          {orderStatus === 'CANCELLED' ? (
+            <Alert showIcon type="error" message="Đơn đã hết hạn; không chuyển khoản bằng mã QR này." />
+          ) : ['BANK_TRANSFER', 'SEPAY'].includes(paymentMethod) && order.paymentQrCode ? (
             <div className="flex flex-col items-center">
               <div className="relative mb-5 rounded-[32px] border-4 border-[#003078] bg-white p-3 shadow-xl">
                 <Image src={order.paymentQrCode} alt={`QR thanh toán đơn ${order.orderQrCode}`} width={256} height={256} unoptimized className="h-64 w-64 object-contain" />
-                {isCreatingOrder && (
-                  <div className="absolute inset-0 flex items-center justify-center rounded-[28px] bg-white/95">
-                    <Spin indicator={<LoadingOutlined style={{ fontSize: 42, color: '#003078' }} spin />} />
-                  </div>
-                )}
               </div>
-              <Alert showIcon type="info" message={`Chuyển đúng ${totalPrice.toLocaleString()}đ với nội dung: THANH TOAN VE ${order.orderQrCode}`} />
+              <Alert showIcon type="info" message={`Chuyển đúng ${Number(order.totalAmount).toLocaleString('vi-VN')}đ với nội dung: ${paymentMethod === 'SEPAY' ? order.orderQrCode : `THANH TOAN VE ${order.orderQrCode}`}`} />
+              {paymentMethod === 'SEPAY' && <p className="mt-3 text-sm text-blue-800">Đang tự kiểm tra giao dịch qua SePay. Không cần bấm xác nhận đã chuyển khoản.</p>}
             </div>
           ) : (
-            <Alert showIcon type="warning" message="Phương thức này đang ở chế độ mô phỏng. Đơn chỉ có hiệu lực sau khi admin xác nhận đã thanh toán." />
+            <Alert showIcon type="warning" message="Đơn chỉ có hiệu lực sau khi admin xác nhận đã nhận thanh toán tại quầy." />
           )}
 
           <Button type="primary" size="large" className="mt-6 h-14 rounded-2xl px-10 font-black uppercase" onClick={onFinish}>
-            {paymentMethod === 'BANK_TRANSFER' ? 'Tôi đã chuyển khoản' : 'Hoàn tất tạo đơn'}
+            Xem trạng thái đơn
           </Button>
         </div>
       )}

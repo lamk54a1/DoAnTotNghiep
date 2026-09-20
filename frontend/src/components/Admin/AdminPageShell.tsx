@@ -21,6 +21,7 @@ const navigation = [
   { href: '/admin/matches', label: 'Trận đấu', icon: <CalendarOutlined /> },
   { href: '/admin/appearance', label: 'Banner', icon: <PictureOutlined /> },
   { href: '/admin/orders', label: 'Đơn hàng', icon: <ShoppingOutlined /> },
+  { href: '/admin/payment-reviews', label: 'Đối soát SePay', icon: <BankOutlined /> },
   { href: '/admin/users', label: 'Người dùng', icon: <TeamOutlined /> },
   { href: '/admin/sponsors', label: 'Nhà tài trợ', icon: <BankOutlined /> },
   { href: '/admin/scanner', label: 'Soát vé', icon: <QrcodeOutlined /> },

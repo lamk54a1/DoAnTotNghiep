@@ -4,24 +4,25 @@ import { Alert, Button, Card, Result, Tag } from 'antd';
 interface PaymentSuccessProps {
   ticketCode: string;
   confirmedSeats: string[];
+  paid?: boolean;
 }
 
-export default function PaymentSuccess({ ticketCode, confirmedSeats }: PaymentSuccessProps) {
+export default function PaymentSuccess({ ticketCode, confirmedSeats, paid = false }: PaymentSuccessProps) {
   return (
     <div className="flex min-h-screen flex-col items-center bg-white px-6 pb-20 pt-28 font-montserrat">
       <div className="w-full max-w-2xl">
         <Result
-          status="info"
-          title={<span className="text-3xl font-black italic uppercase text-[#003078]">Đơn đang chờ xác nhận</span>}
+          status={paid ? 'success' : 'info'}
+          title={<span className="text-3xl font-black italic uppercase text-[#003078]">{paid ? 'Thanh toán thành công' : 'Đơn đang chờ xác nhận'}</span>}
           subTitle={`Mã đối soát của bạn là ${ticketCode}`}
         />
         <Card className="mb-8 rounded-[40px] border-none bg-gray-50 shadow-2xl">
           <div className="space-y-6 p-8">
             <Alert
               showIcon
-              type="warning"
-              message="Đây chưa phải vé vào sân"
-              description="QR vé chỉ xuất hiện trong mục Vé của tôi sau khi thanh toán được xác nhận. Đơn quá hạn chưa được xác nhận sẽ tự hủy và hoàn ghế."
+              type={paid ? 'success' : 'warning'}
+              message={paid ? 'Vé điện tử đã sẵn sàng' : 'Đây chưa phải vé vào sân'}
+              description={paid ? 'Vào mục Vé của tôi để xem mã QR vào sân.' : 'QR vé chỉ xuất hiện trong mục Vé của tôi sau khi thanh toán được xác nhận. Đơn quá hạn chưa được xác nhận sẽ tự hủy và hoàn ghế.'}
             />
             <div>
               <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Mã đơn hàng</span>
