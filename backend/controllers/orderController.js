@@ -7,6 +7,12 @@ const { isSepayConfigured } = require('../services/sepayService');
 
 const paymentMethods = new Set(['BANK_TRANSFER', 'CASH', 'SEPAY']);
 
+const isSepayReady = async () => {
+    if (!isSepayConfigured()) return false;
+    const result = await pool.query("SELECT to_regclass('public.sepay_transactions') IS NOT NULL AS ready");
+    return result.rows[0]?.ready === true;
+};
+
 const buildPaymentQrCode = ({ totalAmount, orderQrCode, paymentMethod }) => {
     const bankId = String(process.env.BANK_ID || '').trim();
     const accountNo = String(process.env.BANK_ACCOUNT_NO || '').trim();
@@ -39,8 +45,12 @@ const createOrder = async (req, res) => {
     if (!paymentMethods.has(normalizedPaymentMethod)) {
         return res.status(400).json({ message: 'Phương thức thanh toán không hợp lệ.' });
     }
-    if (normalizedPaymentMethod === 'SEPAY' && !isSepayConfigured()) {
-        return res.status(503).json({ message: 'SePay chưa được cấu hình. Vui lòng chọn phương thức thanh toán khác.' });
+    if (normalizedPaymentMethod === 'SEPAY') {
+        try {
+            if (!await isSepayReady()) return res.status(503).json({ message: 'SePay chưa sẵn sàng. Vui lòng chọn phương thức thanh toán khác.' });
+        } catch {
+            return res.status(503).json({ message: 'SePay chưa sẵn sàng. Vui lòng chọn phương thức thanh toán khác.' });
+        }
     }
 
     const client = await pool.connect();
@@ -222,7 +232,13 @@ const getPurchasedTicketCountByMatch = async (req, res) => {
     }
 };
 
-const getPaymentOptions = (_req, res) => res.json({ sepayAvailable: isSepayConfigured() });
+const getPaymentOptions = async (_req, res) => {
+    try {
+        return res.json({ sepayAvailable: await isSepayReady() });
+    } catch {
+        return res.json({ sepayAvailable: false });
+    }
+};
 
 const getOrderStatus = async (req, res) => {
     const id = Number(req.params.id);
