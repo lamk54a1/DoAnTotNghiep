@@ -3,12 +3,12 @@ const { v4: uuidv4 } = require('uuid');
 const crypto = require('node:crypto');
 const { writeAuditLog } = require('../utils/auditLog');
 const { ORDER_EXPIRY_MINUTES, releaseExpiredOrders, expirePendingOrders } = require('../utils/orderLifecycle');
-const { isSepayConfigured } = require('../services/sepayService');
+const { isSepayCheckoutEnabled } = require('../services/sepayService');
 
 const paymentMethods = new Set(['BANK_TRANSFER', 'CASH', 'SEPAY']);
 
 const isSepayReady = async () => {
-    if (!isSepayConfigured()) return false;
+    if (!isSepayCheckoutEnabled()) return false;
     const result = await pool.query("SELECT to_regclass('public.sepay_transactions') IS NOT NULL AS ready");
     return result.rows[0]?.ready === true;
 };

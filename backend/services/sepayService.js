@@ -4,6 +4,8 @@ const isSepayConfigured = () => process.env.SEPAY_ENABLED === '1'
   && String(process.env.SEPAY_WEBHOOK_SECRET || '').length >= 24
   && Boolean(process.env.BANK_ID && process.env.BANK_ACCOUNT_NO && process.env.BANK_ACCOUNT_NAME);
 
+const isSepayCheckoutEnabled = () => isSepayConfigured() && process.env.SEPAY_CHECKOUT_ENABLED === '1';
+
 const verifySepaySignature = (headers, rawBody, secret = process.env.SEPAY_WEBHOOK_SECRET, nowSeconds = Math.floor(Date.now() / 1000)) => {
   const timestamp = String(headers['x-sepay-timestamp'] || '');
   const signature = String(headers['x-sepay-signature'] || '');
@@ -27,4 +29,4 @@ const normalizeTransfer = (payload) => {
   };
 };
 
-module.exports = { isSepayConfigured, verifySepaySignature, normalizeTransfer };
+module.exports = { isSepayConfigured, isSepayCheckoutEnabled, verifySepaySignature, normalizeTransfer };

@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
-const { verifySepaySignature, normalizeTransfer } = require('../services/sepayService');
+const { isSepayCheckoutEnabled, verifySepaySignature, normalizeTransfer } = require('../services/sepayService');
 const { handleSepayWebhook, processSepayTransfer } = require('../controllers/sepayController');
 const { buildPaymentQrCode } = require('../controllers/orderController');
 const pool = require('../config/db');
@@ -94,6 +94,29 @@ test('SePay Gửi thử xác thực HMAC nhưng không ghi DB hoặc tạo vé',
     await handleSepayWebhook(req, response);
     assert.equal(response.statusCode, 401);
     assert.deepEqual(response.body, { success: false });
+  } finally {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
+test('Webhook có thể hoạt động trước khi mở SePay trên trang thanh toán', () => {
+  const keys = ['SEPAY_ENABLED', 'SEPAY_CHECKOUT_ENABLED', 'SEPAY_WEBHOOK_SECRET', 'BANK_ID', 'BANK_ACCOUNT_NO', 'BANK_ACCOUNT_NAME'];
+  const original = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  Object.assign(process.env, {
+    SEPAY_ENABLED: '1',
+    SEPAY_CHECKOUT_ENABLED: '0',
+    SEPAY_WEBHOOK_SECRET: 'test-secret-with-at-least-24-characters',
+    BANK_ID: 'MB',
+    BANK_ACCOUNT_NO: 'test-account',
+    BANK_ACCOUNT_NAME: 'TEST ACCOUNT',
+  });
+  try {
+    assert.equal(isSepayCheckoutEnabled(), false);
+    process.env.SEPAY_CHECKOUT_ENABLED = '1';
+    assert.equal(isSepayCheckoutEnabled(), true);
   } finally {
     for (const [key, value] of Object.entries(original)) {
       if (value === undefined) delete process.env[key];
