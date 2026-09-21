@@ -18,6 +18,8 @@
 4. Luồng này yêu cầu `email` và `public_profile`. Nếu người dùng không chia sẻ email, backend sẽ từ chối tạo tài khoản thay vì tạo tài khoản thiếu email.
 5. Lấy App ID và App Secret để tự nhập trên VPS. Khi còn Development mode, chỉ tài khoản có role trong app mới thử được; cần hoàn tất yêu cầu của Meta để người dùng khác đăng nhập.
 
+Khi Meta yêu cầu thông tin để gửi xét duyệt: dùng biểu tượng `frontend/public/images/meta-app-icon.png` (1024 × 1024), URL chính sách `https://veslnafc.xyz/privacy`, URL hướng dẫn xóa dữ liệu `https://veslnafc.xyz/data-deletion`, và chọn hạng mục Thể thao nếu giao diện có. Chỉ nhập các URL sau khi bản frontend chứa những trang này đã triển khai và có thể mở công khai.
+
 ## Bật trên VPS
 
 Trên Vercel, `NEXT_PUBLIC_API_BASE_URL` phải là `https://api.veslnafc.xyz/api` để trình duyệt bắt đầu OAuth trực tiếp tại domain API. Nếu để `/api` qua rewrite của frontend, cookie `state` có thể được đặt ở domain frontend và callback ở domain API sẽ không nhận được cookie đó.

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-label="Biểu tượng vé bóng đá xanh vàng">
+  <rect width="1024" height="1024" fill="#003078"/>
+  <circle cx="512" cy="512" r="350" fill="#064598"/>
+  <circle cx="512" cy="512" r="320" fill="none" stroke="#edbb00" stroke-width="32"/>
+  <path d="M246 405c46 0 82-37 82-82h368c0 45 36 82 82 82v214c-46 0-82 37-82 82H328c0-45-36-82-82-82V405Z" fill="#edbb00"/>
+  <path d="M393 323v378" stroke="#003078" stroke-width="20" stroke-dasharray="28 26"/>
+  <circle cx="555" cy="512" r="112" fill="#003078"/>
+  <path d="m555 432 70 50-26 83h-88l-26-83 70-50Z" fill="#fff"/>
+  <path d="m555 432-70 50-54-17m54 17 26 83-34 47m34-47h88l34 47m-34-47 26-83 54-17" fill="none" stroke="#fff" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -3,8 +3,7 @@ import Link from 'next/link';
 import { 
   FacebookOutlined, 
   YoutubeOutlined, 
-  PhoneOutlined, 
-  EnvironmentOutlined,
+  MailOutlined,
   SendOutlined
 } from '@ant-design/icons';
 
@@ -43,6 +42,8 @@ const Footer = () => {
           <h4 className="text-[#edbb00] font-black mb-8 uppercase text-xs tracking-[0.2em]">Hỗ trợ</h4>
           <ul className="space-y-4 text-sm font-bold text-gray-400 p-0 list-none">
             <li><Link href="/policy" className="hover:text-white transition-all">Điều khoản mua vé</Link></li>
+            <li><Link href="/privacy" className="hover:text-white transition-all">Chính sách quyền riêng tư</Link></li>
+            <li><Link href="/data-deletion" className="hover:text-white transition-all">Yêu cầu xóa dữ liệu</Link></li>
             <li><Link href="/faq" className="hover:text-white transition-all">Câu hỏi thường gặp</Link></li>
             <li><Link href="/contact" className="hover:text-white transition-all">Liên hệ hợp tác</Link></li>
             <li><Link href="/help" className="hover:text-white transition-all">Hướng dẫn thanh toán</Link></li>
@@ -54,12 +55,8 @@ const Footer = () => {
           <h4 className="text-[#edbb00] font-black mb-8 uppercase text-xs tracking-[0.2em]">Liên hệ</h4>
           <div className="space-y-4 mb-8">
             <p className="text-xs text-gray-400 flex items-start gap-3 leading-relaxed">
-              <EnvironmentOutlined className="text-[#edbb00] mt-1" />
-              <span>Số 6, Đào Tấn, TP. Vinh, Nghệ An</span>
-            </p>
-            <p className="text-xs text-gray-400 flex items-center gap-3">
-              <PhoneOutlined className="text-[#edbb00]" />
-              <span>Hotline: 1900 xxxx</span>
+              <MailOutlined className="text-[#edbb00] mt-1" />
+              <a href="mailto:vietlam1201@gmail.com" className="hover:text-white">vietlam1201@gmail.com</a>
             </p>
           </div>
           <div className="flex gap-3">
