@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { ShoppingCartOutlined, UserOutlined, LogoutOutlined, DashboardOutlined, IdcardOutlined } from '@ant-design/icons';
 import { Badge, Dropdown, MenuProps } from 'antd';
@@ -85,8 +86,15 @@ const Header = () => {
         
         {/* LOGO SLNA */}
         <Link href="/" className="flex items-center gap-3 group no-underline">
-          <div className="w-12 h-12 bg-[#edbb00] rounded-full flex items-center justify-center font-black text-[#003078] text-xl group-hover:rotate-[360deg] transition-all duration-700 shadow-inner">
-            SLNA
+          <div className="relative h-14 w-11 shrink-0 transition-transform duration-300 group-hover:scale-105">
+            <Image
+              src="/images/logo.png"
+              alt="Logo Câu lạc bộ Sông Lam Nghệ An"
+              fill
+              priority
+              sizes="44px"
+              className="object-contain drop-shadow-lg"
+            />
           </div>
           <div className="flex flex-col leading-none">
             <span className={`font-black text-xl tracking-tighter transition-colors ${
@@ -94,7 +102,7 @@ const Header = () => {
             }`}>
               TICKETING
             </span>
-            <span className="text-[8px] font-bold tracking-[0.3em] text-white opacity-50 uppercase">Official Store</span>
+            <span className="text-[8px] font-bold tracking-[0.22em] text-white opacity-60 uppercase">Hệ thống bán vé</span>
           </div>
         </Link>
 

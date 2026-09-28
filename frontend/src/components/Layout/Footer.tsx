@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { 
   FacebookOutlined, 
   YoutubeOutlined, 
@@ -14,8 +15,14 @@ const Footer = () => {
         
         {/* Cột 1: Thông tin CLB */}
         <div className="flex flex-col items-start">
-          <div className="w-16 h-16 bg-[#edbb00] rounded-2xl flex items-center justify-center font-black text-[#003078] text-2xl mb-6 shadow-lg rotate-3">
-            SLNA
+          <div className="relative mb-6 h-24 w-20">
+            <Image
+              src="/images/logo.png"
+              alt="Logo Câu lạc bộ Sông Lam Nghệ An"
+              fill
+              sizes="80px"
+              className="object-contain drop-shadow-lg"
+            />
           </div>
           <h3 className="text-lg font-black italic uppercase tracking-tighter mb-4 text-[#edbb00]">
             Sông Lam Nghệ An FC
