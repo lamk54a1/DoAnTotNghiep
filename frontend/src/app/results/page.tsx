@@ -36,14 +36,14 @@ export default function ResultsPage() {
             </div>
             <div className="flex items-center justify-center gap-6">
               <div className="flex w-28 flex-col items-center gap-2 text-center">
-                <Image src="/images/logo.png" alt="SLNA FC" width={52} height={52} className="h-13 w-13 object-contain" />
+                <Image src="/images/logo-transparent.png" alt="SLNA FC" width={52} height={52} className="h-13 w-13 object-contain" />
                 <span className="text-xs font-black">SLNA FC</span>
               </div>
               <div className="rounded-xl bg-[#003078] px-5 py-3 text-2xl font-black text-[#edbb00]">
                 {match.homeScore ?? 0} - {match.awayScore ?? 0}
               </div>
               <div className="flex w-28 flex-col items-center gap-2 text-center">
-                <Image src={match.opponentLogo || '/images/logo.png'} alt={match.opponent} width={52} height={52} unoptimized className="h-13 w-13 object-contain" />
+                <Image src={match.opponentLogo || '/images/logo-transparent.png'} alt={match.opponent} width={52} height={52} unoptimized className="h-13 w-13 object-contain" />
                 <span className="text-xs font-black">{match.opponent}</span>
               </div>
             </div>

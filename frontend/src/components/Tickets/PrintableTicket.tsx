@@ -36,7 +36,7 @@ export default function PrintableTicket({ ticket, fallbackQrCode, sponsors }: Pr
       <div className="px-7 pb-7 pt-6">
         <header className="flex items-start gap-4 border-b border-gray-200 pb-5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/images/logo.png" alt="Logo SLNA" className="h-20 w-20 shrink-0 object-contain" />
+          <img src="/images/logo-transparent.png" alt="Logo SLNA" className="h-20 w-20 shrink-0 object-contain" />
           <div className="pt-1">
             <h1 className="m-0 text-[14px] font-black uppercase leading-5 text-[#003078]">
               Công ty Cổ phần Thể thao<br />Sông Lam Nghệ An

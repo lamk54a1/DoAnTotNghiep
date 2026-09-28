@@ -17,7 +17,7 @@ const Footer = () => {
         <div className="flex flex-col items-start">
           <div className="relative mb-6 h-24 w-20">
             <Image
-              src="/images/logo.png"
+              src="/images/logo-transparent.png"
               alt="Logo Câu lạc bộ Sông Lam Nghệ An"
               fill
               sizes="80px"

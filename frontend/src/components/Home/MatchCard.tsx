@@ -36,7 +36,7 @@ const MatchCard = ({ match }: Props) => {
           <div className="flex flex-col items-center gap-3">
             <div className="w-20 h-20 bg-white rounded-full p-2 shadow-inner border-4 border-[#FFD700] transform group-hover:rotate-6 transition-transform">
               <Image 
-                src="/images/logo.png" 
+                src="/images/logo-transparent.png" 
                 alt="SLNA FC" 
                 width={80} 
                 height={80} 
@@ -60,7 +60,7 @@ const MatchCard = ({ match }: Props) => {
           <div className="flex flex-col items-center gap-3">
             <div className="w-20 h-20 bg-white rounded-full p-2 shadow-inner border-4 border-gray-300 transform group-hover:-rotate-6 transition-transform">
               <Image 
-                src={match.opponentLogo || "/images/logo.png"}
+                src={match.opponentLogo || "/images/logo-transparent.png"}
                 alt={match.opponent} 
                 width={80} 
                 height={80}

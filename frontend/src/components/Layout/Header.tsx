@@ -88,7 +88,7 @@ const Header = () => {
         <Link href="/" className="flex items-center gap-3 group no-underline">
           <div className="relative h-14 w-11 shrink-0 transition-transform duration-300 group-hover:scale-105">
             <Image
-              src="/images/logo.png"
+              src="/images/logo-transparent.png"
               alt="Logo Câu lạc bộ Sông Lam Nghệ An"
               fill
               priority

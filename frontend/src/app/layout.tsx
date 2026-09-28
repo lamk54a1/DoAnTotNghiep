@@ -10,9 +10,9 @@ export const metadata: Metadata = {
   title: "SLNA Ticketing - Hệ thống bán vé trực tuyến",
   description: "Cổng thông tin vé bóng đá chính thức của Sông Lam Nghệ An",
   icons: {
-    icon: '/images/logo.png',
-    shortcut: '/images/logo.png',
-    apple: '/images/logo.png',
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/apple-icon.png',
   },
 };
 
