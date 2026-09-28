@@ -4,6 +4,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const multer = require('multer');
 const { isAdmin } = require('../middleware/authMiddleware');
+const { removeLightEdgeBackground } = require('../utils/imageProcessing');
 
 const router = express.Router();
 const uploadRoot = path.join(__dirname, '..', 'uploads');
@@ -26,7 +27,7 @@ const upload = multer({
   },
 });
 
-const uploadImage = (folder) => (req, res) => {
+const uploadImage = (folder, { transparentLogo = false } = {}) => (req, res) => {
   upload.single('image')(req, res, async (error) => {
     if (error) {
       const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
@@ -42,18 +43,27 @@ const uploadImage = (folder) => (req, res) => {
     try {
       const targetDir = path.join(uploadRoot, folder);
       await fs.promises.mkdir(targetDir, { recursive: true });
-      const filename = `${Date.now()}-${crypto.randomUUID()}${detected.ext}`;
-      await fs.promises.writeFile(path.join(targetDir, filename), req.file.buffer, { flag: 'wx' });
+      const imageBuffer = transparentLogo
+        ? await removeLightEdgeBackground(req.file.buffer)
+        : req.file.buffer;
+      const extension = transparentLogo ? '.png' : detected.ext;
+      const filename = `${Date.now()}-${crypto.randomUUID()}${extension}`;
+      await fs.promises.writeFile(path.join(targetDir, filename), imageBuffer, { flag: 'wx' });
       const publicPath = `/uploads/${folder}/${filename}`;
-      return res.status(201).json({ message: 'Upload ảnh thành công.', path: publicPath, url: publicPath });
-    } catch {
+      const message = transparentLogo
+        ? 'Upload và tự động tách nền logo thành công.'
+        : 'Upload ảnh thành công.';
+      return res.status(201).json({ message, path: publicPath, url: publicPath });
+    } catch (processingError) {
+      console.error('Lỗi xử lý ảnh upload:', processingError);
       return res.status(500).json({ message: 'Không thể lưu file ảnh.' });
     }
   });
 };
 
 router.post('/match-image', isAdmin, uploadImage('matches'));
-router.post('/sponsor-logo', isAdmin, uploadImage('sponsors'));
+router.post('/team-logo', isAdmin, uploadImage('matches', { transparentLogo: true }));
+router.post('/sponsor-logo', isAdmin, uploadImage('sponsors', { transparentLogo: true }));
 router.post('/home-banner', isAdmin, uploadImage('banners'));
 
 module.exports = router;

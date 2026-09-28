@@ -9,6 +9,8 @@ const { detectImageType } = require('../routes/uploadRoutes');
 const { releaseExpiredOrders } = require('../utils/orderLifecycle');
 const pool = require('../config/db');
 const ExcelJS = require('exceljs');
+const sharp = require('sharp');
+const { removeLightEdgeBackground } = require('../utils/imageProcessing');
 
 test.after(async () => {
   await pool.end();
@@ -60,6 +62,31 @@ test('OAuth chỉ bật khi có cấu hình và ràng buộc state với cookie 
 test('nhận diện ảnh dựa trên magic bytes thay vì tên file', () => {
   assert.deepEqual(detectImageType(Buffer.from([0xff, 0xd8, 0xff, 0x00])), { ext: '.jpg', mime: 'image/jpeg' });
   assert.equal(detectImageType(Buffer.from('<script>alert(1)</script>')), null);
+});
+
+test('chỉ tách nền sáng nối với mép ảnh và giữ vùng trắng bên trong logo', async () => {
+  const width = 7;
+  const height = 7;
+  const pixels = Buffer.alloc(width * height * 4, 255);
+
+  for (let y = 1; y <= 5; y += 1) {
+    for (let x = 1; x <= 5; x += 1) {
+      if (x === 1 || x === 5 || y === 1 || y === 5) {
+        const offset = (y * width + x) * 4;
+        pixels[offset] = 0;
+        pixels[offset + 1] = 48;
+        pixels[offset + 2] = 120;
+      }
+    }
+  }
+
+  const input = await sharp(pixels, { raw: { width, height, channels: 4 } }).png().toBuffer();
+  const output = await removeLightEdgeBackground(input);
+  const { data } = await sharp(output).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+
+  assert.equal(data[3], 0);
+  assert.equal(data[((3 * width + 3) * 4) + 3], 255);
+  assert.equal(data[((1 * width + 1) * 4) + 3], 255);
 });
 
 test('đơn hết hạn được hủy và vé được hoàn về kho', async () => {

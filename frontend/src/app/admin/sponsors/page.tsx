@@ -61,11 +61,14 @@ export default function AdminSponsorsPage() {
       try {
         const data = new FormData();
         data.append('image', file);
-        const response = await axiosClient.post<{ path: string }>('/uploads/sponsor-logo', data, {
+        const response = await axiosClient.post<{ path: string; message?: string }>('/uploads/sponsor-logo', data, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
         form.setFieldValue('logoUrl', response.path);
-        notification.success({ title: 'Đã upload logo' });
+        notification.success({
+          title: 'Đã upload logo',
+          description: response.message || 'Nền sáng quanh logo đã được tự động chuyển thành trong suốt.',
+        });
       } catch (error) {
         notification.error({
           title: 'Upload thất bại',
@@ -103,7 +106,7 @@ export default function AdminSponsorsPage() {
   return (
     <AdminPageShell
       title="Quản lý nhà tài trợ"
-      subtitle="Upload logo, phân hạng và gắn website khi người dùng bấm vào logo."
+      subtitle="Upload logo tự động tách nền sáng, phân hạng và gắn website khi người dùng bấm vào logo."
       extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => openForm()}>Thêm nhà tài trợ</Button>}
     >
       <Table
@@ -163,7 +166,12 @@ export default function AdminSponsorsPage() {
           <Form.Item name="level" label="Hạng tài trợ" rules={[{ required: true }]}>
             <Select options={levelOptions} />
           </Form.Item>
-          <Form.Item name="logoUrl" label="Logo" rules={[{ required: true, message: 'Upload logo nhà tài trợ.' }]}>
+          <Form.Item
+            name="logoUrl"
+            label="Logo"
+            extra="Ảnh tải từ máy sẽ tự động được tách nền sáng và lưu dưới dạng PNG trong suốt."
+            rules={[{ required: true, message: 'Upload logo nhà tài trợ.' }]}
+          >
             <Space.Compact className="w-full">
               <Input placeholder="URL logo hoặc upload từ máy" />
               <Upload {...uploadProps}><Button icon={<UploadOutlined />}>Upload</Button></Upload>

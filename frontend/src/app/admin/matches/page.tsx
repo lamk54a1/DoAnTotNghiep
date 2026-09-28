@@ -78,15 +78,19 @@ export default function AdminMatchesPage() {
   const [selectedGenerateStands, setSelectedGenerateStands] = useState<string[]>(['A', 'B', 'C', 'D']);
   const [form] = Form.useForm();
 
-  const uploadImage = async (file: File) => {
+  const uploadImage = async (file: File, fieldName: 'opponentLogo' | 'bannerImage') => {
     const formData = new FormData();
     formData.append('image', file);
 
-    const res = await axiosClient.post<{ path: string }>('/uploads/match-image', formData, {
+    const endpoint = fieldName === 'opponentLogo' ? '/uploads/team-logo' : '/uploads/match-image';
+    const res = await axiosClient.post<{ path: string; message?: string }>(endpoint, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
 
-    return res.path.startsWith('http') ? res.path : `${API_ORIGIN}${res.path}`;
+    return {
+      imageUrl: res.path.startsWith('http') ? res.path : `${API_ORIGIN}${res.path}`,
+      message: res.message,
+    };
   };
 
   const createUploadProps = (fieldName: 'opponentLogo' | 'bannerImage'): UploadProps => ({
@@ -95,9 +99,14 @@ export default function AdminMatchesPage() {
     showUploadList: false,
     beforeUpload: async (file) => {
       try {
-        const imageUrl = await uploadImage(file);
+        const { imageUrl, message } = await uploadImage(file, fieldName);
         form.setFieldValue(fieldName, imageUrl);
-        notification.success({ title: 'Upload ảnh thành công', description: imageUrl });
+        notification.success({
+          title: 'Upload ảnh thành công',
+          description: fieldName === 'opponentLogo'
+            ? message || 'Nền sáng quanh logo đã được tự động chuyển thành trong suốt.'
+            : imageUrl,
+        });
       } catch (error) {
         notification.error({
           title: 'Upload ảnh thất bại',
@@ -452,7 +461,11 @@ export default function AdminMatchesPage() {
 
             <Row gutter={16}>
               <Col span={12}>
-                <Form.Item name="opponentLogo" label="Logo đội khách (URL)">
+                <Form.Item
+                  name="opponentLogo"
+                  label="Logo đội khách"
+                  extra="Ảnh tải từ máy sẽ tự động được tách nền sáng và lưu dưới dạng PNG trong suốt."
+                >
                   <Space.Compact className="w-full">
                     <Input placeholder="Dán URL hoặc upload ảnh từ máy" />
                     <Upload {...createUploadProps('opponentLogo')}>
