@@ -16,7 +16,7 @@ Thêm vào `/srv/slna/app/backend/.env`:
 
 ```env
 GEMINI_API_KEY=khóa_của_bạn
-GEMINI_CHAT_MODEL=gemini-2.5-flash-lite
+GEMINI_CHAT_MODEL=gemini-3.5-flash-lite
 GEMINI_TIMEOUT_MS=20000
 ```
 

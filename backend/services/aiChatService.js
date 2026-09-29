@@ -83,7 +83,7 @@ const generateConversationalAnswer = async ({ question, history, groundedAnswer,
   const apiKey = String(process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) return null;
 
-  const model = String(process.env.GEMINI_CHAT_MODEL || 'gemini-2.5-flash-lite').trim();
+  const model = String(process.env.GEMINI_CHAT_MODEL || 'gemini-3.5-flash-lite').trim();
   const currentQuestion = [
     `<current_question>${redactSensitiveData(question).trim()}</current_question>`,
     buildGrounding({ groundedAnswer, sources, contextType }),
