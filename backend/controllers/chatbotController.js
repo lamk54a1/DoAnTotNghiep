@@ -281,72 +281,96 @@ const answerFromOfficialSquad = (squad) => {
   ].join('\n');
 };
 
+const classifyQuestion = ({ text, historyText = '', hasSelectedMatch = false }) => {
+  const squadFollowUp = /(ai|nguoi nao|anh ay|cau ay|so may|bao nhieu tuoi|tre nhat|lon tuoi|cao nhat|thap nhat|que o dau|vi tri nao)/.test(text)
+    && /(cau thu|doi hinh|thu mon|hau ve|tien ve|tien dao)/.test(historyText);
+
+  if (/(con bao nhieu ve|con ve|het ve|so ve|ve trong|ve con lai|ton kho)/.test(text)) return 'TICKET_AVAILABILITY';
+  if (/(gia ve|ve gia|ve.*bao nhieu|bao nhieu.*(tien|dong)|gia.*khan dai|khan dai.*(gia|bao nhieu)|mien phi.*khan dai)/.test(text)) return 'TICKET_PRICE';
+  if (hasSelectedMatch && /(tran|doi|gap|vs|voi|thong tin|khi nao|o dau|may gio)/.test(text)) return 'SPECIFIC_MATCH';
+  if (/(lich thi dau|tran sap|sap toi|khi nao thi dau|doi nao|may gio da)/.test(text)) return 'SCHEDULE';
+  if (/(ket qua|ti so|ty so|tran.*da dau|slna.*(thang|thua|hoa)|(thang|thua|hoa).*tran)/.test(text)) return 'RESULTS';
+  if (/(thanh toan|chuyen khoan|don hang|het han|xac nhan thanh cong|sepay)/.test(text)) return 'PAYMENT';
+  if (/(ve cua toi|ve da mua|ma qr|qr ve|in pdf|xem ve)/.test(text)) return 'MY_TICKETS';
+  if (/(mua ve|dat ve|chon ghe|giu ghe)/.test(text)) return 'BUY_TICKET';
+  if (/(san van dong|san vinh|dia chi (san|clb)|tran.*o dau|den san)/.test(text)) return 'STADIUM';
+  if (/(nha tai tro|tai tro|sponsor|doi tac)/.test(text)) return 'SPONSORS';
+  if (/(cccd|can cuoc|xac minh|duyet danh tinh)/.test(text)) return 'CCCD';
+  if (/(tai khoan|dang nhap|mat khau|email|thong tin ca nhan|quen mat khau)/.test(text)) return 'ACCOUNT';
+  if (/(chinh sach|quy dinh|gioi han|hoan ve|huy ve|luu y)/.test(text)) return 'POLICY';
+  if (/(lien he|cong ty|mst|ma so thue|hotline)/.test(text)) return 'CONTACT';
+  if ((/(cau thu|doi hinh|danh sach.*(clb|slna|song lam)|thu mon|hau ve|tien ve|tien dao)/.test(text)
+    && /(slna|song lam|clb|doi bong)/.test(text)) || squadFollowUp) return 'SQUAD';
+  if (/(tin moi|tin tuc moi|moi nhat|tin gan day)/.test(text)) return 'LATEST_NEWS';
+  if (/(tin tuc|hlv|huan luyen vien|bang xep hang|vleague|v-league|chuyen nhuong|chan thuong)/.test(text)) return 'OFFICIAL_SEARCH';
+  return 'GENERAL';
+};
+
 const askChatbot = async (req, res) => {
   const question = String(req.body?.question || '').trim();
   if (!question) return res.status(400).json({ message: 'Vui lòng nhập câu hỏi.' });
   if (question.length > 500) return res.status(400).json({ message: 'Câu hỏi không được dài quá 500 ký tự.' });
 
   const text = normalize(question);
-  const historyText = normalize((Array.isArray(req.body?.history) ? req.body.history : [])
+  const rawHistoryText = (Array.isArray(req.body?.history) ? req.body.history : [])
     .slice(-4)
     .map((message) => String(message?.content || '').slice(0, 1200))
-    .join(' '));
-  const isSquadFollowUp = /(ai|nguoi nao|anh ay|cau ay|so may|bao nhieu tuoi|tre nhat|lon tuoi|cao nhat|thap nhat|que o dau|vi tri nao)/.test(text)
-    && /(cau thu|doi hinh|thu mon|hau ve|tien ve|tien dao)/.test(historyText);
+    .join(' ');
+  const historyText = normalize(rawHistoryText);
   try {
     let answer;
     let sources = [];
     let aiGrounding = '';
-    const selectedMatch = await getMatchByQuestion(question);
-    if (/(con bao nhieu ve|con ve|het ve|so ve|ve trong|ve con lai|ton kho)/.test(text)) answer = await answerTicketAvailability(selectedMatch);
-    else if (/(gia|bao nhieu|khan dai|ve bao)/.test(text)) answer = await answerTicketPrice(selectedMatch);
-    else if (selectedMatch && /(tran|doi|gap|vs|voi|thong tin|khi nao|o dau)/.test(text)) answer = answerSpecificMatch(selectedMatch);
-    else if (/(lich|tran sap|sap toi|khi nao|doi nao|thi dau)/.test(text)) answer = await answerSchedule();
-    else if (/(ket qua|ti so|ty so|da dau|thang|thua|hoa)/.test(text)) answer = await answerResults();
-    else if (/(thanh toan|chuyen khoan|don hang|het han|xac nhan thanh cong)/.test(text)) answer = answerPayment();
-    else if (/(mua ve|dat ve|chon ghe|qr)/.test(text)) answer = await answerBuyTicket();
-    else if (/(ve cua toi|ve da mua|ma qr|qr ve|in pdf)/.test(text)) answer = answerMyTickets();
-    else if (/(san|dia chi|vinh|o dau)/.test(text)) answer = await answerStadium();
-    else if (/(nha tai tro|tai tro|sponsor|doi tac)/.test(text)) answer = await answerSponsors();
-    else if (/(cccd|can cuoc|xac minh|duyet danh tinh)/.test(text)) answer = answerCccd();
-    else if (/(tai khoan|dang nhap|mat khau|email|thong tin ca nhan)/.test(text)) answer = answerAccount();
-    else if (/(chinh sach|quy dinh|gioi han|hoan|huy|luu y)/.test(text)) answer = answerPolicy();
-    else if (/(lien he|cong ty|mst|ma so thue|hotline)/.test(text)) answer = answerContact();
-    else if ((/(cau thu|doi hinh|danh sach.*(clb|slna|song lam)|thu mon|hau ve|tien ve|tien dao)/.test(text)
-      && /(slna|song lam|clb|doi bong)/.test(text)) || isSquadFollowUp) {
+    let contextType = 'verified';
+    const selectedMatch = await getMatchByQuestion(`${question} ${rawHistoryText}`);
+    const intent = classifyQuestion({ text, historyText, hasSelectedMatch: Boolean(selectedMatch) });
+
+    if (intent === 'TICKET_AVAILABILITY') answer = await answerTicketAvailability(selectedMatch);
+    else if (intent === 'TICKET_PRICE') answer = await answerTicketPrice(selectedMatch);
+    else if (intent === 'SPECIFIC_MATCH') answer = answerSpecificMatch(selectedMatch);
+    else if (intent === 'SCHEDULE') answer = await answerSchedule();
+    else if (intent === 'RESULTS') answer = await answerResults();
+    else if (intent === 'PAYMENT') answer = answerPayment();
+    else if (intent === 'BUY_TICKET') answer = await answerBuyTicket();
+    else if (intent === 'MY_TICKETS') answer = answerMyTickets();
+    else if (intent === 'STADIUM') answer = await answerStadium();
+    else if (intent === 'SPONSORS') answer = await answerSponsors();
+    else if (intent === 'CCCD') answer = answerCccd();
+    else if (intent === 'ACCOUNT') answer = answerAccount();
+    else if (intent === 'POLICY') answer = answerPolicy();
+    else if (intent === 'CONTACT') answer = answerContact();
+    else if (intent === 'SQUAD') {
       const squad = await getOfficialSquad();
       answer = answerFromOfficialSquad(squad);
       sources = squad ? getSafeCitations([squad]) : [];
       if (squad) aiGrounding = squadForAi(squad);
-    } else if (/(tin moi|tin tuc moi|moi nhat|tin gan day)/.test(text)) {
+      contextType = 'official';
+    } else if (intent === 'LATEST_NEWS') {
       const preferredSource = /(slna|song lam)/.test(text) ? 'SLNAFC' : /(vleague|v-league|vpf)/.test(text) ? 'VPF' : null;
       const documents = await getLatestOfficialKnowledge(3, preferredSource);
       answer = answerFromOfficialDocuments(documents);
       sources = getSafeCitations(documents);
       aiGrounding = documentsForAi(documents);
-    } else if (/(tin tuc|cau thu|doi hinh|hlv|huan luyen|bang xep hang|vleague|v-league|chuyen nhuong|chan thuong|song lam|clb)/.test(text)) {
+      contextType = 'official';
+    } else if (intent === 'OFFICIAL_SEARCH') {
       const preferredSource = /(slna|song lam|clb)/.test(text) ? 'SLNAFC' : /(vleague|v-league|vpf)/.test(text) ? 'VPF' : null;
       const documents = await searchOfficialKnowledge(question, 3, preferredSource);
       answer = answerFromOfficialDocuments(documents);
       sources = getSafeCitations(documents);
       aiGrounding = documentsForAi(documents);
+      contextType = 'official';
     } else {
-      const documents = await searchOfficialKnowledge(question, 3);
-      if (documents.length > 0) {
-        answer = answerFromOfficialDocuments(documents);
-        sources = getSafeCitations(documents);
-        aiGrounding = documentsForAi(documents);
-      } else {
-        answer = fallbackAnswer();
-      }
+      answer = fallbackAnswer();
+      contextType = 'general';
     }
 
     try {
       const conversationalAnswer = await generateConversationalAnswer({
         question,
         history: req.body?.history,
-        groundedAnswer: aiGrounding || answer,
+        groundedAnswer: contextType === 'general' ? '' : aiGrounding || answer,
         sources,
+        contextType,
       });
       if (conversationalAnswer) answer = conversationalAnswer;
     } catch (aiError) {
@@ -363,4 +387,4 @@ const askChatbot = async (req, res) => {
   }
 };
 
-module.exports = { askChatbot, answerFromOfficialSquad };
+module.exports = { askChatbot, answerFromOfficialSquad, classifyQuestion, normalize };
