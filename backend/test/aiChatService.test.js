@@ -42,7 +42,6 @@ test('chỉ tìm tin khi người dùng thực sự hỏi tin hoặc chủ đề
 test('câu hỏi tuổi cầu thủ không bị hiểu nhầm thành hỏi giá vé', () => {
   assert.equal(classifyQuestion({
     text: normalize('Cầu thủ trẻ nhất bao nhiêu tuổi?'),
-    historyText: normalize('Cho tôi xem đội hình SLNA'),
   }), 'SQUAD');
   assert.equal(classifyQuestion({ text: normalize('Giá vé khán đài A bao nhiêu?') }), 'TICKET_PRICE');
 });

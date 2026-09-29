@@ -299,8 +299,8 @@ const classifyQuestion = ({ text, historyText = '', hasSelectedMatch = false }) 
   if (/(tai khoan|dang nhap|mat khau|email|thong tin ca nhan|quen mat khau)/.test(text)) return 'ACCOUNT';
   if (/(chinh sach|quy dinh|gioi han|hoan ve|huy ve|luu y)/.test(text)) return 'POLICY';
   if (/(lien he|cong ty|mst|ma so thue|hotline)/.test(text)) return 'CONTACT';
-  if ((/(cau thu|doi hinh|danh sach.*(clb|slna|song lam)|thu mon|hau ve|tien ve|tien dao)/.test(text)
-    && /(slna|song lam|clb|doi bong)/.test(text)) || squadFollowUp) return 'SQUAD';
+  if (/(cau thu|doi hinh|danh sach.*(clb|slna|song lam)|thu mon|hau ve|tien ve|tien dao)/.test(text)
+    || squadFollowUp) return 'SQUAD';
   if (/(tin moi|tin tuc moi|moi nhat|tin gan day)/.test(text)) return 'LATEST_NEWS';
   if (/(tin tuc|hlv|huan luyen vien|bang xep hang|vleague|v-league|chuyen nhuong|chan thuong)/.test(text)) return 'OFFICIAL_SEARCH';
   return 'GENERAL';
