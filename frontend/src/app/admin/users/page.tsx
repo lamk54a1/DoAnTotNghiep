@@ -10,12 +10,19 @@ import { IUser } from '../../../interfaces/IUser';
 export default function AdminUsersPage() {
   const { notification } = AntApp.useApp();
   const [users, setUsers] = useState<IUser[]>([]);
+  const [canManageAdmins, setCanManageAdmins] = useState(false);
+  const [protectedUserId, setProtectedUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchUsers = async () => {
     try {
-      const data = await axiosClient.get<IUser[]>('/admin/users');
+      const [data, capabilities] = await Promise.all([
+        axiosClient.get<IUser[]>('/admin/users'),
+        axiosClient.get<{ canManageAdmins: boolean; protectedUserId: number | null }>('/admin/capabilities'),
+      ]);
       setUsers(data);
+      setCanManageAdmins(capabilities.canManageAdmins);
+      setProtectedUserId(capabilities.protectedUserId);
     } finally {
       setLoading(false);
     }
@@ -35,6 +42,13 @@ export default function AdminUsersPage() {
   const reviewIdentity = async (id: number, decision: 'APPROVE' | 'REJECT') => {
     await axiosClient.patch(`/admin/users/${id}/identity`, { decision });
     notification.success({ title: decision === 'APPROVE' ? 'Đã duyệt CCCD.' : 'Đã từ chối CCCD.' });
+    setLoading(true);
+    fetchUsers();
+  };
+
+  const updateRole = async (id: number, role: IUser['role']) => {
+    await axiosClient.patch(`/admin/users/${id}/role`, { role });
+    notification.success({ title: role === 'ADMIN' ? 'Đã cấp quyền quản trị viên.' : 'Đã thu hồi quyền quản trị viên.' });
     setLoading(true);
     fetchUsers();
   };
@@ -69,22 +83,39 @@ export default function AdminUsersPage() {
           { title: 'Trạng thái', dataIndex: 'status', render: (status) => <Tag color={status === 'ACTIVE' ? 'green' : 'red'}>{status}</Tag> },
           {
             title: 'Hành động',
-            render: (_, record) => record.role === 'ADMIN' ? null : (
+            render: (_, record) => (
               <Space>
-                {record.cccdStatus === 'PENDING' && (
+                {record.role !== 'ADMIN' && record.cccdStatus === 'PENDING' && (
                   <>
                     <Button size="small" type="primary" onClick={() => reviewIdentity(record.id, 'APPROVE')}>Duyệt CCCD</Button>
                     <Button size="small" danger onClick={() => reviewIdentity(record.id, 'REJECT')}>Từ chối</Button>
                   </>
                 )}
-                <Popconfirm
-                  title={record.status === 'ACTIVE' ? 'Khóa tài khoản này?' : 'Mở khóa tài khoản này?'}
-                  onConfirm={() => updateStatus(record.id, record.status === 'ACTIVE' ? 'BANNED' : 'ACTIVE')}
-                >
-                  <Button danger={record.status === 'ACTIVE'} size="small">
-                    {record.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}
-                  </Button>
-                </Popconfirm>
+                {record.role !== 'ADMIN' && (
+                  <Popconfirm
+                    title={record.status === 'ACTIVE' ? 'Khóa tài khoản này?' : 'Mở khóa tài khoản này?'}
+                    onConfirm={() => updateStatus(record.id, record.status === 'ACTIVE' ? 'BANNED' : 'ACTIVE')}
+                  >
+                    <Button danger={record.status === 'ACTIVE'} size="small">
+                      {record.status === 'ACTIVE' ? 'Khóa' : 'Mở khóa'}
+                    </Button>
+                  </Popconfirm>
+                )}
+                {canManageAdmins && record.id !== protectedUserId && (
+                  <Popconfirm
+                    title={record.role === 'ADMIN' ? 'Thu hồi quyền quản trị của tài khoản này?' : 'Cấp quyền quản trị cho tài khoản này?'}
+                    onConfirm={() => updateRole(record.id, record.role === 'ADMIN' ? 'USER' : 'ADMIN')}
+                  >
+                    <Button
+                      type={record.role === 'ADMIN' ? 'default' : 'primary'}
+                      danger={record.role === 'ADMIN'}
+                      disabled={record.role !== 'ADMIN' && record.status !== 'ACTIVE'}
+                      size="small"
+                    >
+                      {record.role === 'ADMIN' ? 'Thu hồi Admin' : 'Cấp Admin'}
+                    </Button>
+                  </Popconfirm>
+                )}
               </Space>
             )
           },

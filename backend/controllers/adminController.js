@@ -302,6 +302,84 @@ const getUsers = async (req, res) => {
   }
 };
 
+const getAdminCapabilities = async (req, res) => {
+  try {
+    const result = await pool.query('SELECT email FROM users WHERE id = $1', [req.user.id]);
+    const configuredEmail = String(process.env.SUPER_ADMIN_EMAIL || '').trim().toLowerCase();
+    const canManageAdmins = Boolean(configuredEmail)
+      && String(result.rows[0]?.email || '').trim().toLowerCase() === configuredEmail;
+    return res.json({ canManageAdmins, protectedUserId: canManageAdmins ? req.user.id : null });
+  } catch {
+    return res.status(500).json({ message: 'Không thể tải quyền quản trị.' });
+  }
+};
+
+const updateUserRole = async (req, res) => {
+  const id = Number(req.params.id);
+  const role = String(req.body?.role || '').toUpperCase();
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    return res.status(400).json({ message: 'Tài khoản không hợp lệ.' });
+  }
+  if (!['USER', 'ADMIN'].includes(role)) {
+    return res.status(400).json({ message: 'Vai trò không hợp lệ.' });
+  }
+  if (id === req.user.id) {
+    return res.status(409).json({ message: 'Tài khoản quản trị gốc không thể tự thay đổi quyền.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const targetResult = await client.query(
+      'SELECT id, email, role, status FROM users WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+    if (targetResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+    }
+    const target = targetResult.rows[0];
+    const protectedEmail = String(process.env.SUPER_ADMIN_EMAIL || '').trim().toLowerCase();
+    if (String(target.email || '').trim().toLowerCase() === protectedEmail) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: 'Không thể thay đổi quyền của tài khoản quản trị gốc.' });
+    }
+    if (role === 'ADMIN' && target.status !== 'ACTIVE') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: 'Chỉ có thể cấp quyền cho tài khoản đang hoạt động.' });
+    }
+    if (target.role === role) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ message: `Tài khoản đã có vai trò ${role}.` });
+    }
+
+    const updated = await client.query(
+      `UPDATE users
+       SET role = $1, token_version = token_version + 1
+       WHERE id = $2
+       RETURNING id, email, role, status`,
+      [role, id]
+    );
+    await writeAuditLog({
+      userId: req.user.id,
+      action: role === 'ADMIN' ? 'ADMIN_ROLE_GRANTED' : 'ADMIN_ROLE_REVOKED',
+      entityType: 'user',
+      entityId: id,
+      metadata: { email: target.email, previousRole: target.role, newRole: role },
+    }, client, { throwOnError: true });
+    await client.query('COMMIT');
+    return res.json({
+      message: role === 'ADMIN' ? 'Đã cấp quyền quản trị viên.' : 'Đã thu hồi quyền quản trị viên.',
+      user: updated.rows[0],
+    });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    return res.status(500).json({ message: 'Không thể thay đổi quyền tài khoản.' });
+  } finally {
+    client.release();
+  }
+};
+
 const updateUserStatus = async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
@@ -508,6 +586,8 @@ module.exports = {
   getUsers,
   updateUserStatus,
   reviewUserIdentity,
+  getAdminCapabilities,
+  updateUserRole,
   getAuditLogs,
   exportOrdersReport,
   getSepayReviewTransactions

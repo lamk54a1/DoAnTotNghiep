@@ -1,6 +1,10 @@
 const pool = require('../config/db');
 
-const writeAuditLog = async ({ userId = null, action, entityType = null, entityId = null, metadata = {} }, db = pool) => {
+const writeAuditLog = async (
+  { userId = null, action, entityType = null, entityId = null, metadata = {} },
+  db = pool,
+  { throwOnError = false } = {}
+) => {
   try {
     await db.query(
       `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, metadata)
@@ -8,6 +12,7 @@ const writeAuditLog = async ({ userId = null, action, entityType = null, entityI
       [userId, action, entityType, entityId ? String(entityId) : null, metadata]
     );
   } catch (err) {
+    if (throwOnError) throw err;
     console.error('Không thể ghi audit log:', err.message);
   }
 };
