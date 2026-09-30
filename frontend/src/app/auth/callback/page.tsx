@@ -15,6 +15,8 @@ export default function OAuthCallbackPage() {
         saveAuthSession(user);
         router.replace(user.role === 'ADMIN'
           ? '/admin/dashboard'
+          : user.role === 'SCANNER'
+            ? '/admin/scanner'
           : user.profileCompleted
             ? '/'
             : '/complete-profile');

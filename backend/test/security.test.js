@@ -3,8 +3,8 @@ const assert = require('node:assert/strict');
 
 process.env.JWT_SECRET ||= 'test-secret-at-least-32-characters-long';
 
-const { isSuperAdminEmail } = require('../middleware/authMiddleware');
-const { isTicketAdmissionAllowed } = require('../controllers/ticketController');
+const { hasTicketScanRole, isSuperAdminEmail } = require('../middleware/authMiddleware');
+const { isTicketAdmissionAllowed, isTicketForSelectedMatch } = require('../controllers/ticketController');
 const { isStrongPassword, oauthStart, oauthCallback, oauthProviders } = require('../controllers/authController');
 const { detectImageType } = require('../routes/uploadRoutes');
 const { releaseExpiredOrders } = require('../utils/orderLifecycle');
@@ -24,6 +24,11 @@ test('chỉ vé online đã thanh toán thành công mới được vào sân', 
   assert.equal(isTicketAdmissionAllowed({ status: 'PAPER_SOLD', orderStatus: null }), true);
 });
 
+test('vé chỉ được soát tại đúng trận đấu nhân viên đã chọn', () => {
+  assert.equal(isTicketForSelectedMatch({ matchId: 12 }, 12), true);
+  assert.equal(isTicketForSelectedMatch({ matchId: 12 }, 13), false);
+});
+
 test('mật khẩu đăng ký phải có ít nhất 8 ký tự, chữ và số', () => {
   assert.equal(isStrongPassword('short1'), false);
   assert.equal(isStrongPassword('onlyletters'), false);
@@ -40,6 +45,12 @@ test('chỉ email cấu hình mới được nhận diện là quản trị viê
     if (previous === undefined) delete process.env.SUPER_ADMIN_EMAIL;
     else process.env.SUPER_ADMIN_EMAIL = previous;
   }
+});
+
+test('chỉ quản trị viên và nhân viên cổng có quyền soát vé', () => {
+  assert.equal(hasTicketScanRole('ADMIN'), true);
+  assert.equal(hasTicketScanRole('SCANNER'), true);
+  assert.equal(hasTicketScanRole('USER'), false);
 });
 
 test('OAuth chỉ bật khi có cấu hình và ràng buộc state với cookie trình duyệt', async () => {

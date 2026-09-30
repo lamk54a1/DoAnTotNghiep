@@ -8,7 +8,7 @@ export interface IUser {
   pendingCccd?: string;
   cccdStatus?: 'NOT_SUBMITTED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
   cccdVerifiedAt?: Date | string;
-  role: 'USER' | 'ADMIN';   // Phân quyền người dùng hoặc quản trị viên
+  role: 'USER' | 'ADMIN' | 'SCANNER';
   avatar?: string;
   address?: string;         // Địa chỉ (nếu muốn làm tính năng ship vé cứng)
   status: 'ACTIVE' | 'BANNED';
@@ -37,7 +37,7 @@ export interface IAuthResponse {
     id: number;
     email: string;
     fullName: string;
-    role: 'USER' | 'ADMIN';
+    role: 'USER' | 'ADMIN' | 'SCANNER';
     cccd?: string | null;
     cccdStatus?: 'NOT_SUBMITTED' | 'PENDING' | 'VERIFIED' | 'REJECTED';
     profileCompleted?: boolean;

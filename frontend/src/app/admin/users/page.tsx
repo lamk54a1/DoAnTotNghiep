@@ -48,7 +48,13 @@ export default function AdminUsersPage() {
 
   const updateRole = async (id: number, role: IUser['role']) => {
     await axiosClient.patch(`/admin/users/${id}/role`, { role });
-    notification.success({ title: role === 'ADMIN' ? 'Đã cấp quyền quản trị viên.' : 'Đã thu hồi quyền quản trị viên.' });
+    notification.success({
+      title: role === 'ADMIN'
+        ? 'Đã cấp quyền quản trị viên.'
+        : role === 'SCANNER'
+          ? 'Đã cấp quyền nhân viên soát vé.'
+          : 'Đã thu hồi quyền đặc biệt.',
+    });
     setLoading(true);
     fetchUsers();
   };
@@ -78,7 +84,7 @@ export default function AdminUsersPage() {
             )
           },
           { title: 'Địa chỉ', dataIndex: 'address', ellipsis: true, render: (value) => value || '-' },
-          { title: 'Vai trò', dataIndex: 'role', render: (role) => <Tag color={role === 'ADMIN' ? 'blue' : 'default'}>{role}</Tag> },
+          { title: 'Vai trò', dataIndex: 'role', render: (role) => <Tag color={role === 'ADMIN' ? 'blue' : role === 'SCANNER' ? 'green' : 'default'}>{role}</Tag> },
           { title: 'Ngày tạo', dataIndex: 'createdAt', render: (value: string) => value ? dayjs(value).format('DD/MM/YYYY') : '-' },
           { title: 'Trạng thái', dataIndex: 'status', render: (status) => <Tag color={status === 'ACTIVE' ? 'green' : 'red'}>{status}</Tag> },
           {
@@ -102,19 +108,35 @@ export default function AdminUsersPage() {
                   </Popconfirm>
                 )}
                 {canManageAdmins && record.id !== protectedUserId && (
-                  <Popconfirm
-                    title={record.role === 'ADMIN' ? 'Thu hồi quyền quản trị của tài khoản này?' : 'Cấp quyền quản trị cho tài khoản này?'}
-                    onConfirm={() => updateRole(record.id, record.role === 'ADMIN' ? 'USER' : 'ADMIN')}
-                  >
-                    <Button
-                      type={record.role === 'ADMIN' ? 'default' : 'primary'}
-                      danger={record.role === 'ADMIN'}
-                      disabled={record.role !== 'ADMIN' && record.status !== 'ACTIVE'}
-                      size="small"
+                  <>
+                    <Popconfirm
+                      title={record.role === 'ADMIN' ? 'Thu hồi quyền quản trị của tài khoản này?' : 'Cấp quyền quản trị cho tài khoản này?'}
+                      onConfirm={() => updateRole(record.id, record.role === 'ADMIN' ? 'USER' : 'ADMIN')}
                     >
-                      {record.role === 'ADMIN' ? 'Thu hồi Admin' : 'Cấp Admin'}
-                    </Button>
-                  </Popconfirm>
+                      <Button
+                        type={record.role === 'ADMIN' ? 'default' : 'primary'}
+                        danger={record.role === 'ADMIN'}
+                        disabled={record.role !== 'ADMIN' && record.status !== 'ACTIVE'}
+                        size="small"
+                      >
+                        {record.role === 'ADMIN' ? 'Thu hồi Admin' : 'Cấp Admin'}
+                      </Button>
+                    </Popconfirm>
+                    {record.role !== 'ADMIN' && (
+                      <Popconfirm
+                        title={record.role === 'SCANNER' ? 'Thu hồi quyền soát vé?' : 'Cấp quyền chỉ được soát vé?'}
+                        onConfirm={() => updateRole(record.id, record.role === 'SCANNER' ? 'USER' : 'SCANNER')}
+                      >
+                        <Button
+                          danger={record.role === 'SCANNER'}
+                          disabled={record.role === 'USER' && record.status !== 'ACTIVE'}
+                          size="small"
+                        >
+                          {record.role === 'SCANNER' ? 'Thu hồi Soát vé' : 'Cấp Soát vé'}
+                        </Button>
+                      </Popconfirm>
+                    )}
+                  </>
                 )}
               </Space>
             )

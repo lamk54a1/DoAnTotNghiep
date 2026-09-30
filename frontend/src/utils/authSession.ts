@@ -11,7 +11,7 @@ const sanitizeUserForStorage = (user: object): StoredUser => {
     id: Number(value.id),
     email: String(value.email || ''),
     fullName: String(value.fullName || ''),
-    role: value.role === 'ADMIN' ? 'ADMIN' : 'USER',
+    role: value.role === 'ADMIN' || value.role === 'SCANNER' ? value.role : 'USER',
     profileCompleted: Boolean(value.profileCompleted),
     authProvider: value.authProvider,
     status: value.status,

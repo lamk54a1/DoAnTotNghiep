@@ -39,6 +39,8 @@ export default function LoginPage() {
 
       if (res.user.role === 'ADMIN') {
         router.push('/admin/dashboard');
+      } else if (res.user.role === 'SCANNER') {
+        router.push('/admin/scanner');
       } else if (!res.user.profileCompleted) {
         router.push('/complete-profile');
       } else {

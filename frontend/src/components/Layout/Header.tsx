@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { ShoppingCartOutlined, UserOutlined, LogoutOutlined, DashboardOutlined, IdcardOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, UserOutlined, LogoutOutlined, DashboardOutlined, IdcardOutlined, QrcodeOutlined } from '@ant-design/icons';
 import { Badge, Dropdown, MenuProps } from 'antd';
 import { useBooking } from '../../hooks/useBooking'; // Đường dẫn tương đối của bạn
 import { AUTH_SESSION_CHANGED, clearAuthSession, getStoredUser, StoredUser } from '../../utils/authSession';
@@ -66,6 +66,11 @@ const Header = () => {
       key: 'admin',
       label: <Link href="/admin/dashboard">Trang Quản Trị</Link>,
       icon: <DashboardOutlined className="text-red-500" />,
+    }] : []),
+    ...(user?.role === 'SCANNER' ? [{
+      key: 'scanner',
+      label: <Link href="/admin/scanner">Soát vé QR</Link>,
+      icon: <QrcodeOutlined className="text-green-600" />,
     }] : []),
     {
       type: 'divider',

@@ -15,6 +15,7 @@ import {
   PictureOutlined,
 } from '@ant-design/icons';
 import AdminGuard from '../Common/AdminGuard';
+import { getStoredUser } from '../../utils/authSession';
 
 const navigation = [
   { href: '/admin/dashboard', label: 'Tổng quan', icon: <DashboardOutlined /> },
@@ -37,6 +38,10 @@ interface AdminPageShellProps {
 
 export default function AdminPageShell({ title, subtitle, extra, children }: AdminPageShellProps) {
   const pathname = usePathname();
+  const isScanner = typeof window !== 'undefined' && getStoredUser()?.role === 'SCANNER';
+  const visibleNavigation = isScanner
+    ? navigation.filter((item) => item.href === '/admin/scanner')
+    : navigation;
 
   return (
     <AdminGuard>
@@ -44,7 +49,7 @@ export default function AdminPageShell({ title, subtitle, extra, children }: Adm
         <div className="mx-auto max-w-7xl">
           <div className="mb-6 rounded-2xl bg-[#003078] p-4 shadow-md">
             <div className="flex flex-wrap gap-2">
-              {navigation.map((item) => (
+              {visibleNavigation.map((item) => (
                 <Link href={item.href} key={item.href}>
                   <Button
                     icon={item.icon}

@@ -538,11 +538,17 @@ const isTicketAdmissionAllowed = (ticket) => (
     || (ticket.status === 'SOLD' && ['SUCCESS', 'PAID'].includes(ticket.orderStatus))
 );
 
+const isTicketForSelectedMatch = (ticket, matchId) => Number(ticket.matchId) === Number(matchId);
+
 const scanTicket = async (req, res) => {
     const ticketQrCode = String(req.body.ticketQrCode || '').trim().toUpperCase();
+    const matchId = Number(req.body.matchId);
 
     if (!ticketQrCode) {
         return res.status(400).json({ message: 'Vui lòng nhập hoặc quét mã vé.' });
+    }
+    if (!Number.isSafeInteger(matchId) || matchId <= 0) {
+        return res.status(400).json({ message: 'Vui lòng chọn trận đấu đang soát vé.' });
     }
 
     const client = await pool.connect();
@@ -552,6 +558,7 @@ const scanTicket = async (req, res) => {
         const ticketResult = await client.query(
             `SELECT
                 t.id,
+                t.match_id AS "matchId",
                 t.seat_code AS "seatCode",
                 t.status,
                 t.is_scanned AS "isScanned",
@@ -576,6 +583,10 @@ const scanTicket = async (req, res) => {
         }
 
         const ticket = ticketResult.rows[0];
+        if (!isTicketForSelectedMatch(ticket, matchId)) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Vé không thuộc trận đấu đang được chọn.', ticket });
+        }
         if (!isTicketAdmissionAllowed(ticket)) {
             await client.query('ROLLBACK');
             return res.status(409).json({ message: 'Vé không hợp lệ hoặc đơn đã bị hủy.', ticket });
@@ -599,4 +610,4 @@ const scanTicket = async (req, res) => {
     }
 };
 
-module.exports = { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, getPublicTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats, isTicketAdmissionAllowed };
+module.exports = { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, getPublicTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats, isTicketAdmissionAllowed, isTicketForSelectedMatch };

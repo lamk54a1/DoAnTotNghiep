@@ -320,7 +320,7 @@ const updateUserRole = async (req, res) => {
   if (!Number.isSafeInteger(id) || id <= 0) {
     return res.status(400).json({ message: 'Tài khoản không hợp lệ.' });
   }
-  if (!['USER', 'ADMIN'].includes(role)) {
+  if (!['USER', 'ADMIN', 'SCANNER'].includes(role)) {
     return res.status(400).json({ message: 'Vai trò không hợp lệ.' });
   }
   if (id === req.user.id) {
@@ -344,9 +344,9 @@ const updateUserRole = async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(409).json({ message: 'Không thể thay đổi quyền của tài khoản quản trị gốc.' });
     }
-    if (role === 'ADMIN' && target.status !== 'ACTIVE') {
+    if (role !== 'USER' && target.status !== 'ACTIVE') {
       await client.query('ROLLBACK');
-      return res.status(409).json({ message: 'Chỉ có thể cấp quyền cho tài khoản đang hoạt động.' });
+      return res.status(409).json({ message: 'Chỉ có thể cấp quyền đặc biệt cho tài khoản đang hoạt động.' });
     }
     if (target.role === role) {
       await client.query('ROLLBACK');
@@ -362,14 +362,24 @@ const updateUserRole = async (req, res) => {
     );
     await writeAuditLog({
       userId: req.user.id,
-      action: role === 'ADMIN' ? 'ADMIN_ROLE_GRANTED' : 'ADMIN_ROLE_REVOKED',
+      action: role === 'ADMIN'
+        ? 'ADMIN_ROLE_GRANTED'
+        : role === 'SCANNER'
+          ? 'SCANNER_ROLE_GRANTED'
+          : target.role === 'ADMIN'
+            ? 'ADMIN_ROLE_REVOKED'
+            : 'SCANNER_ROLE_REVOKED',
       entityType: 'user',
       entityId: id,
       metadata: { email: target.email, previousRole: target.role, newRole: role },
     }, client, { throwOnError: true });
     await client.query('COMMIT');
     return res.json({
-      message: role === 'ADMIN' ? 'Đã cấp quyền quản trị viên.' : 'Đã thu hồi quyền quản trị viên.',
+      message: role === 'ADMIN'
+        ? 'Đã cấp quyền quản trị viên.'
+        : role === 'SCANNER'
+          ? 'Đã cấp quyền nhân viên soát vé.'
+          : 'Đã thu hồi quyền đặc biệt của tài khoản.',
       user: updated.rows[0],
     });
   } catch (error) {

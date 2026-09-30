@@ -56,6 +56,14 @@ const isAdmin = (req, res, next) => verifyToken(req, res, () => {
   return next();
 });
 
+const hasTicketScanRole = (role) => ['ADMIN', 'SCANNER'].includes(role);
+const canScanTickets = (req, res, next) => verifyToken(req, res, () => {
+  if (!hasTicketScanRole(req.user.role)) {
+    return res.status(403).json({ message: 'Tài khoản không có quyền soát vé.' });
+  }
+  return next();
+});
+
 const isSuperAdmin = async (req, res, next) => isAdmin(req, res, async () => {
   if (!normalizeEmail(process.env.SUPER_ADMIN_EMAIL)) {
     return res.status(503).json({ message: 'Máy chủ chưa cấu hình tài khoản quản trị gốc.' });
@@ -74,4 +82,4 @@ const isSuperAdmin = async (req, res, next) => isAdmin(req, res, async () => {
   }
 });
 
-module.exports = { verifyToken, optionalAuth, isAdmin, isSuperAdmin, isSuperAdminEmail, loadActiveUser };
+module.exports = { verifyToken, optionalAuth, isAdmin, canScanTickets, hasTicketScanRole, isSuperAdmin, isSuperAdminEmail, loadActiveUser };

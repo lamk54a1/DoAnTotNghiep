@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const { getTicketsByMatch, getSoldSeatsByMatch, getTicketInventoryByMatch, getPublicTicketInventoryByMatch, generateAllSeats, updatePaperTickets, getPaperTicketsByMatch, markPaperTicketsPrinted, scanTicket, holdSeats, releaseSeats } = require('../controllers/ticketController');
-const { isAdmin, optionalAuth, verifyToken } = require('../middleware/authMiddleware');
+const { isAdmin, canScanTickets, optionalAuth, verifyToken } = require('../middleware/authMiddleware');
 const { createRateLimit } = require('../middleware/rateLimit');
 
 const holdLimiter = createRateLimit({
@@ -21,7 +21,7 @@ router.get('/paper/:matchId', isAdmin, getPaperTicketsByMatch);
 router.post('/generate/:matchId', isAdmin, generateAllSeats);
 router.patch('/paper/:matchId', isAdmin, updatePaperTickets);
 router.post('/paper/:matchId/print', isAdmin, markPaperTicketsPrinted);
-router.post('/scan', isAdmin, scanTicket);
+router.post('/scan', canScanTickets, scanTicket);
 
 // Lấy toàn bộ vé công khai
 router.post('/hold/:matchId', verifyToken, holdLimiter, holdSeats);
