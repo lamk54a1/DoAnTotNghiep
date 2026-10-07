@@ -54,7 +54,7 @@ export default function AdminPageShell({ title, subtitle, extra, children }: Adm
                   <Button
                     icon={item.icon}
                     type={pathname === item.href ? 'primary' : 'text'}
-                    className={pathname === item.href ? 'bg-[#edbb00] font-bold text-[#003078]' : 'font-bold text-white'}
+                    className={`admin-nav-button font-bold ${pathname === item.href ? 'admin-nav-button-active' : ''}`}
                   >
                     {item.label}
                   </Button>

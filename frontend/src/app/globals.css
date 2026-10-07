@@ -48,3 +48,18 @@ body {
 .admin-surface .ant-table-filter-trigger {
   color: rgba(255, 255, 255, 0.78) !important;
 }
+
+.admin-surface .admin-nav-button {
+  color: #b9c9df !important;
+}
+
+.admin-surface .admin-nav-button:hover {
+  background: rgba(255, 255, 255, 0.09) !important;
+  color: #e7eef8 !important;
+}
+
+.admin-surface .admin-nav-button-active,
+.admin-surface .admin-nav-button-active:hover {
+  background: #145aa6 !important;
+  color: #ffffff !important;
+}

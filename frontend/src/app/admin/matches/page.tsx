@@ -26,6 +26,14 @@ const DEFAULT_STAND_PRICES = {
   D: 20000,
 };
 
+const MATCH_STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Bản nháp',
+  UPCOMING: 'Sắp diễn ra',
+  ON_SALE: 'Đang mở bán',
+  SOLD_OUT: 'Đã hết vé',
+  FINISHED: 'Đã kết thúc',
+};
+
 interface PaperTicket {
   id: number;
   seatCode: string;
@@ -375,7 +383,7 @@ export default function AdminMatchesPage() {
       width: 120,
       render: (status: string) => (
         <span className={`px-2 py-1 rounded text-xs font-bold ${status === 'ON_SALE' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-          {status}
+          {MATCH_STATUS_LABELS[status] || status}
         </span>
       )
     },
