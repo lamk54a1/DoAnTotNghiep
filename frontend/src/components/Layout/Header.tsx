@@ -120,7 +120,7 @@ const Header = () => {
           <Link href="/matches" className="text-white hover:text-[#edbb00] transition-all">Lịch thi đấu</Link>
           <Link href="/results" className="text-white hover:text-[#edbb00] transition-all">Kết quả</Link>
           <Link href="/news" className="text-white hover:text-[#edbb00] transition-all">Tin tức</Link>
-          <Link href="/my-tickets" className="text-[#edbb00] hover:text-white transition-all italic underline underline-offset-4">
+          <Link href="/my-tickets" className="text-[#edbb00] hover:text-white transition-all underline underline-offset-4">
             Vé của tôi
           </Link>
         </nav>

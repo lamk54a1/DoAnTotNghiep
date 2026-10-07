@@ -31,3 +31,20 @@ body {
   color: var(--foreground);
   font-family: "Segoe UI", Arial, Helvetica, sans-serif;
 }
+
+/* Tiêu đề bảng trong khu vực quản trị cần tương phản rõ khi thao tác nhanh. */
+.admin-surface .ant-table-thead > tr > th,
+.admin-surface .ant-table-thead > tr > td {
+  background: #0b4a94 !important;
+  color: #ffffff !important;
+  font-weight: 700;
+}
+
+.admin-surface .ant-table-thead > tr > th::before {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+.admin-surface .ant-table-column-sorter,
+.admin-surface .ant-table-filter-trigger {
+  color: rgba(255, 255, 255, 0.78) !important;
+}

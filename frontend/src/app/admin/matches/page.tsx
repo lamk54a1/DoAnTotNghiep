@@ -1,6 +1,6 @@
 'use client';
 import AdminPageShell from '../../../components/Admin/AdminPageShell';
-import { App as AntApp, Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, Row, Col, Popconfirm, Avatar, Tag, Checkbox, Upload } from 'antd';
+import { App as AntApp, Table, Button, Modal, Form, Input, InputNumber, DatePicker, Select, Space, Row, Col, Popconfirm, Avatar, Tag, Checkbox, Upload, Tooltip } from 'antd';
 import { PlusOutlined, EditOutlined, RetweetOutlined, DeleteOutlined, UploadOutlined, FilePdfOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import { useEffect, useState } from 'react';
@@ -394,16 +394,16 @@ export default function AdminMatchesPage() {
       title: 'Hành động',
       key: 'action',
       fixed: 'right' as const,
-      width: 390,
+      width: 240,
       render: (_: unknown, record: IMatch) => (
         <Space wrap size={[8, 8]}>
-          <Button type="primary" icon={<EditOutlined />} onClick={() => openModal(record)}>
-            Sửa
-          </Button>
+          <Tooltip title="Sửa trận đấu">
+            <Button aria-label="Sửa trận đấu" type="primary" icon={<EditOutlined />} onClick={() => openModal(record)} />
+          </Tooltip>
 
-          <Button icon={<RetweetOutlined />} onClick={() => openGenerateModal(record)} className="text-green-600 border-green-600 hover:bg-green-50 font-bold">
-              Sinh vé
-            </Button>
+          <Tooltip title="Sinh vé">
+            <Button aria-label="Sinh vé" icon={<RetweetOutlined />} onClick={() => openGenerateModal(record)} className="border-green-600 font-bold text-green-600 hover:bg-green-50" />
+          </Tooltip>
           <Button onClick={() => openInventoryModal(record)}>
             Tồn kho
           </Button>

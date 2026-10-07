@@ -1,6 +1,6 @@
 'use client';
 import AdminPageShell from '../../../components/Admin/AdminPageShell';
-import { App as AntApp, Card, Row, Col, Statistic, Table, Button, Space, Popconfirm, Select } from 'antd';
+import { App as AntApp, Card, Row, Col, Statistic, Table, Button, Space, Popconfirm, Select, Tooltip } from 'antd';
 import { DollarOutlined, UserOutlined, TagOutlined, PlusOutlined, RetweetOutlined, ShoppingOutlined } from '@ant-design/icons';
 import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../../../api/axiosClient';
@@ -176,10 +176,12 @@ export default function AdminDashboard() {
             columns={[
               { title: 'Đối thủ', dataIndex: 'opponent' },
               { title: 'Ngày', dataIndex: 'matchDate', render: (d) => dayjs(d).format('DD/MM/YYYY') },
-              { title: 'Hành động', render: (_, record: IMatch) => (
+              { title: 'Hành động', width: 90, align: 'center' as const, render: (_, record: IMatch) => (
                 <Space>
                   <Popconfirm title="Sinh vé cho trận này?" onConfirm={() => handleGenerateTickets(record.id)}>
-                    <Button icon={<RetweetOutlined />} size="small">Sinh vé</Button>
+                    <Tooltip title="Sinh vé">
+                      <Button aria-label="Sinh vé" icon={<RetweetOutlined />} size="small" />
+                    </Tooltip>
                   </Popconfirm>
                 </Space>
               )}

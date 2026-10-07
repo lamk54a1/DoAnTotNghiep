@@ -45,7 +45,7 @@ export default function AdminPageShell({ title, subtitle, extra, children }: Adm
 
   return (
     <AdminGuard>
-      <div className="min-h-screen bg-gray-50 px-4 py-8 md:px-8">
+      <div className="admin-surface min-h-screen bg-gray-50 px-4 py-8 md:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="mb-6 rounded-2xl bg-[#003078] p-4 shadow-md">
             <div className="flex flex-wrap gap-2">
