@@ -394,9 +394,9 @@ export default function AdminMatchesPage() {
       title: 'Hành động',
       key: 'action',
       fixed: 'right' as const,
-      width: 240,
+      width: 160,
       render: (_: unknown, record: IMatch) => (
-        <Space wrap size={[8, 8]}>
+        <Space wrap size={[4, 4]}>
           <Tooltip title="Sửa trận đấu">
             <Button aria-label="Sửa trận đấu" type="primary" icon={<EditOutlined />} onClick={() => openModal(record)} />
           </Tooltip>
@@ -407,15 +407,17 @@ export default function AdminMatchesPage() {
           <Button onClick={() => openInventoryModal(record)}>
             Tồn kho
           </Button>
-          <Popconfirm
-            title="Xóa trận đấu này?"
-            description="Chỉ có thể xóa trận chưa có vé được đặt hoặc bán."
-            onConfirm={() => handleDelete(record.id)}
-            okText="Xóa"
-            cancelText="Hủy"
-          >
-            <Button danger icon={<DeleteOutlined />}>Xóa</Button>
-          </Popconfirm>
+          <Tooltip title="Xóa trận đấu">
+            <Popconfirm
+              title="Xóa trận đấu này?"
+              description="Chỉ có thể xóa trận chưa có vé được đặt hoặc bán."
+              onConfirm={() => handleDelete(record.id)}
+              okText="Xóa"
+              cancelText="Hủy"
+            >
+              <Button aria-label="Xóa trận đấu" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </Tooltip>
         </Space>
       ),
     },
