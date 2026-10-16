@@ -302,11 +302,17 @@ const syncOfficialNews = async ({
   return results;
 };
 
+const buildKnowledgeQuery = (question) => {
+  const normalizeTerm = (value) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd');
+  const stopWords = new Set(['ai', 'bao', 'cac', 'cua', 'cho', 'co', 'gi', 'la', 'moi', 'mot', 'nao', 'nhat', 'nhieu', 'nhung', 'thong', 'tin', 'toi', 'tu', 've', 'hay', 'biet', 'minh', 'ban', 'hien', 'nay', 'dang', 'duoc', 'khong', 'tinh', 'hinh', 'nhu', 'the', 'nao', 'clb', 'cau', 'thu']);
+  const terms = String(question || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+  // All meaningful terms must match; a common club name alone is not evidence for an injury/transfer.
+  return [...new Set(terms.filter((term) => term.length > 2 && !stopWords.has(normalizeTerm(term))))].slice(0, 10).join(' & ');
+};
+
 const searchOfficialKnowledge = async (question, limit = 3, sourceKey = null) => {
   const safeLimit = Math.min(Math.max(Number(limit) || 3, 1), 5);
-  const stopWords = new Set(['ai', 'bao', 'cac', 'cua', 'cho', 'co', 'gi', 'la', 'moi', 'mot', 'nao', 'nhat', 'nhieu', 'nhung', 'thong', 'tin', 'toi', 'tu', 've']);
-  const terms = String(question || '').toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
-  const query = [...new Set(terms.filter((term) => term.length > 2 && !stopWords.has(term)))].slice(0, 10).join(' | ');
+  const query = buildKnowledgeQuery(question);
   if (!query) return [];
   const result = await pool.query(`
     SELECT d.title, d.url, d.summary, d.content, d.published_at AS "publishedAt",
@@ -379,6 +385,7 @@ module.exports = {
   parseSquadPage,
   syncOfficialNews,
   searchOfficialKnowledge,
+  buildKnowledgeQuery,
   getOfficialSquad,
   getLatestOfficialKnowledge,
 };

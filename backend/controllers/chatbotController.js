@@ -8,11 +8,7 @@ const {
   searchOfficialKnowledge,
 } = require('../services/officialNewsService');
 
-const normalize = (value) => String(value || '')
-  .toLowerCase()
-  .normalize('NFD')
-  .replace(/[\u0300-\u036f]/g, '')
-  .replace(/đ/g, 'd');
+const { normalize, isFollowUp, classifyQuestion, selectMatch } = require('../services/chatbotIntent');
 
 const formatDateTime = (value) => new Intl.DateTimeFormat('vi-VN', {
   dateStyle: 'full',
@@ -22,10 +18,14 @@ const formatDateTime = (value) => new Intl.DateTimeFormat('vi-VN', {
 
 const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')}đ`;
 
-const withTimeout = (promise, fallback, timeoutMs = 5000) => Promise.race([
-  promise,
-  new Promise((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
-]);
+const withTimeout = async (promise, fallback, timeoutMs = 5000) => {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((resolve) => { timer = setTimeout(() => resolve(fallback), timeoutMs); })]);
+  } finally {
+    clearTimeout(timer);
+  }
+};
 
 const getUpcomingMatch = async () => {
   const result = await withTimeout(pool.query(`
@@ -58,8 +58,7 @@ const getMatchByQuestion = async (question) => {
     ORDER BY match_date DESC
     LIMIT 50
   `), { rows: [] });
-  const normalizedQuestion = normalize(question);
-  return result.rows.find((match) => normalizedQuestion.includes(normalize(match.opponent))) || null;
+  return selectMatch(result.rows, question);
 };
 
 const getTicketInventory = async (matchId) => {
@@ -85,7 +84,8 @@ const answerSchedule = async () => {
 const answerTicketPrice = async (selectedMatch = null) => {
   const match = selectedMatch || await getUpcomingMatch();
   if (!match) return 'Hiện chưa có trận đang/sắp mở bán nên chưa có giá vé.';
-  const standPrices = { A: 100000, B: 50000, C: 20000, D: 20000, ...(match.stand_prices || {}) };
+  const standPrices = match.stand_prices || {};
+  if (!Object.keys(standPrices).length) return `Trận SLNA vs ${match.opponent} chưa có bảng giá khán đài để xác nhận. Bạn kiểm tra trang trận đấu hoặc liên hệ hỗ trợ.`;
   const freeStands = match.free_stands || [];
   return [
     `Giá vé trận SLNA vs ${match.opponent}:`,
@@ -106,7 +106,7 @@ const answerTicketAvailability = async (selectedMatch = null) => {
     `Tình trạng vé trận SLNA vs ${match.opponent} lúc này:`,
     `- Còn bán online: ${inventory.available} vé.`,
     `- Đang được giữ: ${inventory.held} vé.`,
-    `- Đã bán: ${inventory.sold} vé.`,
+    `- Đã dành cho đơn online hoặc bán giấy: ${inventory.sold} vé (đơn online có thể còn chờ thanh toán).`,
     `- Đã dành cho vé giấy: ${inventory.paperReserved} vé.`,
     'Dữ liệu được tra trực tiếp từ kho vé tại thời điểm bạn hỏi.',
   ].join('\n');
@@ -159,20 +159,30 @@ const answerMyTickets = () => [
   'Nếu không thấy vé, hãy kiểm tra trạng thái đơn hàng hoặc đăng nhập lại đúng tài khoản đã mua.',
 ].join('\n');
 
-const answerAccount = () => [
+const answerAccount = (question = '') => {
+  const text = normalize(question);
+  if (/(quen|doi|dat lai).*mat khau/.test(text)) return 'Nếu quên mật khẩu, chọn “Quên mật khẩu” trên trang đăng nhập, nhập email đã đăng ký rồi mở liên kết trong email. Liên kết có hạn 15 phút và chỉ dùng một lần. Tài khoản Google/Facebook cần đăng nhập hoặc khôi phục qua nhà cung cấp tương ứng. Nếu muốn đổi mật khẩu khi đang đăng nhập, vào tài khoản và nhập mật khẩu hiện tại.';
+  if (/dang nhap/.test(text)) return 'Bạn đăng nhập bằng email/mật khẩu hay Google/Facebook? Với email/mật khẩu, có thể dùng “Quên mật khẩu”. Bạn gửi nội dung thông báo lỗi để mình hướng dẫn đúng; không gửi mật khẩu hoặc mã xác thực.';
+  return [
   'Bạn có thể cập nhật thông tin cá nhân trong mục tài khoản:',
   '- Cập nhật họ tên, số điện thoại, địa chỉ.',
   '- Đổi email cần tự nhập mật khẩu hiện tại để xác nhận; hệ thống không hiển thị hoặc điền sẵn mật khẩu.',
   '- Tài khoản Google/Facebook quản lý email và mật khẩu tại nhà cung cấp đăng nhập.',
   '- Gửi CCCD để admin duyệt trước khi mua vé.',
 ].join('\n');
+};
 
-const answerPayment = () => [
-  'Sau khi chọn ghế, hệ thống giữ ghế trong 15 phút để bạn thanh toán.',
+const answerPayment = (question = '') => {
+  if (/(da|roi)/.test(normalize(question)) && /(chua|khong).*(ve|xac nhan|thanh cong)/.test(normalize(question))) {
+    return 'Mình chưa thể kiểm tra đơn cá nhân trong cuộc trò chuyện này. Bạn kiểm tra đã chuyển đúng số tiền và nội dung trên đơn, sau đó xem lại “Vé của tôi”. Nếu đã bị trừ tiền mà chưa có vé, liên hệ hỗ trợ để đối soát; không chuyển thêm tiền chỉ vì chưa thấy vé.';
+  }
+  return [
+  'Ghế được giữ 10 phút khi chọn. Sau khi tạo đơn, bạn có 15 phút để thanh toán đơn đó.',
   '- Chuyển đúng số tiền và nội dung thanh toán hiển thị trên đơn.',
   '- QR vé chỉ được phát hành sau khi đơn được xác nhận thanh toán thành công.',
   '- Đơn quá hạn hoặc bị hủy sẽ tự trả ghế về kho vé.',
 ].join('\n');
+};
 
 const answerCccd = () => [
   'CCCD được dùng để xác minh người mua và áp dụng giới hạn tối đa 4 vé cho mỗi trận.',
@@ -186,7 +196,7 @@ const answerPolicy = () => [
   '- Mỗi CCCD được mua tối đa 4 vé cho một trận.',
   '- Vé điện tử dùng mã QR và chỉ có giá trị một lần quét.',
   '- Không chia sẻ mã QR cho người khác.',
-  '- Cổng có thể đóng đón khán giả sau 15 phút kể từ khi trận đấu bắt đầu.',
+  '- Mình chưa có chính sách hoàn/hủy vé và giờ đóng cổng đã xác minh; bạn cần liên hệ ban tổ chức để xác nhận.',
 ].join('\n');
 
 const answerContact = () => [
@@ -251,7 +261,8 @@ const documentsForAi = (documents) => (Array.isArray(documents) ? documents : []
   `Tiêu đề: ${document.title}`,
   `Nhà xuất bản: ${document.publisher}`,
   `URL: ${document.url}`,
-  `Nội dung: ${String(document.content || document.summary || '').replace(/\s+/g, ' ').trim()}`,
+  `Ngày đăng: ${document.publishedAt || 'Không rõ'}; lần đồng bộ: ${document.fetchedAt || 'Không rõ'}`,
+  `Nội dung: ${String(document.content || document.summary || '').replace(/\s+/g, ' ').trim().slice(0, 2500)}`,
 ].join('\n')).join('\n\n');
 
 const squadForAi = (squad) => squad.players.map((player) => [
@@ -281,39 +292,16 @@ const answerFromOfficialSquad = (squad) => {
   ].join('\n');
 };
 
-const classifyQuestion = ({ text, historyText = '', hasSelectedMatch = false }) => {
-  const squadFollowUp = /(ai|nguoi nao|anh ay|cau ay|so may|bao nhieu tuoi|tre nhat|lon tuoi|cao nhat|thap nhat|que o dau|vi tri nao)/.test(text)
-    && /(cau thu|doi hinh|thu mon|hau ve|tien ve|tien dao)/.test(historyText);
-
-  if (/(con bao nhieu ve|con ve|het ve|so ve|ve trong|ve con lai|ton kho)/.test(text)) return 'TICKET_AVAILABILITY';
-  if (/(gia ve|ve gia|ve.*bao nhieu|bao nhieu.*(tien|dong)|gia.*khan dai|khan dai.*(gia|bao nhieu)|mien phi.*khan dai)/.test(text)) return 'TICKET_PRICE';
-  if (hasSelectedMatch && /(tran|doi|gap|vs|voi|thong tin|khi nao|o dau|may gio)/.test(text)) return 'SPECIFIC_MATCH';
-  if (/(lich thi dau|tran sap|sap toi|khi nao thi dau|doi nao|may gio da)/.test(text)) return 'SCHEDULE';
-  if (/(ket qua|ti so|ty so|tran.*da dau|slna.*(thang|thua|hoa)|(thang|thua|hoa).*tran)/.test(text)) return 'RESULTS';
-  if (/(thanh toan|chuyen khoan|don hang|het han|xac nhan thanh cong|sepay)/.test(text)) return 'PAYMENT';
-  if (/(ve cua toi|ve da mua|ma qr|qr ve|in pdf|xem ve)/.test(text)) return 'MY_TICKETS';
-  if (/(mua ve|dat ve|chon ghe|giu ghe)/.test(text)) return 'BUY_TICKET';
-  if (/(san van dong|san vinh|dia chi (san|clb)|tran.*o dau|den san)/.test(text)) return 'STADIUM';
-  if (/(nha tai tro|tai tro|sponsor|doi tac)/.test(text)) return 'SPONSORS';
-  if (/(cccd|can cuoc|xac minh|duyet danh tinh)/.test(text)) return 'CCCD';
-  if (/(tai khoan|dang nhap|mat khau|email|thong tin ca nhan|quen mat khau)/.test(text)) return 'ACCOUNT';
-  if (/(chinh sach|quy dinh|gioi han|hoan ve|huy ve|luu y)/.test(text)) return 'POLICY';
-  if (/(lien he|cong ty|mst|ma so thue|hotline)/.test(text)) return 'CONTACT';
-  if (/(cau thu|doi hinh|danh sach.*(clb|slna|song lam)|thu mon|hau ve|tien ve|tien dao)/.test(text)
-    || squadFollowUp) return 'SQUAD';
-  if (/(tin moi|tin tuc moi|moi nhat|tin gan day)/.test(text)) return 'LATEST_NEWS';
-  if (/(tin tuc|hlv|huan luyen vien|bang xep hang|vleague|v-league|chuyen nhuong|chan thuong)/.test(text)) return 'OFFICIAL_SEARCH';
-  return 'GENERAL';
-};
-
 const askChatbot = async (req, res) => {
   const question = String(req.body?.question || '').trim();
   if (!question) return res.status(400).json({ message: 'Vui lòng nhập câu hỏi.' });
   if (question.length > 500) return res.status(400).json({ message: 'Câu hỏi không được dài quá 500 ký tự.' });
 
   const text = normalize(question);
-  const rawHistoryText = (Array.isArray(req.body?.history) ? req.body.history : [])
-    .slice(-4)
+  const recentHistory = (Array.isArray(req.body?.history) ? req.body.history : []).slice(-4);
+  const rawHistoryText = recentHistory
+    .filter((message) => message?.role === 'user')
+    .slice(-1)
     .map((message) => String(message?.content || '').slice(0, 1200))
     .join(' ');
   const historyText = normalize(rawHistoryText);
@@ -322,7 +310,10 @@ const askChatbot = async (req, res) => {
     let sources = [];
     let aiGrounding = '';
     let contextType = 'verified';
-    const selectedMatch = await getMatchByQuestion(`${question} ${rawHistoryText}`);
+    const preliminaryIntent = classifyQuestion({ text, historyText });
+    const needsMatch = ['TICKET_PRICE', 'TICKET_AVAILABILITY', 'SCHEDULE', 'RESULTS', 'GENERAL'].includes(preliminaryIntent);
+    const selectedMatch = needsMatch ? await getMatchByQuestion(question)
+      || (isFollowUp(text) ? await getMatchByQuestion(rawHistoryText) : null) : null;
     const intent = classifyQuestion({ text, historyText, hasSelectedMatch: Boolean(selectedMatch) });
 
     if (intent === 'TICKET_AVAILABILITY') answer = await answerTicketAvailability(selectedMatch);
@@ -330,13 +321,13 @@ const askChatbot = async (req, res) => {
     else if (intent === 'SPECIFIC_MATCH') answer = answerSpecificMatch(selectedMatch);
     else if (intent === 'SCHEDULE') answer = await answerSchedule();
     else if (intent === 'RESULTS') answer = await answerResults();
-    else if (intent === 'PAYMENT') answer = answerPayment();
+    else if (intent === 'PAYMENT') answer = answerPayment(question);
     else if (intent === 'BUY_TICKET') answer = await answerBuyTicket();
     else if (intent === 'MY_TICKETS') answer = answerMyTickets();
     else if (intent === 'STADIUM') answer = await answerStadium();
     else if (intent === 'SPONSORS') answer = await answerSponsors();
     else if (intent === 'CCCD') answer = answerCccd();
-    else if (intent === 'ACCOUNT') answer = answerAccount();
+    else if (intent === 'ACCOUNT') answer = answerAccount(question);
     else if (intent === 'POLICY') answer = answerPolicy();
     else if (intent === 'CONTACT') answer = answerContact();
     else if (intent === 'SQUAD') {
@@ -364,14 +355,17 @@ const askChatbot = async (req, res) => {
       contextType = 'general';
     }
 
+    // Keep transactional facts deterministic; the model must not invent policy, prices or order status.
+    const needsAi = ['GENERAL', 'SQUAD', 'LATEST_NEWS', 'OFFICIAL_SEARCH'].includes(intent);
     try {
-      const conversationalAnswer = await generateConversationalAnswer({
+      const conversationalAnswer = needsAi && (contextType === 'general' || sources.length > 0)
+        ? await generateConversationalAnswer({
         question,
-        history: req.body?.history,
+        history: isFollowUp(text) ? recentHistory : [],
         groundedAnswer: contextType === 'general' ? '' : aiGrounding || answer,
         sources,
         contextType,
-      });
+      }) : null;
       if (conversationalAnswer) answer = conversationalAnswer;
     } catch (aiError) {
       console.error('Không thể tạo câu trả lời hội thoại, dùng phương án dự phòng:', aiError.message);
