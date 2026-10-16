@@ -6,8 +6,7 @@ import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { IRegisterPayload } from '../../interfaces/IUser';
 import { useEffect, useState } from 'react';
-
-const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL || '/api').replace(/\/$/, '');
+import SocialOAuthButtons from '../../components/Auth/SocialOAuthButtons';
 
 function RegisterPage() {
   const router = useRouter();
@@ -142,13 +141,7 @@ function RegisterPage() {
           </Form.Item>
 
           <Divider plain>Hoặc đăng ký với</Divider>
-          <div className="grid grid-cols-2 gap-3">
-            <Button disabled={!oauthProviders.google} href={`${apiBaseUrl}/auth/oauth/google?mode=register`}>Google</Button>
-            <Button disabled={!oauthProviders.facebook} href={`${apiBaseUrl}/auth/oauth/facebook?mode=register`}>Facebook</Button>
-          </div>
-          {!oauthProviders.google && !oauthProviders.facebook && (
-            <p className="mt-2 text-center text-xs text-gray-500">Đăng ký mạng xã hội chưa được kích hoạt.</p>
-          )}
+          <SocialOAuthButtons mode="register" providers={oauthProviders} />
 
 
           <div className="text-center mt-4 text-xs font-medium text-gray-500">

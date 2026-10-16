@@ -63,3 +63,29 @@ body {
   background: #145aa6 !important;
   color: #ffffff !important;
 }
+
+/* Trên mobile, nhãn thông tin admin giữ chiều rộng ổn định và nội dung được phép xuống dòng. */
+.admin-surface .admin-mobile-details .ant-descriptions-item-label {
+  width: 108px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.admin-surface .admin-mobile-details .ant-descriptions-item-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 767px) {
+  .admin-surface {
+    padding: 16px 12px;
+  }
+
+  .admin-surface .ant-card-head {
+    padding-inline: 14px;
+  }
+
+  .admin-surface .ant-card-body {
+    padding: 14px;
+  }
+}
