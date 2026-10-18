@@ -12,6 +12,7 @@ const SOURCES = [
     publisher: 'SLNAFC',
     indexUrl: 'https://slnafc.com/tin-tuc',
     squadUrl: 'https://slnafc.com/doi-hinh',
+    squadParser: 'SLNAFC',
     hostnames: new Set(['slnafc.com', 'www.slnafc.com']),
     imageHostnames: new Set(['slnafc.com', 'www.slnafc.com', 'cdn.slnafc.vn', 'www.cdn.slnafc.vn']),
     articlePath: /^\/tin-tuc\/(?!chuyen-muc(?:\/|$))[^/]+/,
@@ -20,6 +21,8 @@ const SOURCES = [
     key: 'VPF',
     publisher: 'VPF',
     indexUrl: 'https://vpf.vn/',
+    squadUrl: process.env.VPF_SLNA_SQUAD_URL || 'https://vpf.vn/team/song-lam-nghe-an/?sid=154439',
+    squadParser: 'VPF',
     hostnames: new Set(['vpf.vn', 'www.vpf.vn']),
     imageHostnames: new Set(['vpf.vn', 'www.vpf.vn']),
     articlePath: /^\/tin-tuc\//,
@@ -237,6 +240,64 @@ const parseSquadPage = (html, requestedUrl, source) => {
   };
 };
 
+const parseVpfSquadPage = (html, requestedUrl, source) => {
+  const $ = cheerio.load(html);
+  const players = [];
+  const validPositions = new Map([
+    ['thu mon', 'Thủ môn'],
+    ['hau ve', 'Hậu vệ'],
+    ['tien ve', 'Tiền vệ'],
+    ['tien dao', 'Tiền đạo'],
+  ]);
+
+  $('table tr').each((_index, row) => {
+    const cells = $(row).find('th, td').map((_cellIndex, cell) => compactText($(cell).text())).get();
+    if (cells.length < 3) return;
+    const position = validPositions.get(normalizeSquadLabel(cells[1]));
+    const number = compactText(cells[2]);
+    const name = compactText(cells[0]);
+    if (!position || !name || !/^\d{1,3}$/.test(number)) return;
+    players.push({
+      name,
+      position,
+      number,
+      height: compactText(cells[3]),
+      weight: compactText(cells[4]),
+      birthDate: compactText(cells[5]),
+      hometown: '',
+    });
+  });
+
+  if (players.length === 0) return null;
+  const canonicalValue = $('link[rel="canonical"]').attr('href');
+  const canonicalUrl = canonicalValue ? new URL(canonicalValue, requestedUrl).toString() : requestedUrl;
+  if (!isAllowedUrl(canonicalUrl, source)) throw new Error('Canonical URL không thuộc nguồn được phép.');
+  const pageText = compactText($('body').text());
+  const season = pageText.match(/20\d{2}\s*\/\s*\d{2}/)?.[0]?.replace(/\s/g, '') || '';
+  const content = players.map((player) => [
+    player.position,
+    player.number,
+    player.name,
+    player.birthDate,
+    player.hometown,
+    player.height,
+    player.weight,
+  ].join('|')).join('\n');
+  const title = `Danh sách cầu thủ Sông Lam Nghệ An${season ? ` mùa giải ${season}` : ''} - VPF`;
+  return {
+    sourceKey: source.key,
+    publisher: source.publisher,
+    title,
+    url: canonicalUrl,
+    summary: `Danh sách ${players.length} cầu thủ SLNA trong bảng đội bóng chính thức của VPF${season ? ` mùa giải ${season}` : ''}.`,
+    content,
+    imageUrl: getAllowedImageUrl($('meta[property="og:image"]').attr('content'), canonicalUrl, source),
+    category: 'Đội hình VPF',
+    publishedAt: null,
+    contentHash: crypto.createHash('sha256').update(`${title}\n${content}`).digest('hex'),
+  };
+};
+
 const saveArticle = async (article) => {
   await pool.query(`
     INSERT INTO knowledge_documents
@@ -272,7 +333,10 @@ const syncSource = async (source, maxArticles) => {
     const { html } = await fetchAllowedHtml(source.indexUrl, source);
     const urls = extractArticleUrls(html, source).slice(0, maxArticles);
     const targets = urls.map((url) => ({ url, parser: parseArticle }));
-    if (source.squadUrl) targets.push({ url: source.squadUrl, parser: parseSquadPage });
+    if (source.squadUrl) targets.push({
+      url: source.squadUrl,
+      parser: source.squadParser === 'VPF' ? parseVpfSquadPage : parseSquadPage,
+    });
     const settled = await Promise.allSettled(targets.map(async ({ url, parser }) => {
       const page = await fetchAllowedHtml(url, source);
       const article = parser(page.html, page.finalUrl, source);
@@ -340,9 +404,9 @@ const getOfficialSquad = async () => {
     FROM knowledge_documents d
     JOIN knowledge_sources s ON s.source_key = d.source_key
     WHERE s.is_enabled = true
-      AND d.source_key = 'SLNAFC'
-      AND d.category = 'Đội hình'
-    ORDER BY d.fetched_at DESC
+      AND d.source_key IN ('VPF', 'SLNAFC')
+      AND d.category IN ('Đội hình VPF', 'Đội hình')
+    ORDER BY CASE WHEN d.source_key = 'VPF' THEN 0 ELSE 1 END, d.fetched_at DESC
     LIMIT 1
   `);
   const document = result.rows[0];
@@ -383,6 +447,7 @@ module.exports = {
   getAllowedImageUrl,
   parseArticle,
   parseSquadPage,
+  parseVpfSquadPage,
   syncOfficialNews,
   searchOfficialKnowledge,
   buildKnowledgeQuery,

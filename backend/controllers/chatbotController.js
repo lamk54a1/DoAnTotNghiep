@@ -277,18 +277,29 @@ const squadForAi = (squad) => squad.players.map((player) => [
 
 const answerFromOfficialSquad = (squad) => {
   if (!squad || squad.players.length === 0) {
-    return 'Mình chưa có danh sách cầu thủ đã được xác minh từ trang đội hình chính thức của SLNA. Mình sẽ không lấy các bài tin VPF không liên quan để thay thế.';
+    return 'Mình chưa đồng bộ được bảng cầu thủ chính thức của SLNA từ VPF hoặc trang CLB. Mình sẽ không tự ghép danh sách từ các bài tin rời rạc.';
   }
   const positions = ['Thủ môn', 'Hậu vệ', 'Tiền vệ', 'Tiền đạo'];
+  const season = String(squad.title || '').match(/20\d{2}\/\d{2}/)?.[0];
+  const sourceName = squad.publisher === 'VPF' ? 'trang đội bóng chính thức của VPF' : 'trang đội hình chính thức của SLNA';
   return [
-    'Theo danh sách đội 1 trên trang chính thức của SLNA:',
+    `Dưới đây là danh sách đầy đủ các cầu thủ SLNA theo ${sourceName}${season ? `, mùa giải ${season}` : ''}:`,
     ...positions.flatMap((position) => {
       const players = squad.players.filter((player) => normalize(player.position) === normalize(position));
       return players.length > 0
-        ? [`- ${position}: ${players.map((player) => `${player.name} (số ${player.number})`).join(', ')}.`]
+        ? [
+          '',
+          position,
+          ...players.map((player) => {
+            const birthYear = String(player.birthDate || '').match(/(?:19|20)\d{2}/)?.[0];
+            const details = [birthYear, player.number ? `số áo ${player.number}` : null].filter(Boolean).join(' · ');
+            return `• ${player.name}${details ? ` (${details})` : ''}`;
+          }),
+        ]
         : [];
     }),
-    'Danh sách có thể thay đổi theo đăng ký của câu lạc bộ; bạn có thể kiểm tra nguồn chính thức bên dưới.',
+    '',
+    `Tổng cộng: ${squad.players.length} cầu thủ. Danh sách có thể thay đổi khi VPF cập nhật đăng ký; bạn có thể mở nguồn chính thức bên dưới để kiểm tra.`,
   ].join('\n');
 };
 
@@ -356,7 +367,9 @@ const askChatbot = async (req, res) => {
     }
 
     // Keep transactional facts deterministic; the model must not invent policy, prices or order status.
-    const needsAi = ['GENERAL', 'SQUAD', 'LATEST_NEWS', 'OFFICIAL_SEARCH'].includes(intent);
+    // A squad list must stay complete and byte-for-byte grounded in the parsed official table.
+    // Sending it through a language model risks omissions, renaming or invented players.
+    const needsAi = ['GENERAL', 'LATEST_NEWS', 'OFFICIAL_SEARCH'].includes(intent);
     try {
       const conversationalAnswer = needsAi && (contextType === 'general' || sources.length > 0)
         ? await generateConversationalAnswer({

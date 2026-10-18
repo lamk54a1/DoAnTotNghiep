@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { classifyQuestion, normalize, selectMatch, isFollowUp } = require('../services/chatbotIntent');
 const { buildKnowledgeQuery } = require('../services/officialNewsService');
-const { askChatbot } = require('../controllers/chatbotController');
+const { askChatbot, answerFromOfficialSquad } = require('../controllers/chatbotController');
 const pool = require('../config/db');
 
 test.after(() => pool.end());
@@ -49,6 +49,25 @@ test('tìm kiếm không dùng OR và loại bỏ từ đệm có dấu', () => 
   assert.equal(buildKnowledgeQuery('Cho tôi biết tình hình chấn thương của SLNA'), 'chấn & thương & slna');
   assert.equal(buildKnowledgeQuery('Cầu thủ nào mới chuyển nhượng SLNA?'), 'chuyển & nhượng & slna');
   assert.equal(buildKnowledgeQuery('cho tôi biết'), '');
+});
+
+test('danh sách cầu thủ từ VPF được giữ đầy đủ, phân nhóm và không cần Gemini viết lại', () => {
+  const answer = answerFromOfficialSquad({
+    publisher: 'VPF',
+    title: 'Danh sách cầu thủ Sông Lam Nghệ An mùa giải 2026/27 - VPF',
+    players: [
+      { name: 'Cao Văn Bình', position: 'Thủ môn', number: '1', birthDate: '08-01-2005' },
+      { name: 'Cittadini Roberto', position: 'Hậu vệ', number: '2', birthDate: '05/04/2005' },
+      { name: 'Onoja Joseph', position: 'Tiền vệ', number: '5', birthDate: '06-11-1998' },
+      { name: 'Phan Xuân Đại', position: 'Tiền đạo', number: '21', birthDate: '01-01-2003' },
+    ],
+  });
+  assert.match(answer, /trang đội bóng chính thức của VPF, mùa giải 2026\/27/);
+  assert.match(answer, /Thủ môn\n• Cao Văn Bình \(2005 · số áo 1\)/);
+  assert.match(answer, /Hậu vệ\n• Cittadini Roberto/);
+  assert.match(answer, /Tiền vệ\n• Onoja Joseph/);
+  assert.match(answer, /Tiền đạo\n• Phan Xuân Đại/);
+  assert.match(answer, /Tổng cộng: 4 cầu thủ/);
 });
 
 test('câu trả lời nghiệp vụ không gọi Gemini và không bịa giá khi thiếu bảng giá', async () => {

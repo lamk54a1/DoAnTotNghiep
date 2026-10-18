@@ -1,368 +1,98 @@
-# Use Case Chi Tiết - SLNA Ticketing
-
-Tài liệu này dùng để bổ sung vào phần phân tích thiết kế hệ thống trong báo cáo đồ án.
-
-## UC01 - Đăng Ký Tài Khoản
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả |
-| Mục tiêu | Tạo tài khoản người dùng để sử dụng hệ thống mua vé. |
-| Tiền điều kiện | Người dùng chưa có tài khoản với email đang đăng ký. |
-| Hậu điều kiện | Tài khoản được tạo với role `USER`, status `ACTIVE`. |
-| Bảng liên quan | `users` |
-
-Luồng chính:
-
-1. Khán giả mở trang đăng ký.
-2. Nhập email, mật khẩu, họ tên, số điện thoại và địa chỉ.
-3. Frontend gửi request `POST /api/auth/register`.
-4. Backend kiểm tra email đã tồn tại hay chưa.
-5. Backend hash mật khẩu bằng bcrypt.
-6. Backend tạo bản ghi mới trong bảng `users`.
-7. Hệ thống thông báo đăng ký thành công và chuyển người dùng tới trang đăng nhập.
-
-Luồng thay thế:
-
-- Nếu email đã tồn tại, hệ thống trả thông báo lỗi.
-- Nếu dữ liệu không hợp lệ, frontend/backend yêu cầu nhập lại.
-
-## UC02 - Đăng Nhập
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả, Quản trị viên |
-| Mục tiêu | Xác thực tài khoản và nhận JWT token. |
-| Tiền điều kiện | Tài khoản đã tồn tại và chưa bị khóa. |
-| Hậu điều kiện | Frontend lưu `access_token` và `user_info` trong localStorage. |
-| Bảng liên quan | `users` |
-
-Luồng chính:
-
-1. Người dùng nhập email và mật khẩu.
-2. Frontend gửi request `POST /api/auth/login`.
-3. Backend tìm user theo email.
-4. Backend kiểm tra trạng thái tài khoản.
-5. Backend so sánh mật khẩu với hash đã lưu.
-6. Backend tạo JWT chứa `id` và `role`.
-7. Frontend lưu phiên đăng nhập.
-8. Nếu role là `ADMIN`, chuyển tới `/admin/dashboard`; nếu là `USER`, chuyển tới trang chủ hoặc hoàn thiện hồ sơ.
-
-Luồng thay thế:
-
-- Sai email/mật khẩu: trả lỗi đăng nhập.
-- Tài khoản bị khóa: trả lỗi không được truy cập.
-- Thiếu `JWT_SECRET`: backend dừng khởi động để đảm bảo bảo mật.
-
-## UC03 - Cập Nhật Thông Tin Cá Nhân
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả |
-| Mục tiêu | Cập nhật họ tên, số điện thoại và địa chỉ. |
-| Tiền điều kiện | Người dùng đã đăng nhập. |
-| Hậu điều kiện | Thông tin hồ sơ được cập nhật, `profile_completed = true`. |
-| Bảng liên quan | `users` |
-
-Luồng chính:
-
-1. Người dùng mở trang hồ sơ.
-2. Hệ thống tải thông tin qua `GET /api/auth/profile`.
-3. Người dùng cập nhật họ tên, số điện thoại, địa chỉ.
-4. Frontend gửi request `PUT /api/auth/profile`.
-5. Backend kiểm tra token và validate dữ liệu.
-6. Backend cập nhật bảng `users`.
-7. Frontend cập nhật lại `user_info`.
-
-## UC04 - Xác Minh CCCD
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả, Quản trị viên |
-| Mục tiêu | Xác minh định danh trước khi mua vé. |
-| Tiền điều kiện | Người dùng đã đăng nhập và chưa có CCCD đã xác minh. |
-| Hậu điều kiện | CCCD được duyệt hoặc từ chối bởi admin. |
-| Bảng liên quan | `users`, `audit_logs` |
-
-Luồng chính:
-
-1. Người dùng gửi CCCD từ trang hồ sơ.
-2. Backend lưu CCCD vào `pending_cccd`, đặt `cccd_status = PENDING`.
-3. Admin mở trang quản lý người dùng.
-4. Admin duyệt CCCD.
-5. Backend chuyển `pending_cccd` sang `cccd`, đặt `cccd_status = VERIFIED`.
-6. Hệ thống ghi audit log thao tác duyệt.
-
-Luồng thay thế:
-
-- CCCD đã tồn tại ở tài khoản khác: hệ thống từ chối.
-- Admin từ chối: trạng thái chuyển về chưa xác minh hoặc giữ thông tin chờ chỉnh sửa.
-
-## UC05 - Xem Lịch Thi Đấu
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả |
-| Mục tiêu | Xem danh sách trận đấu và trạng thái mở bán. |
-| Tiền điều kiện | Không bắt buộc đăng nhập. |
-| Hậu điều kiện | Người dùng chọn được trận để xem chi tiết hoặc đặt vé. |
-| Bảng liên quan | `matches`, `tickets` |
-
-Luồng chính:
-
-1. Người dùng mở trang `/matches`.
-2. Frontend gọi `GET /api/matches`.
-3. Backend trả danh sách trận đấu.
-4. Frontend hiển thị đối thủ, thời gian, sân, trạng thái và giá vé.
-5. Người dùng chọn một trận để vào chi tiết.
-
-## UC06 - Chọn Ghế Và Giữ Ghế 10 Phút
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả |
-| Mục tiêu | Giữ ghế tạm thời trong lúc người dùng thanh toán. |
-| Tiền điều kiện | Người dùng đã đăng nhập; trận đấu đang mở bán; ghế đang `AVAILABLE`. |
-| Hậu điều kiện | Ghế chuyển sang `HELD` trong 10 phút. |
-| Bảng liên quan | `tickets`, `users` |
-
-Luồng chính:
-
-1. Người dùng mở trang `/booking/[id]`.
-2. Frontend tải sơ đồ ghế qua `GET /api/tickets/:matchId`.
-3. Người dùng chọn tối đa 4 ghế.
-4. Frontend gửi `POST /api/tickets/hold/:matchId`.
-5. Backend giải phóng các ghế `HELD` đã quá hạn.
-6. Backend cập nhật các ghế hợp lệ:
-   - `status = HELD`
-   - `held_by = user.id`
-   - `held_until = NOW() + INTERVAL '10 minutes'`
-7. Frontend hiển thị đồng hồ đếm ngược giữ ghế.
-
-Luồng thay thế:
-
-- Ghế vừa bị người khác giữ: backend trả lỗi `409`.
-- Chọn quá 4 ghế: backend trả lỗi validate.
-- Hết 10 phút: ghế tự trở về `AVAILABLE`.
-
-## UC07 - Tạo Đơn Đặt Vé Online
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả |
-| Mục tiêu | Tạo đơn hàng và sinh QR vé cho ghế đã giữ. |
-| Tiền điều kiện | Người dùng đã xác minh CCCD; ghế đang `HELD` bởi chính người dùng. |
-| Hậu điều kiện | Đơn hàng được tạo ở trạng thái `PENDING`, ghế chuyển sang `SOLD`. |
-| Bảng liên quan | `orders`, `tickets`, `users`, `matches`, `audit_logs` |
-
-Luồng chính:
-
-1. Người dùng chọn phương thức thanh toán tại checkout.
-2. Frontend gửi `POST /api/orders`.
-3. Backend kiểm tra CCCD đã `VERIFIED`.
-4. Backend kiểm tra giới hạn tối đa 4 vé/trận theo CCCD.
-5. Backend kiểm tra ghế còn đang `HELD`, đúng `held_by`, chưa hết hạn.
-6. Backend tạo bản ghi trong `orders` với `status = PENDING`.
-7. Backend cập nhật từng ghế:
-   - `status = SOLD`
-   - `order_id = newOrder.id`
-   - `ticket_qr_code = TICKET-...`
-   - xóa `held_by`, `held_until`
-8. Backend ghi audit log `ORDER_CREATED`.
-9. Frontend hiển thị thông báo đã tạo đơn và chờ xác nhận thanh toán.
-
-Luồng thay thế:
-
-- Chưa xác minh CCCD: từ chối tạo đơn.
-- Ghế hết hạn giữ: trả lỗi và yêu cầu chọn lại.
-- Vượt quá 4 vé/trận: trả thông báo giới hạn.
-
-## UC08 - Xem Vé Của Tôi Và In Vé PDF
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả |
-| Mục tiêu | Xem danh sách vé đã mua và in/xuất vé. |
-| Tiền điều kiện | Người dùng đã đăng nhập và có đơn hàng. |
-| Hậu điều kiện | Người dùng xem được thông tin vé và mã QR. |
-| Bảng liên quan | `orders`, `tickets`, `matches` |
-
-Luồng chính:
-
-1. Người dùng mở `/my-tickets`.
-2. Frontend gọi `GET /api/orders/my`.
-3. Backend trả danh sách đơn và vé liên quan.
-4. Frontend hiển thị trận đấu, ghế, giá vé, QR.
-5. Người dùng chọn in/xuất vé PDF.
-
-## UC09 - Quản Lý Trận Đấu
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Quản trị viên |
-| Mục tiêu | Tạo và quản lý thông tin trận đấu. |
-| Tiền điều kiện | Admin đã đăng nhập. |
-| Hậu điều kiện | Bảng `matches` được cập nhật. |
-| Bảng liên quan | `matches`, `tickets`, `audit_logs` |
-
-Luồng chính:
-
-1. Admin mở `/admin/matches`.
-2. Admin nhập thông tin trận: đối thủ, logo, thời gian, sân, giải đấu, giá vé từng khán đài.
-3. Frontend gửi `POST /api/matches` hoặc `PUT /api/matches/:id`.
-4. Backend kiểm tra quyền admin.
-5. Backend lưu dữ liệu vào bảng `matches`.
-6. Hệ thống hiển thị trận trên frontend public nếu phù hợp trạng thái.
-
-Luồng thay thế:
-
-- Xóa trận đã có vé bán: hệ thống từ chối hoặc chỉ cho xóa khi vé còn hợp lệ theo điều kiện.
-
-## UC10 - Sinh Kho Vé
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Quản trị viên |
-| Mục tiêu | Sinh danh sách ghế/vé cho trận đấu. |
-| Tiền điều kiện | Trận đấu đã tồn tại. |
-| Hậu điều kiện | Bảng `tickets` có danh sách ghế theo khán đài. |
-| Bảng liên quan | `matches`, `tickets`, `audit_logs` |
-
-Luồng chính:
-
-1. Admin chọn trận cần sinh vé.
-2. Admin chọn khán đài A/B/C/D.
-3. Frontend gửi `POST /api/tickets/generate/:matchId`.
-4. Backend đọc cấu hình giá vé trong `stand_prices`.
-5. Backend sinh ghế theo cấu hình hàng và số ghế.
-6. Ghế mới có trạng thái `AVAILABLE`.
-
-## UC11 - Quản Lý Đơn Hàng
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Quản trị viên |
-| Mục tiêu | Theo dõi, xác nhận hoặc hủy đơn hàng. |
-| Tiền điều kiện | Admin đã đăng nhập. |
-| Hậu điều kiện | Trạng thái đơn và vé được cập nhật nhất quán. |
-| Bảng liên quan | `orders`, `tickets`, `audit_logs` |
-
-Luồng chính:
-
-1. Admin mở `/admin/orders`.
-2. Frontend gọi `GET /api/admin/orders`.
-3. Admin xem thông tin khách hàng, trận đấu, ghế, tổng tiền.
-4. Admin xác nhận thanh toán hoặc hủy đơn.
-5. Backend cập nhật `orders.status`.
-6. Nếu hủy đơn, hệ thống xử lý lại trạng thái vé theo nghiệp vụ.
-7. Hệ thống ghi audit log.
-
-## UC12 - Quản Lý Vé Giấy
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Quản trị viên |
-| Mục tiêu | Tách một phần kho vé để bán trực tiếp bằng vé giấy. |
-| Tiền điều kiện | Trận đã sinh kho vé; còn ghế `AVAILABLE`. |
-| Hậu điều kiện | Vé giấy được giữ, in, bán hoặc soát theo trạng thái riêng. |
-| Bảng liên quan | `tickets`, `matches`, `audit_logs` |
-
-Luồng chính:
-
-1. Admin mở tồn kho vé của trận.
-2. Admin chọn khán đài và số lượng vé giấy.
-3. Frontend gửi `PATCH /api/tickets/paper/:matchId` với mode `RESERVE`.
-4. Backend chuyển các ghế từ `AVAILABLE` sang `PAPER_RESERVED`.
-5. Admin in vé giấy PDF.
-6. Backend đánh dấu `is_printed = true`.
-7. Khi bán vé giấy, admin chuyển `PAPER_RESERVED` sang `PAPER_SOLD`.
-
-Luồng thay thế:
-
-- Nếu vé giấy đã in, hệ thống không cho trả về online.
-- Nếu không còn đủ ghế `AVAILABLE`, hệ thống báo không đủ vé.
-
-## UC13 - Soát Vé QR
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Quản trị viên |
-| Mục tiêu | Kiểm tra vé tại cổng sân. |
-| Tiền điều kiện | Vé có `ticket_qr_code`; admin đã đăng nhập. |
-| Hậu điều kiện | Vé hợp lệ được đánh dấu `is_scanned = true`. |
-| Bảng liên quan | `tickets`, `orders`, `matches`, `audit_logs` |
-
-Luồng chính:
-
-1. Admin mở `/admin/scanner`.
-2. Admin quét hoặc nhập mã QR.
-3. Frontend gửi request tới `POST /api/tickets/scan`.
-4. Backend tìm vé theo `ticket_qr_code`.
-5. Backend kiểm tra vé online `SOLD` hoặc vé giấy `PAPER_SOLD`.
-6. Nếu vé hợp lệ và chưa soát, backend cập nhật `is_scanned = true`.
-7. Hệ thống trả thông báo soát vé thành công.
-
-Luồng thay thế:
-
-- Không tìm thấy QR: báo vé không tồn tại.
-- Vé chưa bán hoặc đơn bị hủy: báo vé không hợp lệ.
-- Vé đã soát: cảnh báo không cho vào lần nữa.
-
-## UC14 - Quản Lý Nhà Tài Trợ
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Quản trị viên |
-| Mục tiêu | Quản lý logo và URL nhà tài trợ hiển thị trên trang chủ/vé PDF. |
-| Tiền điều kiện | Admin đã đăng nhập. |
-| Hậu điều kiện | Nhà tài trợ được hiển thị theo trạng thái và thứ tự. |
-| Bảng liên quan | `sponsors` |
-
-Luồng chính:
-
-1. Admin mở `/admin/sponsors`.
-2. Admin nhập tên, hạng tài trợ, website, thứ tự hiển thị.
-3. Admin upload logo hoặc nhập URL logo.
-4. Backend lưu vào bảng `sponsors`.
-5. Trang chủ và vé PDF lấy danh sách nhà tài trợ đang active để hiển thị.
-
-## UC15 - Chatbot Hỏi Đáp Thông Tin CLB
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Khán giả |
-| Mục tiêu | Hỏi nhanh thông tin về CLB, trận đấu, vé và nhà tài trợ. |
-| Tiền điều kiện | Không bắt buộc đăng nhập. |
-| Hậu điều kiện | Người dùng nhận được câu trả lời từ chatbot. |
-| Bảng liên quan | `matches`, `sponsors` |
-
-Luồng chính:
-
-1. Người dùng mở chatbot ở góc giao diện.
-2. Người dùng nhập câu hỏi.
-3. Frontend gửi `POST /api/chatbot/ask`.
-4. Backend phân tích nội dung câu hỏi.
-5. Backend truy vấn dữ liệu trận đấu/nhà tài trợ nếu cần.
-6. Backend trả câu trả lời cho frontend.
-
-## UC16 - Xem Thống Kê Doanh Thu
-
-| Mục | Nội dung |
-|---|---|
-| Tác nhân chính | Quản trị viên |
-| Mục tiêu | Theo dõi doanh thu, số vé bán và đơn chờ xử lý. |
-| Tiền điều kiện | Admin đã đăng nhập. |
-| Hậu điều kiện | Dashboard hiển thị thống kê theo năm/trận. |
-| Bảng liên quan | `orders`, `tickets`, `matches`, `users` |
-
-Luồng chính:
-
-1. Admin mở `/admin/dashboard`.
-2. Frontend gửi `GET /api/admin/stats`.
-3. Backend kiểm tra quyền admin.
-4. Backend tổng hợp doanh thu, vé bán, người dùng và đơn chờ xử lý.
-5. Frontend hiển thị thẻ thống kê và biểu đồ dạng thanh.
-
-Luồng thay thế:
-
-- Token hết hạn hoặc không phải admin: backend trả `403`, frontend yêu cầu đăng nhập lại.
+# Đặc tả use case SLNA Ticketing
+
+Cập nhật theo mã nguồn tháng 10/2026. Trạng thái kỹ thuật giữ nguyên trong tài liệu; giao diện có thể hiển thị nhãn tiếng Việt.
+
+## Tác nhân và quyền
+
+- Khách: xem trận, tin, nhà tài trợ; đăng ký, đăng nhập và yêu cầu đặt lại mật khẩu.
+- USER: quản lý hồ sơ/CCCD, giữ ghế, tạo đơn SePay và xem vé của mình.
+- ADMIN: quản trị nội dung, trận, đơn, vé giấy, đối soát và soát vé.
+- SCANNER: kiểm soát vé tại cổng, không có toàn bộ quyền quản trị.
+- Quản trị viên gốc: ADMIN đang ACTIVE có email khớp SUPER_ADMIN_EMAIL; không phải role riêng.
+- Dịch vụ ngoài: SePay, Google/Meta OAuth, SMTP, Gemini và nguồn SLNAFC/VPF.
+
+## UC01 Đăng ký và đăng nhập
+
+Tiền điều kiện: email và dữ liệu hợp lệ. LOCAL dùng mật khẩu băm; OAuth chỉ hiển thị khi nhà cung cấp đã cấu hình.
+Luồng: kiểm tra thông tin → xác thực → cấp phiên cookie HttpOnly → tải hồ sơ. OAuth kiểm tra state gắn với trình duyệt trước khi hoàn tất.
+Ngoại lệ: email trùng, sai mật khẩu, tài khoản khóa, provider chưa cấu hình hoặc state sai. Không đưa hash/secret vào response.
+
+## UC02 Đặt lại mật khẩu
+
+Áp dụng cho tài khoản LOCAL đang ACTIVE. Người dùng nhập email; phản hồi công khai không tiết lộ tài khoản có tồn tại.
+Server tạo token ngẫu nhiên, lưu SHA256 thay vì token gốc, hạn 15 phút và gửi liên kết qua SMTP.
+Token hợp lệ được dùng một lần; đổi mật khẩu và vô hiệu hóa token/phiên cũ. Email SMTP là địa chỉ gửi, không giới hạn địa chỉ người nhận.
+
+## UC03 Hồ sơ và CCCD
+
+USER cập nhật hồ sơ, gửi thông tin xác minh; ADMIN xử lý theo quyền.
+Đổi email/mật khẩu LOCAL yêu cầu mật khẩu hiện tại. Trạng thái CCCD VERIFIED là điều kiện mua vé.
+Dữ liệu cá nhân không được đưa vào chatbot công khai hoặc báo cáo kiểm thử.
+
+## UC04 Giữ ghế
+
+Tiền điều kiện: đăng nhập, CCCD VERIFIED, trận ON_SALE; chọn 1–4 ghế.
+Server kiểm tra ghế trong transaction và cập nhật AVAILABLE → HELD; held_by là người giữ, held_until là thời điểm server cộng 10 phút.
+Ghế đã bị người khác giữ/bán phải bị từ chối. Hết hạn giữ thì trả về AVAILABLE.
+Kiểm thử cạnh tranh thực tế vẫn cần chạy trên PostgreSQL tách biệt.
+
+## UC05 Tạo đơn SePay
+
+Server khóa/kiểm tra trận và vé đang giữ đúng chủ, còn hạn; kiểm tra hạn mức 4 vé/trận theo CCCD.
+Tổng tiền tính từ PostgreSQL, không tin giá client; tối thiểu 1.000 đồng.
+Tạo mã SLNA + 12 ký tự hex, đơn PENDING có hạn thanh toán mới 15 phút; vé chuyển SOLD nhưng QR còn NULL.
+Trả VietQR chứa tài khoản nhận, số tiền và nội dung. Chỉ hỗ trợ phương thức SEPAY.
+SOLD ở bước này không đồng nghĩa đã thanh toán hoặc được vào sân.
+
+## UC06 Nhận webhook và phát hành vé
+
+SePay gửi webhook. Server xác thực HMAC-SHA256, timestamp và raw body; xử lý transaction_id duy nhất để chống ghi nhận lặp.
+Giao dịch tiền vào phải đúng tài khoản, mã đơn, số tiền và đơn PENDING còn hạn.
+Khớp: cập nhật SUCCESS, transaction_id, sinh QR và lưu MATCHED/audit trong transaction.
+Lệch: lưu REVIEW_* để đối soát; không sinh QR. Tiền ra được bỏ qua; gửi thử không tạo thanh toán thật.
+HTTP 200 chỉ là xác nhận tiếp nhận/xử lý, không chứng minh đơn đã thanh toán.
+ADMIN không được ép đơn SEPAY thành SUCCESS thủ công.
+
+## UC07 Hết hạn và xem vé
+
+Đơn chưa trả tiền quá hạn → CANCELLED; vé của đơn được trả AVAILABLE và xóa liên kết/QR theo vòng đời.
+USER chỉ xem vé của mình. Vé online chỉ được vào sân khi trạng thái đơn hợp lệ và có QR.
+Không mô tả hoàn tiền tự động vì chưa có nghiệp vụ này.
+
+## UC08 Vé giấy
+
+ADMIN dành ghế AVAILABLE → PAPER_RESERVED, in QR/PDF và ghi nhận thông tin in.
+Bán vé chuyển PAPER_SOLD. Vé đã in không được trả về kho online.
+PAPER_RESERVED chưa đủ điều kiện vào sân.
+
+## UC09 Soát vé bằng điện thoại
+
+ADMIN/SCANNER chọn trận, mở camera sau qua HTTPS và quét liên tục.
+Client gửi ticketQrCode + matchId; server khóa vé, kiểm tra đúng trận, đã thanh toán/bán giấy và chưa quét.
+Thành công: is_scanned = true, ghi audit; hiển thị phản hồi lớn và âm/rung.
+Sai trận, QR lạ, chưa trả tiền, đã dùng đều bị từ chối. Lỗi mạng không được cho qua như thành công.
+Schema không có scanned_at; thời điểm thao tác truy vết qua nhật ký. Không hỗ trợ soát offline.
+
+## UC10 Cấp quyền nhân viên
+
+Chỉ quản trị viên gốc được cấp/thu hồi ADMIN hoặc SCANNER.
+Server bảo vệ tài khoản gốc, tăng token_version khi đổi quyền và lưu audit.
+Việc ẩn nút ở frontend không thay thế kiểm tra quyền backend.
+
+## UC11 Nội dung quản trị
+
+ADMIN quản lý trận/ghế, banner, nhà tài trợ và logo theo quyền.
+Upload phải qua kiểm tra loại nội dung, kích thước và tên file do server tạo.
+Tách nền logo là xử lý nền sáng nối với mép, không phải mô hình phân đoạn ảnh tổng quát.
+
+## UC12 Chatbot
+
+Nhận câu hỏi và lịch sử; phân loại nhu cầu, lấy dữ liệu nghiệp vụ hoặc nguồn chính thức rồi tạo phản hồi Gemini.
+Không suy đoán tồn kho/giá mới khi thiếu dữ liệu. Có phương án dự phòng khi provider lỗi/timeout.
+Không đưa secret hay thông tin cá nhân nhạy cảm vào ngữ cảnh công khai.
+
+## Quan hệ dữ liệu
+
+tickets.order_id liên kết trực tiếp orders.id; không có order_items.
+Các bảng hỗ trợ gồm sepay_transactions, password_reset_tokens, knowledge_sources, knowledge_documents, sponsors, audit_logs, site_settings.
+audit_logs.user_id là liên kết logic, không phải khóa ngoại khai báo.

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { SOURCES, isAllowedUrl, getAllowedImageUrl, parseArticle, parseSquadPage } = require('../services/officialNewsService');
+const { SOURCES, isAllowedUrl, getAllowedImageUrl, parseArticle, parseSquadPage, parseVpfSquadPage } = require('../services/officialNewsService');
 
 test('chỉ chấp nhận HTTPS thuộc domain nguồn chính thức', () => {
   const slna = SOURCES.find((source) => source.key === 'SLNAFC');
@@ -57,4 +57,27 @@ test('trích xuất đội hình SLNA theo vị trí, số áo và tên cầu th
   assert.match(squad.content, /Thủ môn\|1\|Cao Văn Bình/);
   assert.match(squad.content, /Cao Văn Bình\|08\/01\/2005\|Nghệ An\|183\|80/);
   assert.match(squad.content, /Tiền đạo\|7\|Olaha Michael/);
+});
+
+test('trích xuất đầy đủ bảng cầu thủ SLNA trên trang đội bóng VPF và bỏ qua ban huấn luyện', () => {
+  const vpf = SOURCES.find((source) => source.key === 'VPF');
+  const squad = parseVpfSquadPage(`
+    <html><head><link rel="canonical" href="https://vpf.vn/team/song-lam-nghe-an/"></head><body>
+      <div>Vô địch Quốc gia LPBank 2026/27</div>
+      <table>
+        <tr><th>Họ và Tên</th><th>Vị trí</th><th>Số áo</th><th>Cao</th><th>Nặng</th><th>Năm sinh</th></tr>
+        <tr><td>Văn Sỹ Sơn</td><td>Huấn luyện viên</td><td></td><td></td><td></td><td>26/08/1972</td></tr>
+        <tr><td>Cao Văn Bình</td><td>Thủ môn</td><td>1</td><td>183</td><td>80</td><td>08-01-2005</td></tr>
+        <tr><td>Cittadini Roberto</td><td>Hậu vệ</td><td>2</td><td></td><td></td><td>05/04/2005</td></tr>
+        <tr><td>Onoja Joseph</td><td>Tiền vệ</td><td>5</td><td>183</td><td>77</td><td>06-11-1998</td></tr>
+        <tr><td>Phan Xuân Đại</td><td>Tiền đạo</td><td>21</td><td>173</td><td>65</td><td>01-01-2003</td></tr>
+      </table>
+    </body></html>
+  `, 'https://vpf.vn/team/song-lam-nghe-an/?sid=154439', vpf);
+  assert.equal(squad.publisher, 'VPF');
+  assert.equal(squad.category, 'Đội hình VPF');
+  assert.equal(squad.summary, 'Danh sách 4 cầu thủ SLNA trong bảng đội bóng chính thức của VPF mùa giải 2026/27.');
+  assert.match(squad.content, /Thủ môn\|1\|Cao Văn Bình\|08-01-2005/);
+  assert.match(squad.content, /Tiền đạo\|21\|Phan Xuân Đại/);
+  assert.doesNotMatch(squad.content, /Văn Sỹ Sơn/);
 });

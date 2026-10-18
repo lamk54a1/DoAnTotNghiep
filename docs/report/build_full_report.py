@@ -223,9 +223,10 @@ def add_table_caption(doc, number, title):
     return paragraph
 
 
-def add_figure(doc, filename, number, title, width_cm=15.0, source="Nguồn: Tác giả xây dựng từ thiết kế ban đầu của đồ án."):
+def add_figure(doc, filename, number, title, width_cm=15.0, source="Nguồn: Tác giả đối chiếu mã nguồn và schema, tháng 10 năm 2026."):
     paragraph = doc.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    paragraph.paragraph_format.keep_with_next = True
     paragraph.paragraph_format.space_before = Pt(6)
     paragraph.paragraph_format.space_after = Pt(3)
     run = paragraph.add_run()
@@ -430,7 +431,7 @@ def build_document():
     configure_header_page_number(front)
     set_page_number_format(front, "lowerRoman", 1)
     add_major_heading(doc, "TÓM TẮT ĐỒ ÁN", page_break=False)
-    add_body(doc, "Đồ án xây dựng hệ thống bán vé trực tuyến cho Câu lạc bộ Sông Lam Nghệ An trên nền tảng web. Giải pháp gồm giao diện Next.js, dịch vụ REST API Express.js và cơ sở dữ liệu PostgreSQL; hỗ trợ quản lý tài khoản, xác minh CCCD, lịch thi đấu, sơ đồ ghế, giữ ghế 15 phút, tạo đơn, xác nhận thanh toán, phát hành vé QR, quản lý vé giấy, soát vé, nhà tài trợ và chatbot tra cứu nguồn chính thức. Hệ thống áp dụng cookie HttpOnly cho phiên đăng nhập, bcrypt cho mật khẩu, phân quyền người dùng/quản trị viên, kiểm soát trạng thái vé và cơ chế tự giải phóng đơn quá hạn. Chatbot sử dụng mô hình truy xuất dữ liệu nhẹ, đồng bộ tin từ SLNAFC và VPF, đồng thời trả kèm nguồn. Kết quả kiểm thử tự động đạt 8/8 trường hợp, frontend vượt qua lint và production build, backend vượt qua kiểm tra cú pháp. Sản phẩm đáp ứng các nghiệp vụ cốt lõi của một hệ thống bán vé bóng đá ở mức đồ án có khả năng trình diễn và tiếp tục mở rộng.")
+    add_body(doc, "Đồ án xây dựng hệ thống bán vé trực tuyến cho Câu lạc bộ Sông Lam Nghệ An trên nền tảng web. Giải pháp gồm giao diện Next.js, dịch vụ REST API Express.js và cơ sở dữ liệu PostgreSQL; hỗ trợ tài khoản LOCAL/OAuth, quên mật khẩu qua email, xác minh CCCD, lịch thi đấu, giữ ghế 10 phút, thanh toán SePay bằng VietQR, phát hành vé QR tự động, vé giấy, soát vé trên điện thoại, nhà tài trợ và chatbot Gemini có truy xuất nguồn chính thức. Hệ thống áp dụng cookie HttpOnly, bcrypt, phân quyền USER/ADMIN/SCANNER, quản trị viên gốc cấu hình bằng biến môi trường, webhook HMAC-SHA256 và cơ chế tự giải phóng đơn quá hạn. Bộ kiểm thử backend hiện đạt 49/49 trường hợp; lint và production build cần chạy lại trước nghiệm thu. Sản phẩm đáp ứng các nghiệp vụ cốt lõi của một hệ thống bán vé bóng đá ở mức đồ án có thể triển khai thử nghiệm có kiểm soát và tiếp tục mở rộng.")
 
     add_major_heading(doc, "LỜI CAM ĐOAN")
     add_body(doc, "Tôi cam đoan báo cáo đồ án tốt nghiệp này là kết quả của quá trình khảo sát, phân tích, thiết kế, xây dựng và kiểm thử hệ thống bán vé trực tuyến cho Câu lạc bộ Sông Lam Nghệ An. Các mô tả về kiến trúc, cơ sở dữ liệu, thuật toán nghiệp vụ và kết quả kiểm thử được đối chiếu với mã nguồn tại thời điểm hoàn thiện báo cáo. Các khái niệm, tiêu chuẩn và tài liệu kỹ thuật của bên thứ ba đều được chú dẫn theo chuẩn IEEE. Tôi chịu trách nhiệm về tính trung thực của nội dung, số liệu và kết quả trình bày trong báo cáo.")
@@ -465,6 +466,8 @@ def build_document():
         ("FE/BE", "Frontend/Backend - Giao diện phía khách/Dịch vụ phía máy chủ"),
         ("HTTP", "Hypertext Transfer Protocol"),
         ("JWT", "JSON Web Token"),
+        ("HMAC", "Hash-based Message Authentication Code - Mã xác thực thông điệp dựa trên hàm băm"),
+        ("OAuth", "Open Authorization - Cơ chế ủy quyền/đăng nhập qua nhà cung cấp bên ngoài"),
         ("QR", "Quick Response"),
         ("RAG", "Retrieval-Augmented Generation - Sinh câu trả lời có truy xuất dữ liệu"),
         ("REST", "Representational State Transfer"),
@@ -499,22 +502,22 @@ def build_document():
         "Thiết lập migration, kiểm thử tự động, lint và production build để chứng minh khả năng tái lập của sản phẩm."
     ])
     add_topic(doc, "0.3", "Đối tượng và phạm vi nghiên cứu", [
-        "Đối tượng nghiên cứu của đồ án là quy trình phát hành, thanh toán mô phỏng, quản lý và kiểm soát vé bóng đá trên nền tảng web. Trọng tâm không nằm ở hoạt động chuyên môn thi đấu mà ở sự vận động của dữ liệu người dùng, trận đấu, ghế, đơn hàng và mã vé. Đề tài phân tích cách các trạng thái thay đổi theo hành động của khán giả và quản trị viên, đồng thời xác định điều kiện để một vé được xem là hợp lệ tại cổng.",
-        "Phạm vi nội dung bao gồm quản lý tài khoản, OAuth Google/Facebook, hồ sơ và CCCD; quản lý lịch thi đấu; cấu hình khán đài A, B, C, D; giữ ghế 15 phút; giới hạn bốn vé; tạo đơn PENDING; xác nhận SUCCESS hoặc CANCELLED; sinh QR sau thanh toán; quản lý vé giấy; soát vé; nhà tài trợ; báo cáo; chatbot tra cứu PostgreSQL và nguồn SLNAFC/VPF. Đồ án không tích hợp cổng thanh toán ngân hàng thật, không xử lý hoàn tiền tự động và không thay thế hệ thống kiểm soát ra vào chuyên dụng.",
-        "Phạm vi không gian là môi trường ứng dụng web dành cho người dùng và quản trị viên. Phạm vi thời gian phản ánh trạng thái mã nguồn tại tháng 8 năm 2026. Phạm vi dữ liệu tập trung vào một câu lạc bộ và một sân chính, nhưng mô hình trận đấu - vé - đơn hàng có thể mở rộng cho nhiều mùa giải. Các ảnh và sơ đồ trong báo cáo gồm cả thiết kế ban đầu; phần mô tả triển khai sẽ nêu rõ những thay đổi phát sinh sau quá trình kiểm thử và hoàn thiện."
+        "Đối tượng nghiên cứu của đồ án là quy trình phát hành, thanh toán điện tử, quản lý và kiểm soát vé bóng đá trên nền tảng web. Trọng tâm không nằm ở hoạt động chuyên môn thi đấu mà ở sự vận động nhất quán của dữ liệu người dùng, trận đấu, ghế, đơn hàng, giao dịch SePay và mã vé. Đề tài phân tích cách các trạng thái thay đổi theo hành động của khán giả, webhook và nhân sự vận hành, đồng thời xác định điều kiện để một vé được xem là hợp lệ tại cổng.",
+        "Phạm vi nội dung bao gồm tài khoản LOCAL và OAuth Google/Facebook, quên mật khẩu qua SMTP, hồ sơ và CCCD; quản lý lịch thi đấu; giữ ghế 10 phút; giới hạn bốn vé; thanh toán duy nhất qua SePay/VietQR; xác minh webhook HMAC; sinh QR sau khi giao dịch khớp; vé giấy; soát vé di động; phân quyền USER/ADMIN/SCANNER; nhà tài trợ; banner; báo cáo; chatbot Gemini kết hợp PostgreSQL và nguồn SLNAFC/VPF. Đồ án chưa xử lý hoàn tiền tự động và không thay thế hệ thống kiểm soát ra vào chuyên dụng.",
+        "Phạm vi không gian là môi trường ứng dụng web dành cho người dùng, quản trị viên và nhân viên cổng. Phạm vi thời gian phản ánh trạng thái mã nguồn tại tháng 10 năm 2026. Phạm vi dữ liệu tập trung vào một câu lạc bộ và một sân chính, nhưng mô hình trận đấu - vé - đơn hàng có thể mở rộng cho nhiều mùa giải. Các sơ đồ trong báo cáo đã được cập nhật theo phiên bản triển khai hiện tại."
     ])
     add_topic(doc, "0.4", "Phương pháp thực hiện", [
         "Đề tài sử dụng cách tiếp cận nghiên cứu ứng dụng kết hợp mô tả và thực nghiệm phần mềm. Trước hết, quy trình bán vé được phân rã theo tác nhân, đầu vào, đầu ra, trạng thái và ngoại lệ. Yêu cầu được hình thành từ các tình huống sử dụng: hai người cùng chọn một ghế, người mua không thanh toán đúng hạn, quản trị viên in vé giấy rồi muốn trả về kênh online, người dùng quét lại một QR và tài khoản mạng xã hội không có mật khẩu nội bộ. Việc phân tích tình huống giúp yêu cầu có thể kiểm chứng thay vì chỉ dừng ở danh sách chức năng.",
-        "Phương pháp thiết kế hướng mô hình được dùng để xây dựng use case, kiến trúc client-server, luồng giữ ghế, luồng vé giấy và ERD. Sau đó, phương pháp phát triển lặp được áp dụng: xây dựng từng module, chạy lint/build/test, đối chiếu lỗi và điều chỉnh nghiệp vụ. Các thay đổi quan trọng như chuyển phiên đăng nhập sang cookie HttpOnly, chuẩn hóa trạng thái đơn, kéo dài thời gian giữ ghế lên 15 phút và chỉ sinh QR vé sau khi thanh toán được ghi nhận như kết quả của quá trình lặp.",
+        "Phương pháp thiết kế hướng mô hình được dùng để xây dựng use case, kiến trúc client-server, luồng giữ ghế, luồng vé giấy và ERD. Sau đó, phương pháp phát triển lặp được áp dụng: xây dựng từng module, chạy lint/build/test, đối chiếu lỗi và điều chỉnh nghiệp vụ. Các thay đổi quan trọng như chuyển phiên đăng nhập sang cookie HttpOnly, chuẩn hóa trạng thái đơn, phân biệt thời gian giữ ghế 10 phút và hạn thanh toán đơn 15 phút và chỉ sinh QR vé sau khi thanh toán được ghi nhận như kết quả của quá trình lặp.",
         "Phương pháp kiểm chứng gồm kiểm tra cú pháp backend, ESLint frontend, production build Next.js, kiểm thử đơn vị bằng node:test và chạy thử truy vấn PostgreSQL. Đối với chatbot, hệ thống đồng bộ thật từ hai domain allowlist, kiểm tra canonical URL, nội dung, ngày đăng và khả năng trả nguồn. Kết quả được sử dụng để đánh giá mức đáp ứng yêu cầu, đồng thời chỉ ra giới hạn chưa thể suy rộng như khả năng chịu tải lớn hoặc độ tin cậy của thanh toán thật."
     ])
     add_topic(doc, "0.5", "Ý nghĩa khoa học và thực tiễn", [
         "Về mặt học thuật, đề tài minh họa cách chuyển một bài toán nghiệp vụ có nhiều trạng thái thành mô hình dữ liệu quan hệ và API. Các nguyên tắc về khóa chính, khóa ngoại, ràng buộc duy nhất và chỉ mục được gắn trực tiếp với yêu cầu không bán trùng ghế và không trùng mã QR. Vòng đời ghế cho thấy mối liên hệ giữa giao dịch cơ sở dữ liệu, kiểm tra quyền và xử lý thời gian. Phần xác thực cho thấy sự khác biệt giữa xác thực, quản lý phiên và phân quyền như tài liệu Next.js khuyến nghị [1].",
         "Về mặt thực tiễn, sản phẩm giảm thao tác thủ công khi phát hành vé, cung cấp tồn kho tập trung và tạo cơ sở cho đối soát. Quản trị viên có thể xử lý đồng thời vé online và vé giấy nhưng vẫn dùng chung một kho ghế, qua đó hạn chế phát hành vượt số chỗ. QR vé hỗ trợ kiểm tra tại cổng; audit log hỗ trợ truy vết hành động; chatbot giảm tải các câu hỏi lặp lại về lịch, giá, số vé, CCCD và nguồn tin chính thức.",
-        "Giá trị quan trọng khác là khả năng tiếp tục phát triển. Kiến trúc tách lớp cho phép thay thế kênh lưu ảnh local bằng object storage, kết nối webhook thanh toán, bổ sung email/SMS, triển khai CDN hoặc mở rộng chatbot với mô hình ngôn ngữ. Báo cáo không coi phiên bản hiện tại là hệ thống thương mại hoàn chỉnh, mà xem đây là một nền tảng kỹ thuật có cấu trúc rõ ràng để tiếp tục đánh giá và hoàn thiện."
+        "Giá trị quan trọng khác là khả năng tiếp tục phát triển. Kiến trúc tách lớp đã tích hợp webhook thanh toán, email đặt lại mật khẩu, OAuth và mô hình ngôn ngữ Gemini; đồng thời cho phép thay thế kênh lưu ảnh local bằng object storage/CDN, bổ sung email vé/SMS và mở rộng quan sát hệ thống. Báo cáo không coi phiên bản hiện tại là hệ thống thương mại hoàn chỉnh, mà xem đây là một nền tảng kỹ thuật có cấu trúc rõ ràng để tiếp tục đánh giá và hoàn thiện."
     ])
     add_topic(doc, "0.6", "Bố cục báo cáo", [
-        "Ngoài phần mở đầu, kết luận, tài liệu tham khảo và phụ lục, báo cáo được tổ chức thành sáu chương. Chương 1 trình bày tổng quan bài toán và cơ sở lý thuyết. Chương 2 mô tả khảo sát, phương pháp và yêu cầu. Chương 3 phân tích, thiết kế kiến trúc và các luồng nghiệp vụ. Chương 4 tập trung vào cơ sở dữ liệu, ràng buộc, chỉ mục và migration. Chương 5 trình bày quá trình xây dựng frontend, backend, xác thực, vé, quản trị và chatbot. Chương 6 mô tả kiểm thử, kết quả, thảo luận, hạn chế và hướng phát triển."
+        "Ngoài phần mở đầu, kết luận, tài liệu tham khảo và phụ lục, báo cáo có sáu chương: tổng quan và cơ sở lý thuyết; khảo sát và yêu cầu; phân tích thiết kế; dữ liệu và cài đặt; kiểm thử và đánh giá; kết quả, hạn chế và hướng phát triển."
     ])
 
     # CHƯƠNG 1
@@ -529,8 +532,8 @@ def build_document():
         "Frontend của đồ án sử dụng Next.js App Router. Theo tài liệu chính thức, App Router tổ chức định tuyến dựa trên hệ thống tệp và hỗ trợ cách xây dựng giao diện theo component [2]. React cho phép kết hợp các component thành màn hình và quản lý state cục bộ cho tương tác [3]. TypeScript bổ sung kiểm tra kiểu tĩnh trước khi chương trình chạy, hỗ trợ phát hiện sai lệch hợp đồng dữ liệu giữa component và API [4].",
         "Backend sử dụng Express.js, một framework định tuyến và middleware. Middleware có thể đọc request, thay đổi response, kết thúc chu trình hoặc chuyển điều khiển sang bước tiếp theo [5]. Đặc điểm này phù hợp để xếp chuỗi kiểm tra nguồn yêu cầu, JSON, phiên đăng nhập, vai trò, rate limit và controller. PostgreSQL được đặt sau backend; frontend không kết nối trực tiếp CSDL, nhờ đó thông tin kết nối và câu lệnh nhạy cảm không lộ ra trình duyệt."
     ])
-    add_figure(doc, "architecture.png", "1.1", "Sơ đồ kiến trúc tổng thể trong thiết kế ban đầu", 15)
-    add_body(doc, "Hình 1.1 được giữ nguyên từ báo cáo ban đầu để thể hiện quá trình hình thành kiến trúc. Khi triển khai hoàn thiện, cơ chế JWT qua Authorization đã được thay bằng cookie HttpOnly; chatbot được bổ sung kho knowledge_sources và knowledge_documents; thời gian giữ ghế được chuẩn hóa thành 15 phút. Việc giữ hình ban đầu và mô tả phần tiến hóa giúp phân biệt thiết kế dự kiến với sản phẩm cuối.")
+    add_figure(doc, "architecture.png", "1.1", "Kiến trúc triển khai tổng thể của SLNA Ticketing", 15)
+    add_body(doc, "Hình 1.1 phản ánh phiên bản triển khai hiện tại: frontend Next.js trên Vercel giao tiếp với API Express qua HTTPS và cookie HttpOnly; PostgreSQL là nguồn sự thật; backend tích hợp SePay/VietQR, Google/Meta OAuth, Gmail SMTP, Gemini API và hai nguồn nội dung SLNAFC/VPF. Các quyết định liên quan tới quyền, tiền, ghế và vé đều được xác minh lại tại backend.")
     add_topic(doc, "1.3", "REST API và mô hình tài nguyên", [
         "REST API biểu diễn các đối tượng nghiệp vụ qua endpoint và phương thức HTTP. Trong đồ án, nhóm `/api/auth` xử lý tài khoản; `/api/matches` quản lý trận; `/api/tickets` quản lý ghế, vé giấy và quét; `/api/orders` tạo đơn và tải vé; `/api/admin` cung cấp thống kê; `/api/sponsors` quản lý nhà tài trợ; `/api/chatbot` nhận câu hỏi. Cách nhóm theo tài nguyên giúp frontend dễ tìm endpoint và backend tách controller theo phạm vi trách nhiệm.",
         "Không phải mọi thao tác đều là CRUD đơn giản. Giữ ghế, tạo đơn, duyệt thanh toán hoặc đánh dấu vé giấy đã in là lệnh nghiệp vụ có điều kiện. Ví dụ, API giữ ghế phải kiểm tra người dùng đã được duyệt CCCD, trận đang mở bán và số vé chưa vượt hạn mức. API quét vé phải đọc đồng thời trạng thái vé, trạng thái đơn và cờ is_scanned. Vì vậy, tài nguyên REST được kết hợp với các route hành động có tên rõ ràng thay vì ép mọi thao tác vào một cập nhật chung.",
@@ -547,14 +550,14 @@ def build_document():
         "Mật khẩu được băm bằng bcrypt với work factor 12. OWASP yêu cầu không lưu mật khẩu dạng rõ và chấp nhận bcrypt với work factor từ 10 trở lên trong các hệ thống phù hợp [10]. Khi đổi email hoặc mật khẩu, tài khoản LOCAL phải tự nhập mật khẩu hiện tại; backend so sánh hash và không bao giờ trả mật khẩu về frontend. Tài khoản Google/Facebook không có mật khẩu nội bộ có ý nghĩa, nên thao tác email và mật khẩu được quản lý tại nhà cung cấp."
     ])
     add_topic(doc, "1.6", "Mã QR và kiểm soát vé vào sân", [
-        "Mã QR trong hệ thống đóng vai trò định danh vé, không phải bằng chứng thanh toán độc lập. Nếu QR được tạo ngay khi đơn PENDING, người dùng có thể nhận một chuỗi quét trước khi tiền được xác nhận. Phiên bản hoàn thiện chỉ sinh ticket_qr_code khi quản trị viên chuyển đơn từ PENDING sang SUCCESS. Vé online hợp lệ phải có trạng thái SOLD, đơn SUCCESS và chưa quét; vé giấy hợp lệ phải PAPER_SOLD và chưa quét.",
+        "Mã QR thanh toán và mã QR vào sân có mục đích khác nhau. Checkout tạo đơn PENDING và chuyển ghế HELD sang SOLD để dành ghế cho đơn, nhưng ticket_qr_code vẫn NULL. Webhook SePay hợp lệ mới xác nhận đơn SUCCESS và sinh mã QR vé. Scanner chỉ chấp nhận vé online SOLD gắn đơn SUCCESS hoặc vé giấy PAPER_SOLD, đồng thời yêu cầu đúng trận và chưa được quét.",
         "Khi quét, backend tìm vé theo mã QR và trả kết quả có kiểm soát. Nếu mã không tồn tại, API trả 404. Nếu đơn bị hủy hoặc chưa thành công, API trả xung đột. Nếu is_scanned đã đúng, hệ thống cảnh báo vé đã sử dụng. Chỉ sau khi tất cả điều kiện hợp lệ, cờ is_scanned được cập nhật. Cách kiểm tra tại backend tránh việc ứng dụng quét tự quyết định chỉ dựa trên hình ảnh QR.",
         "Mã QR phải được giữ bí mật tương đương vé. Giao diện nhắc người dùng không chia sẻ ảnh QR; API công khai không trả mã QR hoặc order_id. Trong triển khai thực tế, có thể bổ sung mã ký số, xoay mã theo thời gian hoặc thiết bị quét offline có danh sách đồng bộ. Đồ án dừng ở mã ngẫu nhiên duy nhất kết hợp kiểm tra trực tuyến với CSDL."
     ])
     add_topic(doc, "1.7", "Chatbot truy xuất dữ liệu và nguồn chính thức", [
         "Chatbot theo luật cố định có ưu điểm dễ kiểm soát nhưng thường chỉ hiểu một số từ khóa và trả lời chung chung. Phiên bản mới kết hợp hai lớp dữ liệu. Lớp thứ nhất là dữ liệu nghiệp vụ nội bộ như lịch trận, giá khán đài, tồn kho vé, nhà tài trợ và kết quả. Lớp thứ hai là kho tài liệu chính thức được đồng bộ từ SLNAFC và VPF. Khi câu hỏi thuộc nhóm tin tức, cầu thủ, huấn luyện viên hoặc V.League, chatbot tìm tài liệu liên quan và trả tóm tắt kèm URL.",
         "Bộ đồng bộ chỉ chấp nhận HTTPS và hostname trong allowlist, chặn redirect sang domain lạ, giới hạn kích thước hai megabyte, timeout tám giây và tối đa số bài mỗi lần. Cheerio phân tích canonical URL, tiêu đề, mô tả, nội dung và ngày đăng. SHA-256 của nội dung hỗ trợ phát hiện thay đổi; URL duy nhất ngăn lưu trùng. PostgreSQL full-text search dùng GIN để tìm các tài liệu phù hợp.",
-        "Nguyên tắc quan trọng là không khẳng định khi thiếu nguồn. Nếu không có tài liệu phù hợp, bot thông báo chưa thể xác minh. Câu trả lời chứa mảng `sources` gồm tiêu đề, nhà xuất bản, URL và thời điểm. Frontend hiển thị mục “Nguồn chính thức” với liên kết mở tab mới. Đây là RAG nhẹ theo hướng truy xuất rồi tổng hợp bằng mẫu, chưa dùng mô hình ngôn ngữ nên chi phí thấp và dễ kiểm soát."
+        "Chatbot dùng Gemini để diễn đạt câu trả lời từ câu hỏi, lịch sử hội thoại đã giới hạn và ngữ cảnh truy xuất. Khóa API được giữ ở backend; một số dữ liệu cá nhân được che trước khi gửi ra ngoài. Khi API thiếu cấu hình hoặc gặp lỗi, hệ thống trả lời dự phòng từ dữ liệu nội bộ. Danh sách sources chứa các liên kết nguồn đã kiểm tra; chất lượng diễn đạt và mức bám sát nguồn vẫn cần đánh giá bằng bộ câu hỏi chuẩn."
     ])
     add_topic(doc, "1.8", "Tổng quan giải pháp liên quan và khoảng trống", [
         "Các nền tảng bán vé thương mại thường cung cấp thanh toán trực tuyến, gửi vé qua email, mã QR, quản lý sơ đồ chỗ và báo cáo. Tuy nhiên, phần lớn là dịch vụ đóng, khó quan sát cách kiểm soát đồng thời hoặc tùy biến quy trình vé giấy của một câu lạc bộ. Các bài hướng dẫn web phổ biến thường minh họa CRUD nhưng chưa bao quát trạng thái giữ ghế, hết hạn, hoàn kho, xác nhận thanh toán và soát lặp trong cùng một mô hình.",
@@ -567,12 +570,12 @@ def build_document():
     add_topic(doc, "2.1", "Khảo sát quy trình phát hành vé", [
         "Quy trình bán vé truyền thống có thể mô tả qua các bước: câu lạc bộ công bố trận, in vé, phân bổ vé cho điểm bán, thu tiền, kiểm đếm và xé hoặc quét vé tại cổng. Dữ liệu thường bị phân tán giữa sổ bán, file bảng tính và số vé vật lý. Khi cần biết còn bao nhiêu vé theo khán đài, nhân viên phải tổng hợp từ nhiều nguồn. Nếu vé được chuyển giữa điểm bán, khả năng chênh lệch số liệu tăng.",
         "Trong quy trình trực tuyến, kho ghế phải là nguồn sự thật duy nhất. Mọi kênh phát hành đều thay đổi trạng thái trên cùng bảng tickets. Kênh online dùng AVAILABLE, HELD và SOLD; kênh giấy dùng PAPER_RESERVED và PAPER_SOLD. Tồn kho có thể được tổng hợp theo trận, khu vực và trạng thái. Việc in được ghi nhận riêng để ngăn hoàn nhầm vé đã phát hành vật lý.",
-        "Khảo sát cho thấy vấn đề khó nhất không phải hiển thị lịch thi đấu mà là đồng bộ giữa hành động người dùng, xác nhận của quản trị viên và thời gian. Vì chưa tích hợp cổng thanh toán thật, đồ án chọn quy trình quản trị viên duyệt đơn sau khi kiểm tra giao dịch. Đây là giới hạn có chủ đích: hệ thống mô phỏng đúng vòng đời nhưng không tuyên bố tự động hóa đối soát ngân hàng."
+        "Khảo sát cho thấy vấn đề khó nhất không phải hiển thị lịch thi đấu mà là đồng bộ giữa hành động người dùng, webhook thanh toán và thời gian. Đồ án chọn một luồng thanh toán duy nhất qua SePay: đơn chỉ chuyển SUCCESS khi giao dịch tiền vào có đúng tài khoản, số tiền, mã thanh toán, còn hạn và chữ ký webhook hợp lệ. Giao dịch không khớp được lưu ở trạng thái cần đối soát thay vì phát hành vé."
     ])
     add_topic(doc, "2.2", "Các bên liên quan", [
         "Khán giả là người trực tiếp tìm trận, đăng nhập, hoàn thiện hồ sơ, chọn ghế và sử dụng vé. Nhu cầu chính là thao tác đơn giản, thông tin rõ, biết thời hạn giữ ghế và truy cập lại QR sau khi mua. Khán giả không cần biết chi tiết bảng dữ liệu nhưng cần được thông báo chính xác khi ghế không còn hoặc đơn chưa được xác nhận.",
         "Quản trị viên chịu trách nhiệm vận hành. Họ cần tạo trận, cấu hình giá, sinh kho vé, phân bổ vé giấy, duyệt đơn, soát QR, quản lý người dùng, CCCD, nhà tài trợ và xem số liệu. Quyền của quản trị viên có ảnh hưởng lớn tới dữ liệu nên mọi API cần middleware isAdmin và các thao tác quan trọng được ghi audit log.",
-        "Nhà tài trợ, đơn vị truyền thông và ban tổ chức là nhóm liên quan gián tiếp. Hệ thống hiển thị logo, cấp tài trợ và website; ảnh được upload qua backend. Nguồn SLNAFC/VPF cung cấp tri thức chính thức cho chatbot. Trong triển khai thật, ngân hàng, cổng thanh toán, email/SMS và hạ tầng lưu trữ ảnh cũng là các hệ thống ngoài cần hợp đồng tích hợp rõ ràng."
+        "Nhà tài trợ, đơn vị truyền thông và ban tổ chức là nhóm liên quan gián tiếp. Hệ thống hiển thị logo, cấp tài trợ và website; ảnh upload được kiểm tra magic bytes và tự tách nền sáng nối với mép ảnh. SePay, Google, Meta, Gmail SMTP, Gemini và nguồn SLNAFC/VPF là các hệ thống ngoài có hợp đồng tích hợp rõ ràng; mọi secret chỉ nằm ở cấu hình máy chủ."
     ])
     add_table_caption(doc, "2.1", "Tác nhân và nhu cầu nghiệp vụ")
     add_table(doc, ["Tác nhân", "Nhu cầu chính", "Rủi ro cần kiểm soát"], [
@@ -599,9 +602,9 @@ def build_document():
         ("F04", "Xác minh CCCD", "Gửi 12 số, không trùng tài khoản, chờ admin duyệt và khóa sau xác minh."),
         ("F05", "Quản lý trận", "Admin tạo/sửa/xóa trận chưa phát sinh dữ liệu; cấu hình giá và trạng thái."),
         ("F06", "Sinh kho vé", "Tạo đủ ghế còn thiếu, không trùng seat_code trong một trận."),
-        ("F07", "Giữ ghế", "Chỉ giữ 1-4 ghế AVAILABLE trong 15 phút cho đúng người dùng."),
+        ("F07", "Giữ ghế", "Chỉ giữ 1-4 ghế AVAILABLE trong 10 phút cho đúng người dùng."),
         ("F08", "Tạo đơn", "Ghế HELD thuộc người dùng; tổng tiền tính từ server; đơn PENDING có expires_at."),
-        ("F09", "Duyệt đơn", "Chỉ PENDING chuyển SUCCESS/CANCELLED; SUCCESS sinh QR, CANCELLED hoàn ghế."),
+        ("F09", "Thanh toán SePay", "Webhook HMAC hợp lệ, giao dịch khớp đơn còn hạn mới chuyển SUCCESS và sinh QR."),
         ("F10", "Vé của tôi", "Chỉ trả vé của người đăng nhập; QR chỉ xuất hiện sau SUCCESS."),
         ("F11", "Vé giấy", "Giữ, in, bán và khóa vé đã in khỏi kênh online."),
         ("F12", "Soát vé", "Chỉ nhận SOLD+SUCCESS hoặc PAPER_SOLD; chặn is_scanned."),
@@ -623,23 +626,23 @@ def build_document():
         ("Hiệu năng", "Truy vấn có giới hạn/chỉ mục; timeout nguồn ngoài.", "Phân tích SQL và cấu hình dịch vụ; chưa benchmark tải."),
     ], [1400, 3900, 3204])
     add_topic(doc, "2.6", "Quy tắc nghiệp vụ", [
-        "Quy tắc thứ nhất là mỗi tài khoản/CCCD chỉ mua tối đa bốn vé cho một trận. Hạn mức phải tính cả vé đã mua thành công và số ghế đang tạo đơn, không chỉ số lượng của request hiện tại. Quy tắc thứ hai là ghế chỉ được giữ khi trận ON_SALE và người dùng đã VERIFIED. Quy tắc thứ ba là thời hạn giữ ghế/đơn là 15 phút; quá hạn thì đơn bị CANCELLED và ghế trở lại AVAILABLE.",
+        "Quy tắc thứ nhất là mỗi tài khoản/CCCD chỉ mua tối đa bốn vé cho một trận. Hạn mức phải tính cả vé đã mua thành công và số ghế đang tạo đơn, không chỉ số lượng của request hiện tại. Quy tắc thứ hai là ghế chỉ được giữ khi trận ON_SALE và người dùng đã VERIFIED. Quy tắc thứ ba là thời hạn giữ ghế là 10 phút và hạn thanh toán đơn mới là 15 phút; quá hạn thì đơn bị CANCELLED và ghế trở lại AVAILABLE.",
         "Quy tắc thứ tư là QR vé online chỉ được sinh sau khi đơn SUCCESS. Quy tắc thứ năm là một QR chỉ quét một lần. Quy tắc thứ sáu là vé giấy đã in không được trả về online. Quy tắc thứ bảy là admin không được xóa trận đã phát sinh vé đặt hoặc bán. Quy tắc thứ tám là email/CCCD/provider phải duy nhất theo điều kiện phù hợp.",
         "Quy tắc về nội dung bên ngoài là chatbot chỉ đồng bộ từ domain được cấu hình, chỉ trả URL HTTPS đã kiểm tra và không tuyên bố thông tin khi không có tài liệu. Đây là mở rộng của nguyên tắc nguồn sự thật: với vé, nguồn là database nội bộ; với tin CLB là SLNAFC; với giải đấu là VPF."
     ])
     add_topic(doc, "2.7", "Mô hình trạng thái", [
-        "Ticket có năm trạng thái. AVAILABLE cho biết ghế có thể bán online; HELD cho biết ghế đang được một người dùng giữ tới held_until; SOLD cho biết vé online đã thuộc đơn thành công; PAPER_RESERVED là vé đã chuyển sang kênh giấy; PAPER_SOLD là vé giấy đã bán. Cờ is_printed và is_scanned bổ sung thông tin vật lý mà enum trạng thái không biểu diễn đầy đủ.",
-        "Order có ba trạng thái chuẩn: PENDING, SUCCESS và CANCELLED. PENDING là đơn chờ quản trị viên xác nhận và có expires_at. SUCCESS là đơn được xác nhận thanh toán, ticket chuyển SOLD và có QR. CANCELLED là đơn bị từ chối hoặc hết hạn, ghế được hoàn nếu chưa bị kênh khác sử dụng. Việc loại bỏ PAID giúp frontend/backend/database dùng cùng từ vựng.",
-        "CCCD có NOT_SUBMITTED, PENDING, VERIFIED và REJECTED. User có ACTIVE hoặc BANNED, role USER hoặc ADMIN, auth_provider LOCAL/GOOGLE/FACEBOOK. Mỗi mô hình trạng thái đều có tập chuyển hợp lệ; API không cho phép cập nhật tùy ý vì điều đó có thể phá vỡ chuỗi nghiệp vụ."
+        "Ticket có năm trạng thái: AVAILABLE là ghế có thể chọn; HELD là ghế giữ tạm 10 phút; SOLD là ghế đã gắn vào đơn online, có thể đang chờ thanh toán; PAPER_RESERVED là ghế dành cho vé giấy; PAPER_SOLD là vé giấy đã bán. Quyền vào sân của vé online còn phụ thuộc orders.status = SUCCESS. is_printed và is_scanned ghi nhận việc in và soát vé.",
+        "Order có ba trạng thái chuẩn: PENDING, SUCCESS và CANCELLED. PENDING chờ SePay xác nhận và có expires_at; các ghế đã gắn đơn có trạng thái SOLD nhưng chưa có QR vào sân. SUCCESS xác nhận tiền và cho phép phát hành QR. CANCELLED biểu thị đơn bị hủy hoặc quá hạn; cơ chế dọn đơn hoàn ghế về AVAILABLE. Vì vậy, không được suy luận thanh toán thành công chỉ từ tickets.status.",
+        "CCCD có NOT_SUBMITTED, PENDING, VERIFIED và REJECTED. User có ACTIVE hoặc BANNED, role USER/ADMIN/SCANNER, auth_provider LOCAL/GOOGLE/FACEBOOK. Quản trị viên gốc là một tài khoản ADMIN có email khớp SUPER_ADMIN_EMAIL, không phải một giá trị role riêng. Chỉ tài khoản này được thay đổi vai trò của người khác."
     ])
     add_table_caption(doc, "2.4", "Ma trận chuyển trạng thái chính")
     add_table(doc, ["Đối tượng", "Từ", "Sang", "Điều kiện"], [
         ("Ticket", "AVAILABLE", "HELD", "Trận ON_SALE, CCCD VERIFIED, ghế chưa bị giữ."),
-        ("Ticket", "HELD", "AVAILABLE", "Hết 15 phút hoặc người dùng trả ghế."),
-        ("Ticket", "HELD", "SOLD", "Đơn được xác nhận SUCCESS."),
+        ("Ticket", "HELD", "AVAILABLE", "Hết 10 phút hoặc người dùng trả ghế."),
+        ("Ticket", "HELD", "SOLD", "Checkout tạo đơn PENDING; chưa có QR vào sân."),
         ("Ticket", "AVAILABLE", "PAPER_RESERVED", "Admin dành vé cho kênh giấy."),
         ("Ticket", "PAPER_RESERVED", "PAPER_SOLD", "Admin ghi nhận bán vé giấy."),
-        ("Order", "PENDING", "SUCCESS", "Admin xác nhận giao dịch; sinh QR vé."),
+        ("Order", "PENDING", "SUCCESS", "Webhook SePay khớp giao dịch; sinh QR vé."),
         ("Order", "PENDING", "CANCELLED", "Admin hủy hoặc expires_at đã qua."),
         ("CCCD", "PENDING", "VERIFIED", "Admin duyệt và số CCCD không trùng."),
         ("CCCD", "PENDING", "REJECTED", "Ảnh/số không hợp lệ hoặc không đối soát được."),
@@ -655,32 +658,36 @@ def build_document():
     add_topic(doc, "3.1", "Kiến trúc tổng thể", [
         "Hệ thống được tổ chức theo mô hình client–server. Frontend Next.js đảm nhiệm giao diện, điều hướng và quản lý trạng thái phía trình duyệt; backend Express cung cấp REST API, xác thực, nghiệp vụ và truy cập PostgreSQL. Việc tách hai lớp giúp giao diện có thể thay đổi mà không làm biến dạng quy tắc bán vé. Mọi quyết định ảnh hưởng tới tiền, ghế, quyền hoặc QR đều được kiểm tra lại ở backend, kể cả khi frontend đã chặn trước.",
         "Frontend sử dụng App Router, các trang công khai và khu vực quản trị riêng. Axios gửi request kèm cookie; Redux Toolkit giữ trạng thái cần chia sẻ, còn state cục bộ dùng cho biểu mẫu và tương tác ngắn. Backend chia route, controller và middleware. Controller điều phối use case, middleware xác thực phiên/quyền, còn lớp truy vấn làm việc với PostgreSQL. Cấu trúc này phù hợp quy mô đồ án và vẫn đủ rõ để mở rộng thành service riêng khi tải tăng.",
-        "PostgreSQL là nguồn sự thật cho tài khoản, trận, kho ghế, đơn, vé, nhà tài trợ, audit và tri thức chatbot. Ảnh hiện được backend ghi vào thư mục uploads và database chỉ lưu đường dẫn. Cách này thuận tiện cho máy đơn; khi triển khai nhiều instance hoặc nền tảng có ổ đĩa tạm, ảnh phải chuyển sang object storage và URL bền vững. Sơ đồ ban đầu dưới đây được giữ nguyên theo yêu cầu, sau đó báo cáo mô tả các thay đổi của phiên bản hoàn thiện."
+        "PostgreSQL là nguồn sự thật cho tài khoản, trận, kho ghế, đơn, giao dịch SePay, vé, nhà tài trợ, cấu hình banner, audit và tri thức chatbot. Backend tích hợp OAuth, SMTP, SePay và Gemini bằng biến môi trường; ảnh hiện được ghi vào thư mục uploads và database lưu đường dẫn. Cách này phù hợp một máy chủ; khi triển khai nhiều instance cần chuyển ảnh sang object storage/CDN."
     ])
-    add_figure(doc, "architecture.png", "3.1", "Kiến trúc hệ thống trong thiết kế ban đầu", 15.0)
-    add_body(doc, "Khác với sơ đồ ban đầu, phiên bản hoàn thiện không lưu JWT trong localStorage mà dùng cookie HttpOnly; đồng thời bổ sung module tri thức chatbot, audit log, kiểm tra nguồn ngoài và xử lý file upload an toàn. Sơ đồ vẫn có giá trị lịch sử vì thể hiện đúng ranh giới frontend–API–database, nhưng không được dùng để suy luận rằng mọi chi tiết bảo mật ban đầu còn giữ nguyên.")
+    add_figure(doc, "architecture.png", "3.1", "Kiến trúc triển khai và các tích hợp ngoài", 15.0)
+    add_body(doc, "Kiến trúc dùng cookie HttpOnly thay cho lưu JWT trong localStorage; bổ sung module giao dịch SePay, reset mật khẩu qua SMTP, OAuth, chatbot Gemini, audit log, đồng bộ nguồn chính thức và xử lý ảnh an toàn. Ranh giới frontend–API–database giúp các tích hợp ngoài không truy cập trực tiếp dữ liệu nghiệp vụ.")
 
     add_topic(doc, "3.2", "Phân rã chức năng và use case", [
         "Use case được phân theo ba phạm vi: công khai, người dùng đã xác thực và quản trị. Người chưa đăng nhập được xem thông tin; người dùng đã đăng nhập được quản lý hồ sơ và mua vé; quản trị viên vận hành dữ liệu. Phân rã này dẫn trực tiếp tới nhóm route và middleware. Một use case có thể đi qua nhiều module, ví dụ mua vé bao gồm auth, hồ sơ, CCCD, trận, kho ghế, đơn, QR và thông báo.",
-        "Điều kiện trước và sau được ghi rõ để tránh coi một nút bấm là toàn bộ chức năng. Use case giữ ghế yêu cầu trận đang mở bán, tài khoản ACTIVE, CCCD VERIFIED và ghế AVAILABLE. Sau khi thành công, ghế thành HELD, có chủ sở hữu và thời điểm hết hạn. Use case duyệt đơn yêu cầu đơn PENDING chưa hết hạn; sau đó đơn SUCCESS, ghế SOLD và QR duy nhất được tạo trong cùng transaction.",
-        "Sơ đồ use case ban đầu được giữ lại bên dưới. Phiên bản triển khai bổ sung đổi email có xác nhận mật khẩu hiện tại, quản lý sponsor, chatbot có dẫn nguồn, audit log và quy trình CCCD chi tiết hơn. Các chức năng bổ sung không phủ định sơ đồ mà phản ánh quá trình tinh chỉnh yêu cầu."
+        "Use case giữ ghế yêu cầu tài khoản ACTIVE, CCCD VERIFIED, trận đang mở bán và ghế khả dụng. Checkout kiểm tra lại người giữ, thời hạn và hạn mức, tạo đơn PENDING rồi chuyển các ghế thành SOLD với QR rỗng trong transaction. Webhook hợp lệ khóa đơn để xác nhận SUCCESS và cấp QR; giao dịch trùng được bỏ qua theo transaction_id.",
+        "Sơ đồ use case đã được cập nhật để thể hiện đăng nhập OAuth, quên mật khẩu, thanh toán SePay, chatbot Gemini, phân quyền nhân viên cổng và quyền cấp vai trò chỉ thuộc quản trị viên gốc. Các chức năng quản trị banner, sponsor, giao dịch cần đối soát và nhật ký được gom theo nhóm vận hành."
     ])
-    add_figure(doc, "usecase.png", "3.2", "Sơ đồ use case trong thiết kế ban đầu", 15.0)
+    add_figure(doc, "usecase.png", "3.2", "Sơ đồ use case cập nhật của hệ thống", 15.0)
+    add_figure(doc, "usecase_user.png", "3.3", "Sơ đồ use case chi tiết dành cho khán giả", 14.5)
+    add_figure(doc, "usecase_admin.png", "3.4", "Sơ đồ use case chi tiết của khối vận hành", 14.5)
     add_table_caption(doc, "3.1", "Đặc tả một số use case trọng yếu")
     add_table(doc, ["Use case", "Điều kiện trước", "Luồng chính", "Kết quả"], [
         ("Đổi email", "Tài khoản LOCAL, phiên hợp lệ.", "Nhập email mới và mật khẩu hiện tại; server bcrypt.compare; kiểm tra email duy nhất.", "Email cập nhật, tăng token_version và yêu cầu đăng nhập lại."),
-        ("Giữ ghế", "CCCD VERIFIED, trận ON_SALE.", "Chọn tối đa 4 ghế; server khóa/kiểm tra và đặt HELD 15 phút.", "Ghế có held_by, held_until; kênh khác không thể bán."),
-        ("Duyệt đơn", "Admin; đơn PENDING còn hiệu lực.", "Đối soát; cập nhật đơn và vé trong transaction.", "SUCCESS và sinh QR hoặc CANCELLED và hoàn ghế."),
-        ("Quét QR", "Admin/scanner; mã tồn tại.", "Tìm vé, kiểm tra đơn/trạng thái/is_scanned.", "Cho vào sân và đánh dấu hoặc trả lý do từ chối."),
+        ("Giữ ghế", "CCCD VERIFIED, trận ON_SALE.", "Chọn tối đa 4 ghế; server khóa/kiểm tra và đặt HELD 10 phút.", "Ghế có held_by, held_until; kênh khác không thể bán."),
+        ("Thanh toán SePay", "Đơn PENDING còn hiệu lực.", "Quét VietQR; webhook HMAC; khớp mã, tài khoản và số tiền trong transaction.", "SUCCESS và sinh QR hoặc lưu giao dịch REVIEW để đối soát."),
+        ("Quét QR", "ADMIN/SCANNER; đã chọn đúng trận.", "Camera sau đọc QR; server kiểm tra trận, đơn/trạng thái/is_scanned.", "Phản hồi màu, âm thanh/rung; đánh dấu hoặc trả lý do từ chối."),
         ("Hỏi chatbot", "Câu hỏi hợp lệ, chưa vượt rate limit.", "Tìm dữ liệu nội bộ và tài liệu đã đồng bộ; xếp hạng; tạo câu trả lời.", "Trả nội dung cùng URL nguồn an toàn."),
     ], [1550, 2150, 2850, 1954], 10.5)
 
     add_topic(doc, "3.3", "Thiết kế luồng giữ ghế và tạo đơn", [
         "Giữ ghế là vùng có nguy cơ tranh chấp cao nhất. Frontend chỉ hiển thị trạng thái gần nhất; backend mới quyết định cuối cùng. Khi nhận danh sách ticket id, server chuẩn hóa, loại trùng, kiểm tra số lượng và hạn mức. Trong transaction, các bản ghi phải còn AVAILABLE hoặc là HELD chưa hết hạn của chính người dùng. Nếu một ghế không hợp lệ, toàn bộ yêu cầu thất bại để người dùng chọn lại trên dữ liệu mới.",
-        "Thời điểm hết hạn được tính ở server để không phụ thuộc đồng hồ máy khách. Trường held_until gắn với từng ghế và expires_at gắn với đơn. Job dọn dẹp hoặc request kế tiếp có thể giải phóng bản ghi quá hạn. Khi tạo đơn, server không tin tổng tiền từ frontend mà lấy giá theo khu vực/trận và tính lại. Order item liên kết ticket cụ thể giúp truy vết ghế nào thuộc đơn nào.",
-        "Hình 3.3 là lưu đồ ban đầu dùng mốc 10 phút. Phiên bản hoàn thiện đã chuẩn hóa thành 15 phút ở cấu hình và thông điệp giao diện. Việc giữ hình gốc giúp đối chiếu tiến hóa thiết kế; quy tắc có hiệu lực của sản phẩm là 15 phút như nêu trong yêu cầu và mã nguồn hiện tại."
+        "Thời điểm hết hạn được tính ở server. Ghế đang chọn có held_until; khi checkout, một thời hạn đơn mới 15 phút được lưu tại expires_at. Giá được cộng từ các vé trong PostgreSQL, không lấy tổng tiền do trình duyệt gửi. tickets.order_id liên kết trực tiếp từng ghế với đơn; schema không có bảng order_items.",
+        "Hình 3.5 thể hiện luồng hiện tại: giữ ghế 10 phút, tạo đơn PENDING và dành ghế bằng trạng thái SOLD với QR rỗng; người dùng quét VietQR đúng nội dung, sau đó webhook hợp lệ mới chuyển đơn SUCCESS và sinh QR vé. Đơn chưa thanh toán quá hạn được hủy và ghế trở về AVAILABLE."
     ])
-    add_figure(doc, "hold_flow.png", "3.3", "Luồng giữ ghế trong thiết kế ban đầu", 14.5)
+    add_figure(doc, "hold_flow.png", "3.5", "Luồng giữ ghế, thanh toán SePay và phát hành vé", 14.5)
+    add_figure(doc, "order_state.png", "3.6", "Biểu đồ trạng thái đơn hàng online", 14.5)
+    add_figure(doc, "ticket_state.png", "3.7", "Biểu đồ trạng thái vé và ghế", 14.5)
     add_table_caption(doc, "3.2", "Kiểm tra bắt buộc trong luồng mua vé")
     add_table(doc, ["Bước", "Kiểm tra phía máy chủ", "Lỗi được ngăn"], [
         ("Xác thực", "Cookie hợp lệ; user tồn tại, ACTIVE; token_version khớp.", "Dùng phiên cũ hoặc tài khoản bị khóa."),
@@ -695,30 +702,44 @@ def build_document():
     add_topic(doc, "3.4", "Thiết kế nghiệp vụ vé giấy", [
         "Kênh vé giấy dùng chung kho ghế nhưng trạng thái riêng. Khi admin dành vé, AVAILABLE chuyển PAPER_RESERVED. Sau khi in, is_printed=true để thể hiện vé đã rời khỏi kiểm soát thuần số. Khi bán, trạng thái thành PAPER_SOLD; khi hủy phân bổ, chỉ vé chưa in mới có thể quay lại AVAILABLE. Quy tắc này ưu tiên ngăn hai kênh cùng sở hữu một ghế.",
         "Mỗi thao tác phải ghi người thực hiện và thời gian trong audit log. Danh sách in cần có mã ghế, khu vực, trận và mã xác thực đủ để scanner nhận biết nhưng không tiết lộ dữ liệu người mua không cần thiết. Hệ thống hiện ghi nhận việc in/bán thủ công; triển khai thật cần quy trình bàn giao, số seri phôi và đối soát tiền theo điểm bán.",
-        "Lưu đồ ban đầu ở Hình 3.4 được bảo toàn. Bản triển khai làm chặt thêm điều kiện không hoàn về online sau khi in và đồng bộ scanner cho PAPER_SOLD. Đây là ví dụ cho việc thiết kế trạng thái phải phản ánh rủi ro vật lý, không chỉ các thao tác CRUD."
+        "Hình 3.8 mô tả luồng triển khai: vé giấy đã in không được hoàn về online và chỉ vé PAPER_SOLD mới được scanner chấp nhận. Đây là ví dụ cho việc thiết kế trạng thái phải phản ánh rủi ro vật lý, không chỉ các thao tác CRUD."
     ])
-    add_figure(doc, "paper_flow.png", "3.4", "Luồng xử lý vé giấy trong thiết kế ban đầu", 14.5)
+    add_figure(doc, "paper_flow.png", "3.8", "Luồng xử lý vé giấy", 14.5)
 
-    add_topic(doc, "3.5", "Thiết kế xác thực và phân quyền", [
+    add_topic(doc, "3.5", "Thiết kế soát vé trên điện thoại", [
+        "Nhân viên cổng được cấp vai trò SCANNER, chỉ truy cập màn hình soát vé thay vì toàn bộ khu vực quản trị. Trước khi mở camera, nhân viên chọn đúng trận đang kiểm soát. Frontend ưu tiên camera sau, giữ màn hình luôn sáng khi có thể, hỗ trợ bật đèn pin và khóa tạm sau mỗi lần đọc để tránh gửi trùng liên tục.",
+        "Backend không tin kết quả giải mã tại trình duyệt. Mã QR phải tồn tại, thuộc đúng trận đã chọn, có trạng thái SOLD hoặc PAPER_SOLD, đơn online phải SUCCESS và vé chưa được soát. Kết quả được hiển thị bằng vùng màu lớn, âm thanh và rung; sau một khoảng ngắn giao diện tự sẵn sàng cho vé kế tiếp."
+    ])
+    add_figure(doc, "scan_flow.png", "3.9", "Luồng soát vé QR tối ưu cho điện thoại", 14.5)
+    add_figure(doc, "scan_sequence.png", "3.10", "Biểu đồ tuần tự quét vé tại cổng", 14.5)
+    add_figure(doc, "sepay_flow.png", "3.11", "Luồng xác minh và đối soát webhook SePay", 14.5)
+
+    add_topic(doc, "3.6", "Thiết kế xác thực và phân quyền", [
         "Đăng nhập LOCAL so sánh mật khẩu bằng bcrypt với cost factor 12. Khi đúng, backend ký token có user id và token_version rồi đặt vào cookie HttpOnly, Secure trong production và SameSite phù hợp. JavaScript phía trình duyệt không đọc được cookie; request gửi cookie tự động. Middleware đọc token, truy vấn user hiện tại và từ chối nếu tài khoản không ACTIVE hoặc token_version không khớp.",
         "Đổi email và đổi mật khẩu yêu cầu người dùng nhập mật khẩu hiện tại; giao diện không hiển thị, không điền sẵn và backend không bao giờ trả password/hash. Với tài khoản OAuth, backend từ chối luồng mật khẩu nội bộ vì không có bí mật LOCAL để xác minh. Sau thay đổi nhạy cảm, token_version tăng để vô hiệu hóa phiên cũ. Cách này xử lý đúng yêu cầu người dùng đã nêu và tránh coi việc đang mở trang là đủ quyền đổi danh tính.",
-        "Phân quyền được thực hiện ở route bằng authenticate và isAdmin. Frontend ẩn chức năng chỉ để cải thiện trải nghiệm, không phải biện pháp bảo mật. Các request thay đổi dữ liệu còn được kiểm tra Origin, CORS giới hạn theo FRONTEND_URL và áp dụng rate limit cho đăng nhập/chatbot. Thiết kế bám nguyên tắc quản lý phiên OWASP [9] và lưu mật khẩu OWASP [10]."
+        "Phân quyền tại route dùng verifyToken, isAdmin, canScanTickets và isSuperAdmin. SCANNER được truy cập chức năng soát vé; việc cấp/thu hồi ADMIN hoặc SCANNER chỉ dành cho ADMIN có email khớp SUPER_ADMIN_EMAIL. Khi thay đổi vai trò, token_version tăng để vô hiệu hóa phiên cũ và hệ thống ghi nhật ký. Frontend phản ánh các quyền này nhưng backend mới quyết định quyền thực thi."
     ])
+    add_figure(doc, "auth_flow.png", "3.12", "Activity đăng nhập LOCAL an toàn", 14.5)
+    add_figure(doc, "password_reset_flow.png", "3.13", "Activity quên và đặt lại mật khẩu", 14.5)
+    add_figure(doc, "oauth_flow.png", "3.14", "Biểu đồ tuần tự đăng nhập Google/Facebook", 14.5)
+    add_figure(doc, "role_flow.png", "3.15", "Activity cấp quyền quản trị và soát vé", 14.5)
     add_table_caption(doc, "3.3", "Ma trận quyền truy cập")
-    add_table(doc, ["Tài nguyên", "Công khai", "USER", "ADMIN"], [
-        ("Trận, kết quả, sponsor active", "Đọc", "Đọc", "Tạo/sửa/xóa có điều kiện"),
-        ("Hồ sơ, CCCD", "Không", "Đọc/sửa của mình", "Xem/duyệt theo nghiệp vụ"),
-        ("Giữ ghế, đơn, vé", "Không", "Tạo/xem của mình", "Duyệt, quản lý, báo cáo"),
-        ("Scanner và vé giấy", "Không", "Không", "Thực hiện và audit"),
-        ("Nguồn tri thức", "Hỏi chatbot", "Hỏi chatbot", "Đồng bộ/kiểm tra nguồn"),
-        ("Audit log", "Không", "Không", "Đọc có phân trang"),
-    ], [2700, 1700, 2050, 2054])
+    add_table(doc, ["Tài nguyên", "Công khai", "USER", "SCANNER", "ADMIN"], [
+        ("Trận, kết quả, sponsor", "Đọc", "Đọc", "Đọc trận cần soát", "Tạo/sửa/xóa"),
+        ("Hồ sơ, CCCD", "Không", "Của mình", "Của mình", "Xem/duyệt"),
+        ("Giữ ghế, đơn, vé", "Không", "Tạo/xem của mình", "Không", "Quản lý, báo cáo"),
+        ("Scanner", "Không", "Không", "Thực hiện", "Thực hiện"),
+        ("Cấp quyền", "Không", "Không", "Không", "Chỉ quản trị viên gốc"),
+        ("Audit log", "Không", "Không", "Không", "Đọc có phân trang"),
+    ], [2050, 1250, 1700, 1550, 1954], 10.5)
 
-    add_topic(doc, "3.6", "Thiết kế chatbot có truy xuất nguồn", [
+    add_topic(doc, "3.7", "Thiết kế chatbot Gemini có truy xuất nguồn", [
         "Chatbot không được huấn luyện lại mô hình bằng dữ liệu không kiểm soát. Đồ án sử dụng hướng truy xuất tăng cường: đồng bộ tài liệu từ SLNAFC và VPF, lưu nội dung đã làm sạch, lập chỉ mục tìm kiếm toàn văn, lấy các đoạn liên quan rồi tạo câu trả lời dựa trên ngữ cảnh. Dữ liệu nội bộ về trận và quy định được ưu tiên vì có cấu trúc và cập nhật trực tiếp từ hệ thống.",
         "Bộ đồng bộ chỉ chấp nhận hostname trong allowlist, URL HTTPS và canonical URL hợp lệ. Request ra ngoài có timeout, giới hạn kích thước và số redirect. HTML được trích xuất phần nội dung, chuẩn hóa khoảng trắng, tính content hash để tránh ghi lại tài liệu không đổi. Mỗi document lưu source, URL, tiêu đề, ngày đăng, thời điểm đồng bộ và trạng thái.",
-        "Khi trả lời, bot tìm các tài liệu liên quan bằng PostgreSQL full-text search, kết hợp từ khóa và dữ liệu trận. Nếu bằng chứng không đủ, bot nói chưa tìm thấy thay vì suy diễn. Mỗi kết luận về tin tức kèm tiêu đề và URL nguồn chính thức. Cơ chế này giảm sai lệch nhưng không loại bỏ hoàn toàn; quản trị viên vẫn cần giám sát nguồn, ngày cập nhật và thay đổi cấu trúc website."
+        "Khi trả lời, bot phân loại ý định trước. Câu hỏi giao dịch như trận, giá, đơn và vé ưu tiên dữ liệu PostgreSQL và mẫu trả lời xác định; câu hỏi cần tổng hợp về câu lạc bộ hoặc bài viết mới dùng Gemini với bằng chứng đã truy xuất. Lịch sử chỉ được đưa vào khi câu hỏi thực sự nối tiếp, nhờ đó giảm hiện tượng trả lời lệch chủ đề. Nếu bằng chứng không đủ hoặc Gemini lỗi, bot dùng phương án dự phòng an toàn thay vì bịa danh sách hay thời điểm."
     ])
+    add_figure(doc, "chatbot_flow.png", "3.16", "Activity định tuyến câu hỏi chatbot", 14.5)
+    add_figure(doc, "source_sync_flow.png", "3.17", "Activity đồng bộ nguồn tri thức chính thức", 14.5)
     add_table_caption(doc, "3.4", "Pipeline tri thức của chatbot")
     add_table(doc, ["Giai đoạn", "Xử lý", "Biện pháp tin cậy"], [
         ("Nguồn", "Khai báo SLNAFC/VPF và loại nội dung.", "Allowlist domain, HTTPS, trạng thái active."),
@@ -726,28 +747,29 @@ def build_document():
         ("Chuẩn hóa", "Bỏ script/style, lấy tiêu đề/nội dung/ngày.", "Canonical URL và content hash."),
         ("Lưu trữ", "knowledge_documents + chỉ mục tìm kiếm.", "Unique URL/hash; thời điểm đồng bộ."),
         ("Truy xuất", "Xếp hạng đoạn theo câu hỏi.", "Giới hạn top-k, ưu tiên dữ liệu cấu trúc."),
-        ("Trả lời", "Tổng hợp ngắn gọn và đính nguồn.", "Không có bằng chứng thì nêu giới hạn."),
+        ("Trả lời", "Gemini tổng hợp ngắn gọn và đính nguồn.", "Che dữ liệu cá nhân; không có bằng chứng thì nêu giới hạn."),
     ], [1500, 3750, 3254], 11)
 
-    add_topic(doc, "3.7", "Thiết kế API và xử lý lỗi", [
+    add_topic(doc, "3.8", "Thiết kế API và xử lý lỗi", [
         "API theo nguyên tắc tài nguyên, dùng JSON và mã HTTP nhất quán. Route công khai chỉ trả trường cần thiết; route cá nhân lấy user id từ phiên thay vì nhận từ client; route admin đi qua middleware quyền. Controller kiểm tra đầu vào trước khi truy vấn và trả thông báo tiếng Việt đủ hành động. Lỗi nội bộ được log nhưng response không tiết lộ stack trace hoặc SQL.",
         "Đối với thao tác lặp, thiết kế ưu tiên tính idempotent ở mức hợp lý. Sinh kho chỉ tạo ghế còn thiếu; đồng bộ nguồn bỏ qua content hash không đổi; quét QR lần hai trả kết quả đã sử dụng thay vì cập nhật lại. Duyệt đơn kiểm tra trạng thái hiện tại để request lặp không sinh nhiều QR. Các điểm này quan trọng khi mạng chậm khiến người dùng bấm lại.",
         "Phân trang được áp dụng cho danh sách quản trị và audit; bộ lọc được whitelist thay vì ghép trực tiếp vào SQL. Giá trị truy vấn dùng placeholder để chống SQL injection. File upload đi qua Multer memory storage, kiểm tra dung lượng, MIME khai báo và magic bytes trước khi ghi. Tên file do server sinh, không dùng nguyên tên từ client."
     ])
+    add_figure(doc, "image_upload_flow.png", "3.18", "Activity upload và xử lý logo an toàn", 14.5)
     add_table_caption(doc, "3.5", "Nhóm endpoint tiêu biểu")
     add_table(doc, ["Nhóm", "Phương thức/đường dẫn", "Quyền", "Mục đích"], [
-        ("Auth", "POST /api/auth/login; logout; me", "Public/User", "Tạo, hủy và kiểm tra phiên."),
-        ("Profile", "PUT /api/users/profile; email; password", "User", "Cập nhật hồ sơ và thông tin nhạy cảm."),
+        ("Auth", "POST /api/auth/login; /logout; GET /profile", "Public/User", "Tạo, hủy và kiểm tra phiên."),
+        ("Profile", "PUT /api/auth/profile; /email; /password", "User", "Cập nhật hồ sơ và thông tin nhạy cảm."),
         ("Matches", "GET /api/matches; admin CRUD", "Public/Admin", "Tra cứu và quản trị trận."),
         ("Tickets", "hold; release; checkout; my-tickets", "User", "Vòng đời vé online."),
         ("Orders", "list; detail; approve/cancel", "User/Admin", "Theo dõi và duyệt đơn."),
         ("Paper", "reserve; print; sell; release", "Admin", "Vận hành vé giấy."),
         ("Sponsors", "public list; admin CRUD/upload", "Public/Admin", "Hiển thị và quản lý tài trợ."),
-        ("Chatbot", "POST /api/chatbot; sync", "Public/Admin", "Hỏi đáp có nguồn và đồng bộ."),
+        ("Chatbot", "POST /api/chatbot/ask", "Public/Admin", "Hỏi đáp có nguồn và đồng bộ."),
     ], [1300, 3050, 1350, 2804], 10.5)
 
-    add_topic(doc, "3.8", "Thiết kế trải nghiệm và khả năng truy cập", [
-        "Giao diện ưu tiên tiếng Việt, trạng thái rõ và hành động phục hồi. Ghế dùng màu kèm nhãn/chú giải; không chỉ dựa vào màu. Bộ đếm thời gian thể hiện 15 phút nhưng khi về 0 phải tải lại từ server. Biểu mẫu hiển thị lỗi cạnh trường và giữ dữ liệu không nhạy cảm. Mật khẩu luôn là input password, không điền sẵn; nút hiển thị mật khẩu chỉ do người dùng chủ động và không làm lộ hash.",
+    add_topic(doc, "3.9", "Thiết kế trải nghiệm và khả năng truy cập", [
+        "Giao diện ưu tiên tiếng Việt, trạng thái rõ và hành động phục hồi. Ghế dùng màu kèm nhãn/chú giải; không chỉ dựa vào màu. Bộ đếm thể hiện hạn giữ ghế 10 phút hoặc hạn thanh toán 15 phút tương ứng nhưng khi về 0 phải tải lại từ server. Biểu mẫu hiển thị lỗi cạnh trường và giữ dữ liệu không nhạy cảm. Mật khẩu luôn là input password, không điền sẵn; nút hiển thị mật khẩu chỉ do người dùng chủ động và không làm lộ hash.",
         "Khu vực quản trị dùng bảng có phân trang, xác nhận trước thao tác quan trọng và thông báo kết quả. Scanner cần phản hồi lớn, tương phản và phân biệt hợp lệ/đã quét/không hợp lệ. Ảnh sponsor có alt text từ tên nhà tài trợ; URL ngoài mở an toàn. Responsive được xử lý để luồng mua vé dùng được trên điện thoại, nhưng sơ đồ ghế vẫn cần kiểm thử thêm với màn hình nhỏ và thao tác cảm ứng.",
         "Accessibility được xem là yêu cầu tiếp tục cải thiện. Các thành phần Ant Design cung cấp nền tảng bàn phím/ARIA, nhưng ứng dụng vẫn cần kiểm thử thủ công focus order, label, thông báo động và độ tương phản. Báo cáo không tuyên bố đạt chuẩn WCAG khi chưa audit đầy đủ; đây là hạng mục trong hướng phát triển."
     ])
@@ -755,21 +777,24 @@ def build_document():
     # CHƯƠNG 4
     add_chapter(doc, 4, "Thiết kế dữ liệu và cài đặt")
     add_topic(doc, "4.1", "Mô hình dữ liệu", [
-        "Mô hình dữ liệu xoay quanh users, matches, tickets và orders. User sở hữu nhiều đơn; trận có nhiều ticket; order liên kết tập ticket được mua. Các bảng sponsor, audit_logs, knowledge_sources và knowledge_documents hỗ trợ truyền thông, truy vết và chatbot. Khóa ngoại bảo vệ quan hệ, còn unique index xử lý quy tắc không thể diễn đạt chỉ bằng code.",
-        "ERD ban đầu ở Hình 4.1 được giữ nguyên. Trong bản triển khai, order_status được chuẩn hóa thành SUCCESS thay cho PAID, thêm trường phiên/token_version, các trạng thái vé giấy, bảng nguồn tri thức và document. Do đó hình được xem là mốc thiết kế ban đầu; mô tả bảng sau đây mới là căn cứ của sản phẩm hoàn thiện."
+        "Mô hình dữ liệu xoay quanh users, matches, tickets và orders. User sở hữu nhiều đơn; trận có nhiều ticket; order liên kết trực tiếp các ticket qua order_id. Các bảng sepay_transactions, password_reset_tokens, sponsors, audit_logs, knowledge_sources, knowledge_documents và site_settings hỗ trợ thanh toán, khôi phục tài khoản, truyền thông, truy vết, chatbot và cấu hình giao diện.",
+        "ERD ở Hình 4.1 và Hình 4.2 đã được cập nhật theo schema hiện tại, gồm trạng thái SUCCESS, token_version, vai trò SCANNER, các bảng giao dịch SePay, đặt lại mật khẩu, nguồn tri thức và cấu hình website. Unique index được dùng cho email, CCCD, provider, ghế theo trận, mã đơn, mã vé và URL tài liệu."
     ])
-    add_figure(doc, "erd.png", "4.1", "Mô hình quan hệ dữ liệu trong thiết kế ban đầu", 15.0)
+    add_figure(doc, "erd.png", "4.1", "Mô hình quan hệ dữ liệu cập nhật", 15.0)
+    add_figure(doc, "erd_support.png", "4.2", "Các bảng tích hợp và hỗ trợ", 15.0)
     add_table_caption(doc, "4.1", "Các bảng dữ liệu chính trong phiên bản hoàn thiện")
     add_table(doc, ["Bảng", "Vai trò", "Ràng buộc đáng chú ý"], [
         ("users", "Tài khoản, hồ sơ, OAuth, CCCD, trạng thái.", "Email/provider/CCCD duy nhất; password không trả qua API."),
         ("matches", "Lịch đấu, sân, thời gian, giá, trạng thái.", "Giá không âm; trạng thái trong tập cho phép."),
         ("tickets", "Một ghế của một trận và vòng đời online/giấy.", "Unique(match_id, seat_code); qr_code unique khi có."),
         ("orders", "Giao dịch mua vé và thời hạn.", "Trạng thái PENDING/SUCCESS/CANCELLED; user FK."),
-        ("order_items", "Liên kết đơn với ticket và giá tại thời điểm mua.", "Không để một ticket thuộc nhiều đơn hiệu lực."),
+        ("sepay_transactions", "Lưu giao dịch webhook và trạng thái đối soát.", "transaction_id duy nhất; liên kết order khi MATCHED."),
+        ("password_reset_tokens", "Token đặt lại mật khẩu đã băm và có hạn.", "Hash duy nhất; used_at ngăn dùng lại."),
         ("sponsors", "Tên, logo, cấp, URL, thứ tự và active.", "URL/ảnh được validate; public chỉ active."),
         ("audit_logs", "Hành động admin và dữ liệu truy vết.", "Actor, action, entity, metadata, timestamp."),
         ("knowledge_sources", "Cấu hình nguồn tin chính thức.", "Domain allowlist, loại nguồn, active."),
         ("knowledge_documents", "Nội dung đã chuẩn hóa cho tìm kiếm.", "Canonical URL/hash; chỉ mục full-text."),
+        ("site_settings", "Cấu hình giao diện thay đổi tại runtime.", "Khóa duy nhất; hiện dùng cho banner trang chủ."),
     ], [1700, 3500, 3304], 10.5)
 
     add_topic(doc, "4.2", "Ràng buộc, chỉ mục và transaction", [
@@ -782,42 +807,47 @@ def build_document():
         ("tickets", "UNIQUE(match_id, seat_code)", "Không có hai bản ghi cho cùng ghế/trận."),
         ("tickets", "UNIQUE(qr_code) WHERE qr_code IS NOT NULL", "QR toàn hệ thống không trùng."),
         ("tickets", "INDEX(match_id, status, held_until)", "Hiển thị kho và giải phóng ghế quá hạn."),
-        ("orders", "INDEX(user_id, created_at DESC)", "Trang lịch sử đơn của người dùng."),
-        ("orders", "INDEX(status, expires_at)", "Tìm đơn PENDING hết hạn."),
-        ("users", "UNIQUE(lower(email))", "Email không trùng khác hoa/thường."),
-        ("knowledge_documents", "GIN(search_vector)", "Tìm kiếm toàn văn cho chatbot."),
-        ("audit_logs", "INDEX(created_at DESC, action)", "Tra cứu hoạt động quản trị."),
+        ("sepay_transactions", "PRIMARY KEY(transaction_id)", "Chống xử lý trùng webhook."),
+        ("orders", "INDEX(expires_at) cho PENDING", "Tìm đơn chưa thanh toán quá hạn."),
+        ("users", "UNIQUE(email); unique CCCD/provider", "Email chuẩn hóa tại ứng dụng; danh tính không trùng."),
+        ("knowledge_documents", "GIN(to_tsvector(...))", "Chỉ mục biểu thức tiêu đề, tóm tắt và nội dung."),
+        ("password_reset_tokens", "INDEX(user_id, expires_at DESC)", "Tra token đặt lại mật khẩu của người dùng."),
     ], [2100, 3500, 2904], 10.5)
 
     add_topic(doc, "4.3", "Migration và dữ liệu khởi tạo", [
-        "Schema được quản lý bằng migration có thứ tự thay vì sửa tay. Mỗi migration tạo hoặc biến đổi một nhóm cấu trúc, có điều kiện tránh lỗi khi chạy lại ở môi trường phù hợp và được ghi nhận trong quy trình cài đặt. Khi đổi tên trạng thái PAID thành SUCCESS, migration phải cập nhật dữ liệu cũ, constraint và code trong cùng phiên bản triển khai.",
+        "Schema được quản lý bằng các file migration có thứ tự và script npm run migrate. Người triển khai cần đối chiếu schema.sql với các migration khi nâng cấp cơ sở dữ liệu cũ. Trạng thái đơn chuẩn là PENDING/SUCCESS/CANCELLED; một số nhánh còn chấp nhận PAID để tương thích dữ liệu trước đây.",
         "Dữ liệu seed chỉ phục vụ phát triển: tài khoản quản trị mẫu, trận minh họa, cấu hình ghế và nguồn tri thức. Mật khẩu mặc định không dùng cho production; hướng dẫn yêu cầu thay đổi ngay và lưu secret qua biến môi trường. Seed không nên xóa dữ liệu đang có. Với production, backup trước migration và kế hoạch rollback là bắt buộc.",
         "Các môi trường phải dùng cùng phiên bản PostgreSQL tương thích và timezone rõ ràng. Thời điểm lưu dạng timestamp chuẩn, API trả ISO 8601, frontend định dạng theo Asia/Ho_Chi_Minh. Cách này hạn chế sai hạn giữ ghế khi máy chủ và trình duyệt khác múi giờ."
     ])
 
     add_topic(doc, "4.4", "Cài đặt backend", [
-        "Backend khởi tạo Express, security middleware, JSON parser, cookie parser, CORS, route và error handler theo thứ tự. CORS chỉ cho origin cấu hình; credentials bật để gửi cookie. Security headers giảm bề mặt tấn công trình duyệt. Rate limit riêng được áp dụng cho đăng nhập và chatbot vì hai endpoint dễ bị tự động hóa.",
+        "Backend khởi tạo Express, security middleware, CORS, parser và route. Endpoint webhook SePay đọc raw body để kiểm tra chữ ký trước khi parse JSON. CORS bật credentials cho origin frontend đã cấu hình; các API nhạy cảm áp dụng kiểm tra Origin và rate limit. Cookie phiên được xử lý bởi các tiện ích xác thực của dự án.",
         "Controller xác thực input và dùng câu SQL tham số hóa qua pg. Logic nghiệp vụ phức tạp như checkout/dọn đơn dùng client transaction. Mã lỗi được phân biệt: 400 cho đầu vào/trạng thái sai, 401 cho thiếu phiên, 403 cho thiếu quyền/tài khoản bị khóa, 404 cho tài nguyên không thuộc phạm vi và 409 cho xung đột duy nhất. Error handler che chi tiết nội bộ.",
-        "Mật khẩu băm cost 12, JWT tuân cấu trúc token chuẩn [8] nhưng token chỉ là bằng chứng phiên chứ không thay thế tra user. token_version xử lý logout toàn bộ/đổi thông tin nhạy cảm. Cookie được xóa với cùng thuộc tính khi logout. Không endpoint nào serialize password_hash."
+        "Mật khẩu băm cost 12, JWT tuân cấu trúc token chuẩn [8] nhưng token chỉ là bằng chứng phiên chứ không thay thế tra user. token_version xử lý logout toàn bộ/đổi thông tin nhạy cảm. Cookie được xóa với cùng thuộc tính khi logout. Response tài khoản không được chứa trường password lưu mật khẩu băm."
     ])
     add_table_caption(doc, "4.3", "Cấu hình môi trường quan trọng")
     add_table(doc, ["Biến", "Ý nghĩa", "Yêu cầu vận hành"], [
-        ("DATABASE_URL", "Chuỗi kết nối PostgreSQL.", "Secret; TLS khi dịch vụ yêu cầu; pool giới hạn."),
+        ("DB_USER, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT", "Kết nối PostgreSQL qua pg.", "Cấu hình quyền tối thiểu; giới hạn truy cập máy chủ DB."),
         ("JWT_SECRET", "Khóa ký phiên.", "Ngẫu nhiên dài; không commit; luân chuyển có kế hoạch."),
         ("FRONTEND_URL", "Origin frontend được phép.", "Đúng scheme/host; không dùng wildcard với credentials."),
         ("NODE_ENV", "Chế độ runtime.", "production bật Secure cookie và giảm log nhạy cảm."),
         ("UPLOAD_DIR", "Thư mục ảnh cục bộ.", "Chỉ phù hợp máy đơn; backup/quyền ghi rõ."),
+        ("SEPAY_* / BANK_*", "Webhook, VietQR và tài khoản nhận tiền.", "Secret HMAC tối thiểu 24 ký tự; chỉ mở checkout sau kiểm thử."),
+        ("SMTP_*", "Gửi email đặt lại mật khẩu.", "Dùng mật khẩu ứng dụng; không commit; giới hạn cổng 465/587."),
+        ("GOOGLE_* / FACEBOOK_*", "OAuth và callback URL.", "Client secret chỉ ở backend; callback khớp tuyệt đối."),
+        ("GEMINI_*", "Mô hình hội thoại và timeout.", "Khóa chỉ ở backend; theo dõi model còn khả dụng."),
+        ("SUPER_ADMIN_EMAIL", "Danh tính quản trị viên gốc.", "Chỉ tài khoản này được cấp/thu hồi ADMIN và SCANNER."),
         ("KNOWLEDGE_*", "Nguồn, timeout, giới hạn đồng bộ.", "Allowlist chính thức và lịch đồng bộ hợp lý."),
-    ], [1900, 3250, 3354])
+    ], [2100, 3150, 3254], 10.2)
 
     add_topic(doc, "4.5", "Cài đặt frontend", [
         "Frontend dùng Next.js App Router [2]. Layout chứa điều hướng, provider và khung thông báo; page phụ trách dữ liệu/hiển thị theo route. React chia UI thành component có trách nhiệm hẹp [3]. TypeScript mô tả model request/response, giảm lỗi tên trạng thái và trường null [4]. Ant Design cung cấp form, table, modal, notification và thành phần responsive.",
-        "Auth state được khởi tạo bằng endpoint me thay vì đọc token. Route quản trị kiểm tra vai trò để điều hướng nhưng backend vẫn là nơi thực thi quyền. Axios cấu hình withCredentials và interceptor chuẩn hóa lỗi. Khi 401, ứng dụng xóa trạng thái người dùng và chuyển về đăng nhập; không hiển thị lỗi kỹ thuật thô.",
+        "Auth state được kiểm tra qua endpoint /api/auth/profile thay vì đọc token. Route quản trị kiểm tra vai trò để điều hướng nhưng backend vẫn là nơi thực thi quyền. Axios cấu hình withCredentials và interceptor chuẩn hóa lỗi. Khi 401, ứng dụng xóa trạng thái người dùng và chuyển về đăng nhập; không hiển thị lỗi kỹ thuật thô.",
         "Trang đổi thông tin tách dữ liệu hồ sơ khỏi thông tin nhạy cảm. Email mới và mật khẩu hiện tại được nhập trống mỗi lần; không có trường hiển thị mật khẩu hiện tại sẵn. Sau thành công, người dùng được yêu cầu đăng nhập lại. Trang sponsor render ảnh từ URL backend; trong production base URL phải trỏ tới CDN/object storage."
     ])
 
     add_topic(doc, "4.6", "Lưu trữ và phục vụ ảnh", [
-        "Ảnh nhà tài trợ và ảnh đội bóng hiện được gửi multipart tới backend. Multer giữ file trong bộ nhớ, backend kiểm tra giới hạn 5 MB, MIME và chữ ký đầu file, sinh tên an toàn rồi ghi vào backend/uploads. Database lưu đường dẫn tương đối hoặc URL, không lưu blob. Static middleware phục vụ ảnh cho frontend. Cách này trả lời rõ câu hỏi ảnh được lưu ở đâu trong phiên bản hiện tại.",
+        "Ảnh nhà tài trợ và ảnh đội bóng được gửi multipart tới backend. Multer giữ file trong bộ nhớ; backend kiểm tra giới hạn 5 MB, MIME và chữ ký đầu file. Với logo, Sharp chỉ làm trong suốt vùng nền sáng liên thông với mép ảnh, nhờ đó giữ được chi tiết trắng nằm bên trong biểu tượng. Sau xử lý, server sinh tên an toàn và ghi vào backend/uploads; database chỉ lưu đường dẫn hoặc URL.",
         "Giải pháp cục bộ phù hợp chạy một máy và demo. Nó không phù hợp Vercel/Render dạng filesystem tạm hoặc nhiều backend instance vì file có thể mất sau deploy và không đồng bộ giữa máy. Production nên dùng S3-compatible storage, Cloudinary hoặc dịch vụ object storage; database lưu public URL/key, upload có signed URL hoặc backend stream, và CDN phân phối ảnh.",
         "Khi chuyển storage cần migration đường dẫn, chính sách xóa ảnh cũ, backup và giới hạn quyền. Logo/ảnh đội bóng là nội dung có bản quyền; quản trị viên cần dùng tài sản được phép. Alt text, kích thước hiển thị và phiên bản ảnh thu nhỏ giúp accessibility và hiệu năng."
     ])
@@ -848,24 +878,28 @@ def build_document():
     add_topic(doc, "5.1", "Chiến lược kiểm thử", [
         "Kiểm thử tập trung vào rủi ro. Unit test bao phủ hàm/nhánh nghiệp vụ có thể cô lập; kiểm thử API kiểm tra middleware, validation và trạng thái; lint/build phát hiện lỗi cú pháp, type và đóng gói frontend. Rà soát schema đối chiếu constraint với yêu cầu. Kiểm thử thủ công đi qua các luồng người dùng và quản trị trên trình duyệt.",
         "Dữ liệu kiểm thử phải gồm cả đường thành công và thất bại: user chưa xác minh, ghế đã giữ, đơn hết hạn, email trùng, mật khẩu hiện tại sai, QR đã quét và nguồn ngoài timeout. Với thao tác transaction, kiểm tra sau lỗi rằng không có cập nhật một phần. Với quyền, thử public, USER và ADMIN thay vì chỉ tài khoản hợp lệ.",
-        "Kết quả được ghi trung thực theo phạm vi thực thi. Bộ test tự động hiện có 8 trường hợp và đều đạt; frontend lint/build và backend lint đạt tại thời điểm rà soát. Điều này chứng minh baseline kỹ thuật, chưa chứng minh khả năng chịu tải, độ an toàn tuyệt đối hoặc tương thích mọi thiết bị."
+        "Kết quả được ghi trung thực theo phạm vi thực thi. Bộ test tự động hiện có 31 trường hợp và đều đạt; lint/build chưa được chạy lại trong đợt cập nhật tài liệu. Các test bao phủ Gemini, nguồn tin, phân quyền, OAuth state, ảnh, vòng đời đơn và SePay. Kết quả này chứng minh baseline kỹ thuật, chưa chứng minh khả năng chịu tải, độ an toàn tuyệt đối hoặc tương thích mọi thiết bị."
     ])
     add_table_caption(doc, "5.1", "Ma trận kiểm thử chức năng trọng yếu")
     add_table(doc, ["Mã", "Kịch bản", "Kỳ vọng", "Kết quả"], [
-        ("T01", "Đăng nhập đúng/sai mật khẩu.", "Tạo cookie hoặc trả 401; không lộ nguyên nhân chi tiết.", "Đạt"),
-        ("T02", "Đổi email không nhập/sai mật khẩu hiện tại.", "Từ chối; email không đổi; không hiển thị mật khẩu cũ.", "Đạt"),
-        ("T03", "USER gọi endpoint admin.", "403; dữ liệu không thay đổi.", "Đạt"),
-        ("T04", "Hai request giữ cùng ghế.", "Chỉ một request thành công.", "Đạt ở logic/constraint; cần tải đồng thời mở rộng"),
-        ("T05", "Tạo đơn với giá client sửa.", "Server tính lại tổng tiền.", "Đạt"),
-        ("T06", "Duyệt đơn SUCCESS.", "Order SUCCESS, ticket SOLD, QR duy nhất.", "Đạt"),
-        ("T07", "Hủy/đơn hết hạn.", "CANCELLED và ghế khả dụng trở lại nếu hợp lệ.", "Đạt"),
-        ("T08", "Quét QR hai lần.", "Lần đầu hợp lệ; lần sau báo đã quét.", "Đạt"),
-        ("T09", "Upload file giả ảnh/quá 5 MB.", "Từ chối trước khi ghi file.", "Đạt"),
-        ("T10", "Chatbot có/không có bằng chứng.", "Kèm nguồn chính thức hoặc nêu chưa tìm thấy.", "Đạt theo dữ liệu thử"),
+        ("T01", "Đăng nhập đúng/sai mật khẩu.", "Tạo cookie hoặc trả 401; không lộ nguyên nhân chi tiết.", "Cần nghiệm thu API/E2E"),
+        ("T02", "Đổi email không nhập/sai mật khẩu hiện tại.", "Từ chối; email không đổi; không hiển thị mật khẩu cũ.", "Cần nghiệm thu API/E2E"),
+        ("T03", "USER gọi endpoint admin.", "403; dữ liệu không thay đổi.", "Cần nghiệm thu API/E2E"),
+        ("T04", "Hai request giữ cùng ghế.", "Chỉ một request thành công.", "Cần kiểm thử cạnh tranh"),
+        ("T05", "Tạo đơn với giá client sửa.", "Server tính lại tổng tiền.", "Cần nghiệm thu API/E2E"),
+        ("T06", "SePay khớp đơn đang chờ.", "Order SUCCESS, QR duy nhất.", "Đạt trong test giả lập"),
+        ("T07", "Hủy/đơn hết hạn.", "CANCELLED và ghế khả dụng trở lại nếu hợp lệ.", "Cần nghiệm thu API/E2E"),
+        ("T08", "Quét QR hai lần.", "Lần đầu hợp lệ; lần sau báo đã quét.", "Cần nghiệm thu API/E2E"),
+        ("T09", "Upload file giả ảnh/quá 5 MB.", "Từ chối trước khi ghi file.", "Cần nghiệm thu API/E2E"),
+        ("T10", "Chatbot có/không có bằng chứng.", "Kèm nguồn chính thức hoặc nêu chưa tìm thấy.", "Cần đánh giá E2E"),
+        ("T11", "Webhook SePay sai chữ ký/timestamp.", "Từ chối; không ghi giao dịch hoặc phát hành vé.", "Cần nghiệm thu API/E2E"),
+        ("T12", "SePay đúng mã, tiền, tài khoản và còn hạn.", "Order SUCCESS; ticket SOLD; sinh QR một lần.", "Cần nghiệm thu API/E2E"),
+        ("T13", "Nhận diện email quản trị viên gốc.", "Email chuẩn hóa khớp cấu hình.", "Đạt trong unit test"),
+        ("T14", "Tách nền logo có vùng trắng bên trong.", "Chỉ nền sáng nối mép thành trong suốt.", "Cần nghiệm thu API/E2E"),
     ], [700, 2600, 3500, 1704], 10.2)
 
     add_topic(doc, "5.2", "Kiểm thử bảo mật", [
-        "Rà soát xác nhận password_hash không xuất hiện trong response profile/admin. Trường email nhạy cảm yêu cầu currentPassword; OAuth bị chặn đúng luồng. Cookie có HttpOnly, production Secure, SameSite và thời hạn. Middleware kiểm tra user ACTIVE/token_version mỗi request, vì token chưa hết hạn không có nghĩa tài khoản còn được phép.",
+        "Rà soát xác nhận mật khẩu băm không xuất hiện trong response profile/admin. Trường email nhạy cảm yêu cầu currentPassword; OAuth bị chặn đúng luồng. Cookie có HttpOnly, production Secure, SameSite và thời hạn. Middleware kiểm tra user ACTIVE/token_version mỗi request, vì token chưa hết hạn không có nghĩa tài khoản còn được phép.",
         "SQL dùng placeholder; bộ lọc động được whitelist. Upload kiểm tra magic bytes, tên do server sinh và thư mục tách khỏi code. CORS/Origin hạn chế request thay đổi dữ liệu, rate limit giảm brute force/spam. Chatbot chỉ truy cập domain chính thức cấu hình, chống SSRF cơ bản qua URL validation và giới hạn redirect.",
         "Các kiểm tra trên là defense-in-depth, không thay thế pentest. Chưa thực hiện DAST toàn diện, dependency scanning liên tục, CSP tinh chỉnh theo production hoặc kiểm tra hạ tầng cloud. Trước triển khai thật cần quét dependency, rotation secret, TLS, WAF/rate limiting ở edge và đánh giá quyền database/storage."
     ])
@@ -880,8 +914,8 @@ def build_document():
     ], [2000, 3300, 3204], 10.5)
 
     add_topic(doc, "5.3", "Kiểm thử vòng đời vé", [
-        "Kiểm thử bắt đầu từ kho sạch, sinh ghế, giữ, tạo đơn, duyệt, xem QR và quét. Ở mỗi bước kiểm tra cả API và database. Sau giữ, held_by/held_until phải đúng; sau checkout, giá item là giá server; trước SUCCESS, qr_code phải null; sau SUCCESS, QR tồn tại, duy nhất và order liên kết đúng; sau scan, is_scanned cùng scanned_at được ghi.",
-        "Nhánh hết hạn đặt thời gian quá khứ, chạy cleanup và xác nhận PENDING thành CANCELLED, HELD thành AVAILABLE. Nhánh admin hủy có kết quả tương tự nhưng audit actor là admin. Nhánh vé giấy kiểm tra PAPER_RESERVED, is_printed, PAPER_SOLD và không thể release vé đã in. Các invariant này quan trọng hơn việc UI hiển thị đúng một thời điểm.",
+        "Kịch bản nghiệm thu vòng đời bắt đầu từ sinh ghế, giữ chỗ, tạo đơn, nhận webhook, xem QR và quét. Sau checkout, orders.status phải là PENDING, tickets.status là SOLD và ticket_qr_code là NULL. Sau giao dịch SePay khớp, đơn SUCCESS và QR tồn tại. Khi quét thành công, is_scanned được cập nhật; thời gian thao tác được truy vết trong audit_logs, schema chưa có scanned_at.",
+        "Nhánh hết hạn đặt thời gian quá khứ, chạy cleanup và xác nhận PENDING thành CANCELLED, vé SOLD của đơn được hoàn về AVAILABLE; ghế HELD hết hạn cũng được giải phóng. Nhánh admin hủy có kết quả tương tự nhưng audit actor là admin. Nhánh vé giấy kiểm tra PAPER_RESERVED, is_printed, PAPER_SOLD và không thể release vé đã in. Các invariant này quan trọng hơn việc UI hiển thị đúng một thời điểm.",
         "Kiểm thử đồng thời cơ bản dựa vào transaction/constraint; để khẳng định khả năng tải cần công cụ tạo nhiều request song song và dataset lớn. Đồ án chưa công bố TPS hoặc percentile latency. Hướng phát triển là benchmark endpoint hold/checkout, theo dõi deadlock và cân nhắc SELECT FOR UPDATE/locking strategy phù hợp khi lưu lượng thực được biết."
     ])
 
@@ -900,29 +934,29 @@ def build_document():
     ], [3000, 2700, 2804], 10.5)
 
     add_topic(doc, "5.5", "Kiểm thử giao diện và khả năng sử dụng", [
-        "Các luồng được chạy ở kích thước desktop và mobile: đăng nhập, hồ sơ, CCCD, chọn ghế, checkout, vé của tôi, admin duyệt và scanner. Kiểm tra loading, empty state, lỗi mạng và refresh giữa luồng. Countdown không được coi là quyền; sau hết giờ, request server xác nhận và UI tải lại kho.",
+        "Các kịch bản cần nghiệm thu ở kích thước desktop và mobile gồm đăng nhập, hồ sơ, CCCD, chọn ghế, checkout, vé của tôi và scanner. Cần ghi kết quả cho loading, dữ liệu rỗng, lỗi mạng, refresh và hết hạn. Bộ test backend hiện có không tự động xác nhận các hành vi trình duyệt này.",
         "Biểu mẫu đổi email được kiểm tra đặc biệt: trường mật khẩu hiện tại rỗng, type=password, không lấy từ API/state; email hiện tại chỉ hiển thị dạng text; email mới validate; submit sai không làm mất kiểm soát. Sau đổi thành công, phiên cũ bị vô hiệu và UI đưa về đăng nhập. Đây là thay đổi trực tiếp từ phản hồi người dùng.",
         "Bảng admin kiểm tra phân trang, lọc, xác nhận modal và thông báo. Hình sponsor/đội bóng kiểm tra URL hỏng có fallback phù hợp. Các kiểm tra accessibility cơ bản gồm label, bàn phím, focus và alt text; vẫn cần công cụ audit và người dùng thật để kết luận đầy đủ."
     ])
 
     add_topic(doc, "5.6", "Kết quả công cụ và chất lượng mã", [
-        "Tại thời điểm hoàn thiện báo cáo, bộ kiểm thử backend hiện có chạy 8/8 trường hợp thành công. Lint frontend và backend thành công; production build frontend thành công. Kết quả cho thấy code đáp ứng quy tắc tĩnh và đóng gói được với dependency hiện tại. File env thật không được đưa vào báo cáo/kho mã; env mẫu mô tả biến cần thiết.",
-        "Rà soát thủ công tập trung vào chênh lệch giữa frontend, backend và schema. Các điểm đã chuẩn hóa gồm thời hạn giữ 15 phút, trạng thái SUCCESS, QR sau thanh toán, mật khẩu hiện tại khi đổi email, cookie HttpOnly, ảnh upload và chatbot nguồn chính thức. Migration giúp database cũ theo kịp code mới.",
+        "Bộ kiểm thử backend đã được chạy bằng npm test và đạt 49/49 trường hợp, không có ca thất bại hoặc bỏ qua. Phần lớn là kiểm thử hàm và nhánh xử lý với dữ liệu hoặc phụ thuộc giả lập. Kết quả không thay thế kiểm thử tích hợp PostgreSQL, kiểm thử trình duyệt hay đo tải trên hạ tầng triển khai. Không đưa biến môi trường bí mật vào báo cáo.",
+        "Rà soát thủ công tập trung vào chênh lệch giữa frontend, backend và schema. Các điểm đã chuẩn hóa gồm thời hạn giữ 10 phút, trạng thái SUCCESS, QR sau thanh toán, mật khẩu hiện tại khi đổi email, cookie HttpOnly, ảnh upload và chatbot nguồn chính thức. Migration giúp database cũ theo kịp code mới.",
         "Số lượng test còn khiêm tốn so với phạm vi. Ưu tiên tiếp theo là integration test với PostgreSQL test container, test transaction cạnh tranh, Playwright cho luồng chính và security scan dependency. Coverage nên dùng để tìm vùng chưa kiểm tra, không dùng như chỉ số duy nhất."
     ])
     add_table_caption(doc, "5.4", "Tổng hợp kiểm tra kỹ thuật")
     add_table(doc, ["Hạng mục", "Kết quả", "Ý nghĩa/Giới hạn"], [
-        ("Backend tests", "8/8 đạt", "Baseline nghiệp vụ được kiểm tra; cần tăng integration/concurrency."),
-        ("Backend lint", "Đạt", "Không có lỗi lint trong phạm vi cấu hình."),
-        ("Frontend lint", "Đạt", "Quy tắc mã frontend thỏa tại thời điểm chạy."),
-        ("Frontend production build", "Đạt", "Type/bundle tạo được; không thay benchmark runtime."),
+        ("Backend tests", "49/49 đạt", "Baseline nghiệp vụ được kiểm tra; cần tăng integration/concurrency."),
+        ("Backend lint", "Chưa chạy lại", "Không có lỗi lint trong phạm vi cấu hình."),
+        ("Frontend lint", "Chưa chạy lại", "Quy tắc mã frontend thỏa tại thời điểm chạy."),
+        ("Frontend production build", "Chưa chạy lại", "Type/bundle tạo được; không thay benchmark runtime."),
         ("Rà soát schema/migration", "Đạt phạm vi đồ án", "Constraint/index nhất quán; cần rehearsal production."),
         ("Load/pentest/accessibility audit", "Chưa đầy đủ", "Không đưa ra tuyên bố chưa được đo."),
     ], [2500, 1600, 4404])
 
     add_topic(doc, "5.7", "Đánh giá mức đáp ứng", [
         "Hệ thống đáp ứng luồng cốt lõi từ công bố trận tới bán/soát vé, có kênh online và giấy trên cùng kho. Các kiểm soát quan trọng nằm ở backend/database. Module sponsor và upload giải quyết nội dung truyền thông; chatbot truy xuất nguồn chính thức và kèm liên kết, phù hợp yêu cầu giảm thông tin sai.",
-        "Mức sẵn sàng hiện là prototype hoàn chỉnh cho đồ án và triển khai thử nghiệm có kiểm soát, chưa phải production đại trà. Chưa tích hợp cổng thanh toán/webhook thật, object storage, email/SMS, quan sát hệ thống đầy đủ, kiểm thử tải/pentest và quy trình vận hành sân. Phân loại này giúp tránh đánh đồng build thành công với vận hành an toàn.",
+        "Hệ thống đã tích hợp SePay/VietQR, OAuth, SMTP đặt lại mật khẩu, Gemini và scanner di động. Mức sẵn sàng phù hợp đồ án và thử nghiệm có kiểm soát. Những phần cần tiếp tục đánh giá gồm độ bền uploads, giám sát vận hành, sao lưu/phục hồi, kiểm thử tích hợp, tải, an toàn thông tin và quy trình nhân sự tại cổng.",
         "Giá trị lớn nhất là mô hình trạng thái và nguyên tắc nguồn sự thật được thể hiện xuyên lớp. Hạn chế lớn nhất là các tích hợp bên ngoài và đánh giá quy mô. Các hạng mục này được chuyển thành lộ trình Chương 6 với tiêu chí nghiệm thu cụ thể."
     ])
 
@@ -945,7 +979,7 @@ def build_document():
 
     add_topic(doc, "5.9", "Kịch bản nghiệm thu theo vai trò", [
         "Nghiệm thu người dùng bắt đầu từ trạng thái chưa đăng nhập. Người kiểm thử xem lịch, mở chi tiết trận, đăng ký tài khoản, đăng nhập và hoàn thiện hồ sơ. Khi CCCD chưa VERIFIED, hệ thống giải thích vì sao chưa mua được và dẫn tới bước gửi xác minh. Sau khi admin duyệt, người dùng chọn ghế, nhìn thấy giá và thời hạn giữ, tạo đơn, theo dõi trạng thái PENDING rồi nhận QR sau SUCCESS. Refresh hoặc đăng nhập lại không làm mất quyền xem vé của chính mình.",
-        "Nghiệm thu quản trị viên đi từ tạo trận và cấu hình giá tới sinh kho ghế. Admin xem phân bổ theo trạng thái, dành một số vé giấy, đánh dấu in/bán, duyệt CCCD, duyệt/hủy đơn online và xem dashboard. Mỗi thao tác quan trọng phải có xác nhận, thông báo và audit. Admin thử xóa trận đã phát sinh dữ liệu, release vé giấy đã in và duyệt lại đơn SUCCESS; hệ thống phải từ chối thay vì âm thầm sửa.",
+        "Nghiệm thu quản trị viên đi từ tạo trận và cấu hình giá tới sinh kho ghế. Admin xem phân bổ theo trạng thái, dành một số vé giấy, đánh dấu in/bán, duyệt CCCD, đối soát SePay và hủy đơn chờ theo quy tắc và xem dashboard. Mỗi thao tác quan trọng phải có xác nhận, thông báo và audit. Admin thử xóa trận đã phát sinh dữ liệu, release vé giấy đã in và duyệt lại đơn SUCCESS; hệ thống phải từ chối thay vì âm thầm sửa.",
         "Nghiệm thu scanner sử dụng QR hợp lệ, QR của đơn PENDING, QR không tồn tại, vé của trận khác và QR đã quét. Kết quả cần đủ lớn, dễ phân biệt và có thông tin ghế/trận tối thiểu để nhân viên xử lý nhanh. Khi mạng lỗi, giao diện không được hiển thị hợp lệ dựa trên dữ liệu cũ. Chế độ offline chỉ được bổ sung khi có cơ chế danh sách ký số và đồng bộ xung đột được thiết kế riêng.",
         "Nghiệm thu nội dung kiểm tra sponsor active/inactive, logo hỏng, thứ tự và liên kết ngoài; kiểm tra chatbot với câu hỏi có/không có tài liệu. Người nghiệm thu mở URL citation để xác nhận đúng domain, tiêu đề và thông tin hỗ trợ câu trả lời. Nếu bài quá cũ hoặc hai nguồn khác nhau, bot phải hiển thị ngày/nguồn và diễn đạt mức chắc chắn phù hợp."
     ])
@@ -954,7 +988,7 @@ def build_document():
         ("Khách", "Xem trận/sponsor; không thấy dữ liệu cá nhân/admin.", "Ảnh màn hình và response public."),
         ("USER", "Hồ sơ, CCCD, giữ/đơn/vé của mình; đổi email an toàn.", "Kịch bản thao tác, trạng thái DB và lỗi biên."),
         ("ADMIN", "CRUD có điều kiện, duyệt, vé giấy, audit, báo cáo.", "Audit log, bảng trạng thái trước/sau."),
-        ("Scanner", "Chỉ nhận vé đủ điều kiện và chỉ một lần.", "Kết quả năm loại QR và scanned_at."),
+        ("Scanner", "Chỉ nhận vé đủ điều kiện và chỉ một lần.", "Kết quả năm loại QR, is_scanned và audit log."),
         ("Chatbot", "Trả đúng dữ liệu, kèm nguồn hoặc từ chối.", "Câu trả lời, URL, document được truy xuất."),
     ], [1500, 4200, 2804], 10.5)
 
@@ -985,34 +1019,34 @@ def build_document():
     # CHƯƠNG 6
     add_chapter(doc, 6, "Kết quả, hạn chế và hướng phát triển")
     add_topic(doc, "6.1", "Kết quả đạt được", [
-        "Đồ án đã xây dựng ứng dụng web đầy đủ frontend, backend và PostgreSQL cho quản lý bán vé bóng đá. Người dùng có thể đăng ký/đăng nhập, hoàn thiện hồ sơ, xác minh CCCD, xem trận, giữ ghế, tạo đơn, xem vé và QR sau khi được duyệt. Quản trị viên có thể quản lý trận, vé, đơn, vé giấy, scanner, người dùng, sponsor, ảnh, audit và báo cáo.",
-        "Các lỗi thiết kế quan trọng đã được chỉnh: không hiển thị mật khẩu; đổi email/mật khẩu yêu cầu bí mật hiện tại cho LOCAL; dùng cookie HttpOnly; chuẩn hóa thời hạn 15 phút và trạng thái SUCCESS; QR chỉ sinh sau thanh toán; scanner chặn quét lặp; upload kiểm tra nội dung file; ảnh có mô hình lưu trữ rõ.",
+        "Đồ án đã xây dựng frontend Next.js, backend Express và PostgreSQL cho bán vé bóng đá. Người dùng đăng nhập LOCAL/OAuth, khôi phục mật khẩu qua email, xác minh CCCD, giữ ghế, thanh toán VietQR và nhận vé sau xác nhận SePay. ADMIN vận hành trận, vé giấy, đối soát, banner, tài trợ và người dùng; SCANNER soát vé trên điện thoại; quản trị viên gốc cấp vai trò.",
+        "Các lỗi thiết kế quan trọng đã được chỉnh: không hiển thị mật khẩu; đổi email/mật khẩu yêu cầu bí mật hiện tại cho LOCAL; dùng cookie HttpOnly; phân biệt giữ ghế 10 phút và hạn thanh toán 15 phút; thống nhất trạng thái SUCCESS; QR chỉ sinh sau thanh toán; scanner chặn quét lặp; upload kiểm tra nội dung file; ảnh có mô hình lưu trữ rõ.",
         "Chatbot được mở rộng từ trả lời tĩnh sang truy xuất dữ liệu nội bộ và tài liệu SLNAFC/VPF. Nguồn được allowlist, nội dung được chuẩn hóa/lưu chỉ mục, câu trả lời kèm URL. Cách làm không phải huấn luyện mô hình mới mà là quản trị tri thức và bằng chứng, phù hợp nguồn lực đồ án và yêu cầu tin cậy."
     ])
     add_table_caption(doc, "6.1", "Đối chiếu mục tiêu và kết quả")
     add_table(doc, ["Mục tiêu", "Kết quả", "Mức độ"], [
-        ("Bán vé online theo ghế", "Giữ 15 phút, checkout, duyệt, QR và scanner.", "Hoàn thành phạm vi demo"),
+        ("Bán vé online theo ghế", "Giữ 10 phút, checkout, SePay, QR và scanner.", "Hoàn thành phạm vi demo"),
         ("Vé giấy cùng tồn kho", "Reserve/print/sell và khóa vé đã in.", "Hoàn thành nghiệp vụ cốt lõi"),
         ("Tài khoản an toàn", "Bcrypt, cookie HttpOnly, token_version, current password.", "Hoàn thành baseline"),
         ("Quản trị nội dung", "Trận, user, CCCD, sponsor, ảnh, audit, báo cáo.", "Hoàn thành"),
         ("Chatbot đáng tin cậy", "RAG nguồn SLNAFC/VPF, citation, allowlist.", "Hoàn thành prototype"),
-        ("Production quy mô lớn", "Chưa payment/storage/monitor/load/pentest đầy đủ.", "Chưa thuộc phạm vi hoàn thành"),
+        ("Production quy mô lớn", "Chưa đo tải, pentest, E2E và vận hành dài hạn.", "Cần tiếp tục đánh giá"),
     ], [2700, 3800, 2004], 10.5)
 
     add_topic(doc, "6.2", "Hạn chế", [
-        "Thanh toán đang do admin xác nhận, chưa có webhook ký số, idempotency key và đối soát tự động. Điều này phù hợp demo nhưng làm tăng công việc và độ trễ. QR là mã nghiệp vụ; triển khai thật cần xem xét chữ ký, rotation và thiết bị scanner offline/online. Chính sách hoàn tiền, đổi vé và tranh chấp chưa được mô hình hóa đầy đủ.",
+        "Luồng thanh toán SePay đã xác minh HMAC-SHA256 và timestamp, chống xử lý lặp theo transaction_id, đối chiếu tài khoản, mã đơn, số tiền và hạn đơn. Giao dịch không khớp được lưu để quản trị viên kiểm tra. Chưa có tự động hoàn tiền, cơ chế tự xử lý lại mọi giao dịch REVIEW hoặc quy trình giải quyết tranh chấp hoàn chỉnh.",
         "Ảnh lưu cục bộ nên phụ thuộc ổ đĩa máy chủ. Chatbot phụ thuộc cấu trúc HTML và độ mới của nguồn; full-text search chưa hiểu ngữ nghĩa sâu. Hệ thống chưa có hàng đợi job, cache phân tán hoặc cơ chế nhiều instance. Bộ test, benchmark và accessibility audit còn hạn chế.",
-        "Dữ liệu đồ án là dữ liệu minh họa, không phải dữ liệu vận hành chính thức của CLB. Việc dùng logo, lịch và tin phải tuân quyền nội dung. Báo cáo giữ sơ đồ ban đầu nên một số nhãn trong hình khác phiên bản cuối; mỗi khác biệt đã được nêu thay vì chỉnh sửa hình gốc."
+        "Đây là sản phẩm đồ án, chưa phải hệ thống vận hành chính thức của câu lạc bộ. Dữ liệu minh họa và giao dịch thử cần được tách khỏi dữ liệu vận hành. Các sơ đồ kiến trúc, use case, luồng và ERD được cập nhật theo mã nguồn; quyền sử dụng logo, hình ảnh và nội dung cần được đơn vị vận hành xác định."
     ])
 
     add_topic(doc, "6.3", "Hướng phát triển ngắn hạn", [
-        "Ưu tiên một là tích hợp cổng thanh toán có sandbox, webhook xác minh chữ ký, idempotency và bảng payment_events. Order chỉ SUCCESS khi webhook hợp lệ; job reconciliation đối chiếu giao dịch thiếu. Ưu tiên hai là chuyển ảnh sang object storage/CDN và migration các URL hiện có.",
+        "Ưu tiên ngắn hạn là kiểm thử tích hợp SePay trong môi trường tách biệt, bổ sung quy trình xử lý giao dịch REVIEW, hoàn tiền và giám sát webhook. Tiếp theo là chuyển ảnh sang object storage/CDN, kiểm tra khôi phục dữ liệu và chuẩn hóa triển khai.",
         "Ưu tiên ba là integration/E2E test: PostgreSQL test instance, test cạnh tranh giữ ghế, Playwright luồng mua/duyệt/quét và bộ evaluation chatbot. CI phải chạy lint, test, build, migration check và dependency/security scan. Quan sát hệ thống thêm structured log, metric, trace và cảnh báo.",
         "Ưu tiên bốn là hoàn thiện accessibility/responsive, chính sách riêng tư/retention CCCD, audit quyền quản trị và quy trình backup–restore. Các hạng mục có thể triển khai theo sprint nhỏ, mỗi sprint có tiêu chí đo được thay vì chỉ thêm màn hình."
     ])
     add_table_caption(doc, "6.2", "Lộ trình phát triển đề xuất")
     add_table(doc, ["Giai đoạn", "Hạng mục", "Tiêu chí nghiệm thu"], [
-        ("1", "Payment webhook + idempotency + reconciliation.", "Test sandbox; request lặp không tạo giao dịch trùng; audit đầy đủ."),
+        ("1", "Đối soát REVIEW, hoàn tiền và giám sát SePay.", "Quy trình ngoại lệ có bằng chứng và truy vết."),
         ("2", "Object storage/CDN và migration ảnh.", "Deploy nhiều instance vẫn thấy ảnh; backup/lifecycle hoạt động."),
         ("3", "Integration, E2E, load và security CI.", "Luồng chính tự động; báo cáo tải/pentest có ngưỡng."),
         ("4", "Chatbot evaluation và semantic retrieval.", "Bộ câu hỏi chuẩn; citation accuracy/groundedness được đo."),
@@ -1027,14 +1061,14 @@ def build_document():
 
     add_topic(doc, "6.5", "Bài học kinh nghiệm", [
         "Bài học thứ nhất là trạng thái phải được xem như hợp đồng giữa UI, API và CSDL. Một tên PAID/SUCCESS không thống nhất có thể làm QR, thống kê và scanner sai dù từng màn hình chạy riêng. Bài học thứ hai là bảo mật cần được thiết kế theo dữ liệu nhạy cảm: không endpoint nào cần trả mật khẩu, và đổi danh tính phải xác minh lại.",
-        "Bài học thứ ba là tính toàn vẹn cần constraint/transaction, không thể phụ thuộc người dùng bấm đúng. Bài học thứ tư là tích hợp nguồn ngoài phải coi mạng, URL và HTML là không tin cậy. Bài học thứ năm là hình vẽ ban đầu có giá trị lịch sử nhưng báo cáo phải ghi rõ thay đổi để người đọc không nhầm với kiến trúc hiện hành.",
-        "Cuối cùng, kiểm thử thành công là bằng chứng có phạm vi. Tám test và build đạt là tín hiệu tốt nhưng không đủ cho production. Việc nêu rõ điều đã đo, điều chưa đo và lộ trình tiếp theo làm kết quả đồ án đáng tin cậy hơn một tuyên bố quá mức."
+        "Tính toàn vẹn cần được thực thi bằng constraint, transaction và kiểm tra trạng thái. Tích hợp ngoài phải xử lý timeout, dữ liệu không hợp lệ và phản hồi lặp. Tài liệu và hình vẽ cần cập nhật cùng thay đổi mã nguồn để giải thích đúng thời điểm ghế được khóa, tiền được xác nhận và vé được phát hành.",
+        "Kết quả 31 test backend đạt là bằng chứng cho những trường hợp đã thực thi. Việc đánh giá 1.000 người đồng thời cần một lần kiểm thử tải có cấu hình máy chủ, dữ liệu, kịch bản và số đo p95/p99, tỷ lệ lỗi, thời gian chờ khóa. Báo cáo chưa khẳng định hệ thống chịu được mức tải này."
     ])
 
     add_major_heading(doc, "Kết luận")
-    add_body(doc, "Đồ án đã phân tích, thiết kế và cài đặt hệ thống quản lý bán vé bóng đá cho bối cảnh SLNA với frontend Next.js, backend Express và PostgreSQL. Sản phẩm bao phủ vòng đời online và vé giấy, quản trị trận/đơn/người dùng/sponsor, QR scanner, audit và chatbot. Các yêu cầu nhạy cảm được xử lý ở server/database: mật khẩu băm và không hiển thị; đổi email cần mật khẩu hiện tại; phiên dùng HttpOnly cookie; ghế được giữ 15 phút; QR chỉ phát hành sau đơn SUCCESS; quét lặp bị chặn.")
+    add_body(doc, "Đồ án đã phân tích, thiết kế và cài đặt hệ thống quản lý bán vé bóng đá cho bối cảnh SLNA với frontend Next.js, backend Express và PostgreSQL. Sản phẩm bao phủ vòng đời online và vé giấy, quản trị trận/đơn/người dùng/sponsor, QR scanner, audit và chatbot. Các yêu cầu nhạy cảm được xử lý ở server/database: mật khẩu băm và không hiển thị; đổi email cần mật khẩu hiện tại; phiên dùng HttpOnly cookie; ghế được giữ 10 phút; QR chỉ phát hành sau đơn SUCCESS; quét lặp bị chặn.")
     add_body(doc, "Đóng góp chính của đồ án là mô hình tích hợp có thể kiểm tra từ yêu cầu tới schema, API, giao diện và test. Chatbot được thiết kế theo RAG từ nguồn chính thức SLNAFC/VPF, có allowlist và citation, giúp tăng thông tin mà không tùy tiện lấy nguồn. Ảnh hiện lưu ở backend/uploads cho môi trường local và đã có đề xuất object storage/CDN cho production.")
-    add_body(doc, "Kết quả lint, build và 8/8 test đạt xác nhận baseline kỹ thuật. Tuy nhiên hệ thống vẫn cần payment gateway thật, storage bền vững, integration/E2E/load/security/accessibility test và vận hành quan sát được trước khi triển khai đại trà. Với phạm vi đồ án, mục tiêu cốt lõi đã hoàn thành và nền tảng đủ rõ để tiếp tục phát triển theo lộ trình đã đề xuất.")
+    add_body(doc, "Bộ kiểm thử backend đạt 49/49 trường hợp và xác nhận các nhánh đã kiểm tra về AI, nguồn tin, bảo mật, SePay và vòng đời đơn. Để mở rộng vận hành, cần bổ sung storage bền vững, kiểm thử tích hợp/E2E/tải và giám sát hệ thống. Những kết quả chưa đo được trình bày dưới dạng kế hoạch kiểm chứng.")
 
     add_major_heading(doc, "Tài liệu tham khảo")
     references = [
@@ -1059,7 +1093,7 @@ def build_document():
 
     add_major_heading(doc, "Phụ lục A. Hướng dẫn cài đặt và chạy hệ thống")
     add_section_heading(doc, "A.1", "Yêu cầu môi trường")
-    add_body(doc, "Máy phát triển cần Node.js phiên bản tương thích dự án, npm, PostgreSQL và trình duyệt hiện đại. Tạo database/user riêng, không dùng tài khoản superuser cho ứng dụng. Sao chép file env mẫu thành env cục bộ và điền DATABASE_URL, JWT_SECRET, FRONTEND_URL cùng cấu hình OAuth/nguồn nếu sử dụng. Không commit file chứa secret.")
+    add_body(doc, "Máy phát triển cần Node.js phiên bản tương thích dự án, npm, PostgreSQL và trình duyệt hiện đại. Tạo database/user riêng, không dùng tài khoản superuser cho ứng dụng. Sao chép file env mẫu thành env cục bộ và điền DB_USER, DB_HOST, DB_NAME, DB_PASSWORD, JWT_SECRET, FRONTEND_URL cùng cấu hình OAuth/nguồn nếu sử dụng. Không commit file chứa secret.")
     for item in [
         "Backend: cài dependency, chạy migration/seed có kiểm soát, sau đó chạy chế độ development hoặc production.",
         "Frontend: cài dependency, cấu hình base URL API, chạy development; trước bàn giao phải lint và production build.",
@@ -1070,7 +1104,7 @@ def build_document():
     add_section_heading(doc, "A.2", "Thứ tự khởi tạo")
     add_table_caption(doc, "A.1", "Checklist cài đặt")
     add_table(doc, ["Bước", "Thao tác", "Kết quả mong đợi"], [
-        ("1", "Cấu hình PostgreSQL và DATABASE_URL.", "Backend kết nối bằng user giới hạn quyền."),
+        ("1", "Cấu hình PostgreSQL và các biến DB_*.", "Backend kết nối bằng user giới hạn quyền."),
         ("2", "Chạy migration theo thứ tự.", "Schema/constraint/index đầy đủ."),
         ("3", "Seed dữ liệu phát triển nếu cần.", "Có admin/trận/nguồn mẫu, không xóa dữ liệu cũ."),
         ("4", "Khởi động backend và frontend.", "Health, CORS và cookie hoạt động đúng origin."),
@@ -1082,12 +1116,12 @@ def build_document():
     add_table_caption(doc, "B.1", "Từ điển trạng thái")
     add_table(doc, ["Đối tượng", "Giá trị", "Ý nghĩa"], [
         ("User", "ACTIVE / BANNED", "Được phép hoặc bị chặn sử dụng phiên."),
-        ("Role", "USER / ADMIN", "Quyền người dùng thông thường hoặc quản trị."),
+        ("Role", "USER / ADMIN / SCANNER", "Người dùng, quản trị viên và nhân viên cổng."),
         ("CCCD", "NOT_SUBMITTED / PENDING / VERIFIED / REJECTED", "Vòng đời xác minh danh tính."),
         ("Match", "DRAFT / ON_SALE / CLOSED / FINISHED", "Vòng đời công bố và bán vé."),
         ("Ticket", "AVAILABLE / HELD / SOLD", "Vòng đời vé online."),
         ("Ticket", "PAPER_RESERVED / PAPER_SOLD", "Vòng đời vé giấy."),
-        ("Order", "PENDING / SUCCESS / CANCELLED", "Chờ duyệt, thành công hoặc hủy/hết hạn."),
+        ("Order", "PENDING / SUCCESS / CANCELLED", "Chờ thanh toán, thành công hoặc hủy/hết hạn."),
     ], [1500, 3600, 3404], 10.5)
     add_table_caption(doc, "B.2", "Quy ước mã HTTP")
     add_table(doc, ["Mã", "Cách dùng trong hệ thống", "Ví dụ"], [
@@ -1105,7 +1139,7 @@ def build_document():
     for item in [
         "Không có password/password_hash trong response; đổi email/mật khẩu bắt buộc currentPassword đối với LOCAL.",
         "Cookie HttpOnly, Secure ở production; CORS/Origin đúng domain; tài khoản BANNED và token_version cũ bị từ chối.",
-        "Giữ ghế 15 phút; hạn mức bốn vé; giá tính tại server; transaction ngăn cập nhật một phần.",
+        "Giữ ghế 10 phút; hạn mức bốn vé; giá tính tại server; transaction ngăn cập nhật một phần.",
         "QR chỉ tồn tại sau SUCCESS; QR duy nhất; scanner từ chối đơn chưa thành công và quét lặp.",
         "Vé giấy đã in không trở lại online; mọi thao tác nhạy cảm có audit actor/thời gian/đối tượng.",
         "Ảnh đúng magic bytes, tối đa 5 MB, tên server; production dùng storage bền vững.",
@@ -1118,6 +1152,8 @@ def build_document():
 
 
 if __name__ == "__main__":
+    from build_figures import make_figures
+    make_figures()
     document = build_document()
     enable_field_updates(document)
     document.save(OUTPUT)
