@@ -17,7 +17,7 @@ export default function ResultsPage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-50 pb-20 pt-24">
+    <main className="min-h-screen bg-gray-50 pb-20">
       <section className="bg-[#003078] px-6 py-14 text-white">
         <div className="mx-auto max-w-5xl">
           <p className="mb-2 text-xs font-black uppercase tracking-[0.3em] text-[#edbb00]">SLNA FC</p>

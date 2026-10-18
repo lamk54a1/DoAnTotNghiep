@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { CalendarOutlined, EnvironmentOutlined, FireOutlined, TrophyOutlined } from '@ant-design/icons';
 import axiosClient, { API_ORIGIN } from '../../api/axiosClient';
 import { IMatch } from '../../interfaces';
@@ -66,6 +67,19 @@ const Hero = () => {
                 </span>
               </div>
               {featuredMatch && <MatchCountdown matchDate={featuredMatch.matchDate} />}
+              <div className="mt-7 flex flex-wrap gap-3">
+                <Link
+                  href={featuredMatch?.status === 'ON_SALE' ? `/booking/${featuredMatch.id}` : '/matches'}
+                  className="rounded-xl bg-[#edbb00] px-6 py-3 text-sm font-black uppercase text-[#003078] shadow-lg transition-transform hover:-translate-y-0.5"
+                >
+                  {featuredMatch?.status === 'ON_SALE' ? 'Mua vé ngay' : 'Xem lịch thi đấu'}
+                </Link>
+                {featuredMatch && (
+                  <Link href={`/matches/${featuredMatch.id}`} className="rounded-xl border border-white/30 bg-white/10 px-6 py-3 text-sm font-black uppercase text-white backdrop-blur transition-colors hover:bg-white/20">
+                    Chi tiết trận đấu
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
           <div className="absolute right-8 top-8 text-[120px] font-black italic leading-none text-white/10 md:text-[180px]">

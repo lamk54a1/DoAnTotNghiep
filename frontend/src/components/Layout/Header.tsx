@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { ShoppingCartOutlined, UserOutlined, LogoutOutlined, DashboardOutlined, IdcardOutlined, QrcodeOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, UserOutlined, LogoutOutlined, DashboardOutlined, IdcardOutlined, QrcodeOutlined, MenuOutlined, CloseOutlined } from '@ant-design/icons';
 import { Badge, Dropdown, MenuProps } from 'antd';
 import { useBooking } from '../../hooks/useBooking'; // Đường dẫn tương đối của bạn
 import { AUTH_SESSION_CHANGED, clearAuthSession, getStoredUser, StoredUser } from '../../utils/authSession';
@@ -11,6 +11,7 @@ import { authApi } from '../../api/authApi';
 
 const Header = () => {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<StoredUser | null>(null); // Chỉ lưu dữ liệu hiển thị không nhạy cảm
   const { selectedSeats } = useBooking();
   const router = useRouter();
@@ -83,11 +84,20 @@ const Header = () => {
     },
   ];
 
+  const solidHeader = isScrolled || pathname !== '/';
+  const navigation = [
+    { href: '/', label: 'Trang chủ' },
+    { href: '/matches', label: 'Lịch thi đấu' },
+    { href: '/results', label: 'Kết quả' },
+    { href: '/news', label: 'Tin tức' },
+    { href: '/my-tickets', label: 'Vé của tôi' },
+  ];
+
   return (
-    <header className={`fixed w-full z-[100] transition-all duration-500 ${
-      isScrolled ? 'bg-[#003078] shadow-xl py-3' : 'bg-transparent py-6'
+    <header className={`fixed z-[100] w-full transition-all duration-300 ${
+      solidHeader ? 'bg-[#003078]/95 py-3 shadow-xl backdrop-blur-md' : 'bg-gradient-to-b from-black/45 to-transparent py-5'
     }`}>
-      <div className="max-w-7xl mx-auto px-6 flex justify-between items-center">
+      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6">
         
         {/* LOGO SLNA */}
         <Link href="/" className="flex items-center gap-3 group no-underline">
@@ -102,9 +112,7 @@ const Header = () => {
             />
           </div>
           <div className="flex flex-col leading-none">
-            <span className={`font-black text-xl tracking-tighter transition-colors ${
-              isScrolled ? 'text-white' : 'text-[#edbb00]'
-            }`}>
+            <span className="text-lg font-black tracking-tighter text-white transition-colors sm:text-xl">
               TICKETING
             </span>
             <span className="text-[8px] font-bold tracking-[0.22em] text-white opacity-60 uppercase">Hệ thống bán vé</span>
@@ -112,26 +120,27 @@ const Header = () => {
         </Link>
 
         {/* MENU CHÍNH */}
-        <nav className="hidden md:flex items-center gap-10 font-black text-[11px] uppercase tracking-[0.2em]">
-          <Link href="/" className="text-white hover:text-[#edbb00] transition-all relative group">
-            Trang chủ
-            <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-[#edbb00] transition-all group-hover:w-full"></span>
-          </Link>
-          <Link href="/matches" className="text-white hover:text-[#edbb00] transition-all">Lịch thi đấu</Link>
-          <Link href="/results" className="text-white hover:text-[#edbb00] transition-all">Kết quả</Link>
-          <Link href="/news" className="text-white hover:text-[#edbb00] transition-all">Tin tức</Link>
-          <Link href="/my-tickets" className="text-[#edbb00] hover:text-white transition-all underline underline-offset-4">
-            Vé của tôi
-          </Link>
+        <nav className="hidden items-center gap-7 text-[11px] font-black uppercase tracking-[0.16em] lg:flex" aria-label="Điều hướng chính">
+          {navigation.map((item) => {
+            const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`));
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={active ? 'page' : undefined}
+                className={`site-nav-link relative py-2 transition-colors after:absolute after:inset-x-0 after:-bottom-0.5 after:h-0.5 after:origin-left after:bg-[#edbb00] after:transition-transform ${active ? 'site-nav-link-active after:scale-x-100' : 'after:scale-x-0 hover:after:scale-x-100'}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* ACTIONS: GIỎ HÀNG & PROFILE */}
-        <div className="flex items-center gap-6">
-          <Link href={selectedSeats.length > 0 ? '/checkout' : '/matches'}>
+        <div className="flex items-center gap-3 sm:gap-5">
+          <Link href={selectedSeats.length > 0 ? '/checkout' : '/matches'} aria-label={`Giỏ vé, ${selectedSeats.length} ghế đã chọn`}>
             <Badge count={selectedSeats?.length || 0} offset={[5, 0]} color="#edbb00" size="small">
-              <ShoppingCartOutlined className={`text-2xl cursor-pointer transition-colors ${
-                isScrolled ? 'text-white' : 'text-[#edbb00]'
-              }`} />
+              <ShoppingCartOutlined className="cursor-pointer text-2xl text-white transition-colors hover:text-[#edbb00]" />
             </Badge>
           </Link>
 
@@ -140,32 +149,53 @@ const Header = () => {
           {/* KIỂM TRA ĐĂNG NHẬP ĐỂ HIỂN THỊ NÚT */}
           {user ? (
             <Dropdown menu={{ items: userMenu }} placement="bottomRight" arrow>
-              <button className={`flex items-center gap-2 font-black px-5 py-2 rounded-full text-[11px] tracking-widest transition-all shadow-md active:scale-95 ${
-                isScrolled 
-                ? 'bg-white text-[#003078] hover:bg-[#edbb00]' 
-                : 'bg-[#edbb00] text-[#003078] hover:bg-white'
-              }`}>
+              <button aria-label="Mở menu tài khoản" className="flex items-center gap-2 rounded-full bg-white px-3 py-2 text-[11px] font-black tracking-widest text-[#003078] shadow-md transition-all hover:bg-[#edbb00] active:scale-95 sm:px-5">
                 <UserOutlined className="text-sm" />
-                {(user.fullName || user.email).toUpperCase()} {/* Hiển thị tên thay vì chữ ĐĂNG NHẬP */}
+                <span className="hidden max-w-40 truncate sm:inline">{(user.fullName || user.email).toUpperCase()}</span>
               </button>
             </Dropdown>
           ) : (
             <Link
               href="/login"
               suppressHydrationWarning
-              className={`flex items-center gap-2 font-black px-5 py-2 rounded-full text-[11px] tracking-widest transition-all shadow-md active:scale-95 ${
-                isScrolled 
-                ? 'bg-white text-[#003078] hover:bg-[#edbb00]' 
-                : 'bg-[#edbb00] text-[#003078] hover:bg-white'
-              }`}
+              className="hidden items-center gap-2 rounded-full bg-white px-5 py-2 text-[11px] font-black tracking-widest text-[#003078] shadow-md transition-all hover:bg-[#edbb00] active:scale-95 sm:flex"
             >
               <UserOutlined className="text-sm" />
               ĐĂNG NHẬP
             </Link>
           )}
 
+          <button
+            type="button"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/20 text-lg text-white transition-colors hover:bg-white/10 lg:hidden"
+            onClick={() => setMobileOpen((value) => !value)}
+            aria-label={mobileOpen ? 'Đóng menu' : 'Mở menu'}
+            aria-expanded={mobileOpen}
+          >
+            {mobileOpen ? <CloseOutlined /> : <MenuOutlined />}
+          </button>
+
         </div>
       </div>
+      {mobileOpen && (
+        <nav className="mx-4 mt-3 rounded-2xl border border-white/10 bg-[#07366f] p-3 shadow-2xl lg:hidden" aria-label="Điều hướng trên điện thoại">
+          <div className="grid gap-1">
+            {navigation.map((item) => {
+              const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`));
+              return (
+                <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)} className={`site-mobile-nav-link rounded-xl px-4 py-3 text-sm font-bold ${active ? 'site-mobile-nav-link-active' : 'hover:bg-white/10'}`}>
+                  {item.label}
+                </Link>
+              );
+            })}
+            {!user && (
+              <Link href="/login" onClick={() => setMobileOpen(false)} className="mt-1 rounded-xl bg-white px-4 py-3 text-center text-sm font-black text-[#003078] sm:hidden">
+                Đăng nhập
+              </Link>
+            )}
+          </div>
+        </nav>
+      )}
     </header>
   );
 };

@@ -37,7 +37,7 @@ export default function RootLayout({
             {/* THÊM THẺ APP CỦA ANTD BỌC QUANH CONTENT */}
             <App>
               <Header />
-              <div className="flex-grow pt-16">
+              <div className="flex-grow pt-[72px]">
                 {children}
               </div>
               <ChatbotWidget />

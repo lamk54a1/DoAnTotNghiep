@@ -44,7 +44,7 @@ export default function MatchDetailPage() {
 
   if (!match) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-24">
+      <div className="min-h-screen bg-gray-50">
         <Result status="404" title="Không tìm thấy trận đấu" extra={<Button onClick={() => router.push('/matches')}>Quay lại lịch thi đấu</Button>} />
       </div>
     );
@@ -58,7 +58,7 @@ export default function MatchDetailPage() {
   const soldPaperTickets = STANDS.reduce((sum, stand) => sum + Number(inventory[stand]?.paperSold || 0), 0);
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] pb-16 pt-24 font-montserrat">
+    <main className="min-h-screen bg-[#f8fafc] pb-16 font-montserrat">
       <section className="relative min-h-[420px] overflow-hidden bg-[#003078] text-white">
         <Image src={bannerImage} alt={`SLNA vs ${match.opponent}`} fill priority unoptimized className="object-cover opacity-40" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#003078] via-[#003078]/85 to-[#003078]/20" />

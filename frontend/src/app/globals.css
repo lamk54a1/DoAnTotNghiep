@@ -10,6 +10,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --slna-blue: #003078;
+  --slna-yellow: #edbb00;
 }
 
 @theme inline {
@@ -19,17 +21,55 @@
   --font-mono: "Courier New", monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: "Segoe UI", Arial, Helvetica, sans-serif;
+  margin: 0;
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::selection {
+  background: var(--slna-yellow);
+  color: var(--slna-blue);
+}
+
+:focus-visible {
+  outline: 3px solid rgba(237, 187, 0, 0.75);
+  outline-offset: 3px;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.site-nav-link {
+  color: #ffffff !important;
+}
+
+.site-nav-link:hover,
+.site-nav-link-active {
+  color: var(--slna-yellow) !important;
+}
+
+.site-mobile-nav-link {
+  color: #ffffff !important;
+}
+
+.site-mobile-nav-link-active {
+  background: var(--slna-yellow);
+  color: var(--slna-blue) !important;
+}
+
+.login-primary-button,
+.login-primary-button:hover {
+  color: #ffffff !important;
 }
 
 /* Tiêu đề bảng trong khu vực quản trị cần tương phản rõ khi thao tác nhanh. */
@@ -64,6 +104,11 @@ body {
   color: #ffffff !important;
 }
 
+.admin-surface .admin-nav-scroll {
+  scrollbar-color: rgba(255, 255, 255, 0.35) transparent;
+  scrollbar-width: thin;
+}
+
 /* Trên mobile, nhãn thông tin admin giữ chiều rộng ổn định và nội dung được phép xuống dòng. */
 .admin-surface .admin-mobile-details .ant-descriptions-item-label {
   width: 108px;
@@ -87,5 +132,24 @@ body {
 
   .admin-surface .ant-card-body {
     padding: 14px;
+  }
+
+  .admin-surface .ant-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .admin-surface .ant-table {
+    min-width: 680px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

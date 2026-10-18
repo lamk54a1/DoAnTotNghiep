@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import dayjs from 'dayjs';
-import { Button, Card, Empty, Modal, QRCode, Spin, Tag } from 'antd';
+import { Alert, Button, Card, Empty, Modal, QRCode, Spin, Tag } from 'antd';
 import { FilePdfOutlined } from '@ant-design/icons';
 import axiosClient from '../../api/axiosClient';
 import PrintableTicket, { PrintableTicketData } from '../../components/Tickets/PrintableTicket';
@@ -28,8 +28,18 @@ export default function MyTicketsPage() {
   const router = useRouter();
   const [orders, setOrders] = useState<MyOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [sponsors, setSponsors] = useState<ISponsor[]>([]);
   const [printing, setPrinting] = useState<{ ticket: MyTicket; orderQrCode: string } | null>(null);
+
+  const loadOrders = () => {
+    setLoading(true);
+    setError(false);
+    void axiosClient.get<MyOrder[]>('/orders/my')
+      .then(setOrders)
+      .catch(() => setError(true))
+      .finally(() => setLoading(false));
+  };
 
   useEffect(() => {
     if (!localStorage.getItem('user_info')) {
@@ -39,14 +49,21 @@ export default function MyTicketsPage() {
 
     void axiosClient.get<MyOrder[]>('/orders/my')
       .then(setOrders)
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
     void axiosClient.get<ISponsor[]>('/sponsors')
       .then(setSponsors)
       .catch(() => setSponsors([]));
   }, [router]);
 
+  const statusMeta: Record<MyOrder['status'], { color: string; label: string }> = {
+    SUCCESS: { color: 'green', label: 'Đã thanh toán' },
+    PENDING: { color: 'gold', label: 'Chờ thanh toán' },
+    CANCELLED: { color: 'red', label: 'Đã hủy' },
+  };
+
   return (
-    <main className="min-h-screen bg-gray-50 pb-20 pt-24">
+    <main className="min-h-screen bg-gray-50 pb-20">
       <section className="bg-[#003078] px-6 py-14 text-white">
         <div className="mx-auto max-w-5xl">
           <p className="mb-2 text-xs font-black uppercase tracking-[0.3em] text-[#edbb00]">Tài khoản cá nhân</p>
@@ -57,11 +74,20 @@ export default function MyTicketsPage() {
       <section className="mx-auto max-w-5xl space-y-6 px-6 py-12">
         {loading ? (
           <div className="py-20 text-center"><Spin size="large" /></div>
+        ) : error ? (
+          <Alert
+            type="error"
+            showIcon
+            message="Chưa tải được vé của bạn"
+            description="Vui lòng kiểm tra kết nối và thử lại. Vé đã mua vẫn được lưu an toàn trong hệ thống."
+            action={<Button onClick={loadOrders}>Thử lại</Button>}
+            className="rounded-2xl"
+          />
         ) : orders.length > 0 ? orders.map((order) => (
           <Card
             key={order.id}
             title={<span className="font-black text-[#003078]">Đơn hàng #{order.id}</span>}
-            extra={<Tag color={order.status === 'SUCCESS' ? 'green' : order.status === 'PENDING' ? 'gold' : 'red'}>{order.status}</Tag>}
+            extra={<Tag color={statusMeta[order.status].color}>{statusMeta[order.status].label}</Tag>}
             className="overflow-hidden rounded-2xl shadow-sm"
           >
             <div className="mb-5 flex flex-wrap gap-5 text-xs font-bold text-gray-500">
@@ -80,11 +106,11 @@ export default function MyTicketsPage() {
             )}
             <div className="grid gap-4 md:grid-cols-2">
               {order.tickets.map((ticket) => (
-                <div key={ticket.id} className="flex gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                <div key={ticket.id} className="flex flex-col gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:flex-row">
                   {order.status === 'SUCCESS' && ticket.ticketQrCode ? (
-                    <QRCode value={ticket.ticketQrCode} size={90} color="#003078" bordered={false} />
+                    <div className="self-center rounded-xl bg-white p-1 shadow-sm"><QRCode value={ticket.ticketQrCode} size={112} color="#003078" bordered={false} /></div>
                   ) : (
-                    <div className="flex h-[90px] w-[90px] items-center justify-center rounded-lg bg-amber-50 p-2 text-center text-[10px] font-bold text-amber-700">
+                    <div className="flex h-[112px] w-[112px] self-center items-center justify-center rounded-lg bg-amber-50 p-2 text-center text-[10px] font-bold text-amber-700">
                       {order.status === 'PENDING' ? 'Chờ xác nhận thanh toán' : 'Vé không còn hiệu lực'}
                     </div>
                   )}

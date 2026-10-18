@@ -18,7 +18,7 @@ const MatchCard = ({ match }: Props) => {
         : 'HẾT VÉ';
 
   return (
-    <div className="bg-white rounded-3xl shadow-xl overflow-hidden hover:shadow-2xl transition-all duration-300 border border-gray-100 group">
+    <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-gray-100 bg-white shadow-lg transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl">
       
       {/* Banner Header Trận đấu */}
       <div className="bg-[#003078] p-6 relative">
@@ -81,7 +81,7 @@ const MatchCard = ({ match }: Props) => {
       </div>
 
       {/* Thông tin chi tiết bên dưới */}
-      <div className="p-6">
+      <div className="flex flex-1 flex-col p-6">
         <div className="flex items-center gap-2 mb-4">
             <span className="bg-gray-100 text-gray-600 text-[10px] font-bold px-2 py-1 rounded">{match.competitionName || 'GIẢI ĐẤU'}</span>
             <span className="text-gray-300">|</span>
@@ -101,7 +101,7 @@ const MatchCard = ({ match }: Props) => {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-dashed border-gray-200 flex items-center justify-between gap-3">
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-dashed border-gray-200 pt-4">
           <div>
             <p className="text-[10px] text-gray-400 font-bold uppercase">Giá chỉ từ</p>
             <p className="text-[#003078] font-black text-2xl">{match.ticketPriceMin?.toLocaleString('en-US')}đ</p>
@@ -109,13 +109,13 @@ const MatchCard = ({ match }: Props) => {
           
           <div className="flex flex-wrap justify-end gap-2">
             <Link href={`/matches/${match.id}`}>
-              <button className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-black text-[#003078] shadow-sm transition-all hover:bg-blue-50">
+              <button className="min-h-11 rounded-xl bg-gray-100 px-4 py-3 text-sm font-black text-[#003078] shadow-sm transition-all hover:bg-blue-50">
                 CHI TIẾT
               </button>
             </Link>
             {canBook ? (
             <Link href={`/booking/${match.id}`}>
-              <button className="rounded-xl bg-[#FFD700] px-5 py-3 text-sm font-black text-[#003078] shadow-md transition-all hover:bg-[#003078] hover:text-[#FFD700]">
+              <button className="min-h-11 rounded-xl bg-[#FFD700] px-5 py-3 text-sm font-black text-[#003078] shadow-md transition-all hover:bg-[#003078] hover:text-[#FFD700]">
                 MUA VÉ
               </button>
             </Link>
@@ -127,7 +127,7 @@ const MatchCard = ({ match }: Props) => {
           </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 

@@ -82,9 +82,9 @@ export default function ChatbotWidget() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-[200] font-montserrat">
+    <div className="fixed bottom-4 right-4 z-[200] font-montserrat sm:bottom-6 sm:right-6">
       {open && (
-        <div className="mb-4 w-[350px] overflow-hidden rounded-[28px] border border-blue-100 bg-white shadow-2xl shadow-blue-900/20">
+        <div className="mb-3 w-[calc(100vw-2rem)] max-w-[380px] overflow-hidden rounded-[24px] border border-blue-100 bg-white shadow-2xl shadow-blue-900/20 sm:mb-4 sm:rounded-[28px]">
           <div className="flex items-center justify-between bg-[#003078] px-5 py-4 text-white">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#edbb00] text-[#003078]">
@@ -98,7 +98,7 @@ export default function ChatbotWidget() {
             <Button type="text" icon={<CloseOutlined />} className="text-white hover:!bg-white/10 hover:!text-white" onClick={() => setOpen(false)} />
           </div>
 
-          <div ref={listRef} className="max-h-[360px] space-y-3 overflow-y-auto bg-gray-50 p-4">
+          <div ref={listRef} className="max-h-[min(52vh,420px)] space-y-3 overflow-y-auto bg-gray-50 p-4" aria-live="polite">
             {messages.map((message, index) => (
               <div key={`${message.role}-${index}`} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[86%] whitespace-pre-line rounded-2xl px-4 py-3 text-xs leading-5 ${
@@ -173,8 +173,9 @@ export default function ChatbotWidget() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex h-16 w-16 items-center justify-center rounded-full bg-[#edbb00] text-2xl text-[#003078] shadow-2xl shadow-blue-900/30 transition-transform hover:scale-105"
-        aria-label="Mở chatbot SLNA"
+        className="ml-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#edbb00] text-xl text-[#003078] shadow-2xl shadow-blue-900/30 transition-transform hover:scale-105 sm:h-16 sm:w-16 sm:text-2xl"
+        aria-label={open ? 'Đóng trợ lý SLNA' : 'Mở trợ lý SLNA'}
+        aria-expanded={open}
       >
         <CustomerServiceOutlined />
       </button>

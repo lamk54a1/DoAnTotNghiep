@@ -9,7 +9,7 @@ interface StaticInfoPageProps {
 
 export default function StaticInfoPage({ eyebrow, title, description, children }: StaticInfoPageProps) {
   return (
-    <main className="min-h-screen bg-gray-50 pb-20 pt-24">
+    <main className="min-h-screen bg-gray-50 pb-20">
       <section className="bg-[#003078] px-6 py-16 text-white">
         <div className="mx-auto max-w-5xl">
           <p className="mb-3 text-xs font-black uppercase tracking-[0.3em] text-[#edbb00]">{eyebrow}</p>

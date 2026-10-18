@@ -47,10 +47,10 @@ export default function AdminPageShell({ title, subtitle, extra, children }: Adm
     <AdminGuard>
       <div className="admin-surface min-h-screen bg-gray-50 px-4 py-8 md:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="mb-6 rounded-2xl bg-[#003078] p-4 shadow-md">
-            <div className="flex flex-wrap gap-2">
+          <div className="mb-6 rounded-2xl bg-[#003078] p-3 shadow-md md:p-4">
+            <div className="admin-nav-scroll flex gap-2 overflow-x-auto pb-1">
               {visibleNavigation.map((item) => (
-                <Link href={item.href} key={item.href}>
+                <Link href={item.href} key={item.href} className="shrink-0">
                   <Button
                     icon={item.icon}
                     type={pathname === item.href ? 'primary' : 'text'}
@@ -68,7 +68,7 @@ export default function AdminPageShell({ title, subtitle, extra, children }: Adm
               <h1 className="m-0 text-2xl font-black uppercase tracking-tight text-[#003078]">{title}</h1>
               {subtitle && <p className="mt-1 text-sm text-gray-500">{subtitle}</p>}
             </div>
-            {extra && <Space>{extra}</Space>}
+            {extra && <Space wrap>{extra}</Space>}
           </div>
 
           {children}

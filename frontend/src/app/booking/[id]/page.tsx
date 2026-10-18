@@ -103,7 +103,7 @@ const BookingPage = () => {
 
   if (unauthorized) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-24">
+      <div className="min-h-screen bg-gray-50">
         <Result
           status="403"
           title="Bạn cần đăng nhập"
@@ -136,7 +136,7 @@ const BookingPage = () => {
 
   if (!match || match.status !== 'ON_SALE') {
     return (
-      <div className="min-h-screen bg-gray-50 pt-24">
+      <div className="min-h-screen bg-gray-50">
         <Result
           status="warning"
           title="Trận đấu hiện không mở bán vé"
@@ -149,7 +149,7 @@ const BookingPage = () => {
 
   if (existingSeats.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-24">
+      <div className="min-h-screen bg-gray-50">
         <Result
           status="info"
           title="Kho vé trận này chưa được khởi tạo"
@@ -161,7 +161,7 @@ const BookingPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] pb-20 pt-24 font-montserrat text-gray-900">
+    <div className="min-h-screen bg-[#f8fafc] pb-20 font-montserrat text-gray-900">
       <div className="mx-auto max-w-[1400px] px-4 md:px-8">
         <BookingHeader currentStand={current} currentDisplayPrice={currentDisplayPrice} matchId={id} />
 
