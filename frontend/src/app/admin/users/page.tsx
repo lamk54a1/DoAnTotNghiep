@@ -8,6 +8,14 @@ import AdminPageShell from '../../../components/Admin/AdminPageShell';
 import axiosClient from '../../../api/axiosClient';
 import { IUser } from '../../../interfaces/IUser';
 
+const normalizeSearchValue = (value: unknown) => String(value || '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .replace(/đ/g, 'd')
+  .replace(/Đ/g, 'D')
+  .toLowerCase()
+  .trim();
+
 export default function AdminUsersPage() {
   const { notification } = AntApp.useApp();
   const [users, setUsers] = useState<IUser[]>([]);
@@ -25,7 +33,16 @@ export default function AdminUsersPage() {
       if (debouncedSearch) params.set('search', debouncedSearch);
       if (roleFilter) params.set('role', roleFilter);
       const data = await axiosClient.get<IUser[]>(`/admin/users?${params.toString()}`);
-      setUsers(data);
+      // Lọc thêm ở client để giao diện vẫn hoạt động trong thời gian backend VPS
+      // đang được cập nhật từ phiên bản API cũ chưa hỗ trợ query search/role.
+      const keyword = normalizeSearchValue(debouncedSearch);
+      setUsers(data.filter((user) => {
+        const matchesRole = !roleFilter || user.role === roleFilter;
+        const matchesKeyword = !keyword
+          || normalizeSearchValue(user.fullName).includes(keyword)
+          || normalizeSearchValue(user.phoneNumber).includes(keyword);
+        return matchesRole && matchesKeyword;
+      }));
     } finally {
       setLoading(false);
     }
