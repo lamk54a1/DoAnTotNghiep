@@ -45,9 +45,9 @@ export default function SeatMap({
               <div className="flex gap-2">
                 {Array.from({ length: currentStand.seatsPerRow }).map((_, index) => {
                   const seatNum = index + 1;
-                  const sectorName = `${activeTab}${rowNumber}`;
                   const paddedSeat = String(seatNum).padStart(2, '0');
-                  const seatId = `${sectorName}-${paddedSeat}`;
+                  const paddedRow = String(rowNumber).padStart(2, '0');
+                  const seatId = `${activeTab}-R${paddedRow}-${paddedSeat.padStart(3, '0')}`;
                   const isSelected = selectedSeats.includes(seatId);
                   const isCreated = existingSeatSet.has(seatId);
                   const isSold = soldSeatSet.has(seatId);

@@ -28,7 +28,7 @@ const resolveImage = (url: string) => url.startsWith('http') ? url : `${API_ORIG
 
 export default function PrintableTicket({ ticket, fallbackQrCode, sponsors }: PrintableTicketProps) {
   const matchDate = ticket.matchDate ? dayjs(ticket.matchDate) : null;
-  const stand = ticket.sector?.charAt(0) || ticket.seatCode.charAt(0);
+  const stand = ticket.sector || ticket.seatCode.split('-R')[0];
 
   return (
     <article className="slna-print-ticket mx-auto w-[390px] overflow-hidden rounded-[28px] border border-gray-200 bg-white text-[#111827] shadow-2xl">

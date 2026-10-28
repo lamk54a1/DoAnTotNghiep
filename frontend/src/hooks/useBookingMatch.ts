@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import axiosClient from '../api/axiosClient';
 import { IMatch, ITicket } from '../interfaces';
+import { STAND_KEYS } from '../components/Booking/standConfigs';
 
 export interface StandInventory {
   total: number;
@@ -12,12 +13,9 @@ export interface StandInventory {
   available: number;
 }
 
-const createEmptyStandInventory = (): Record<string, StandInventory> => ({
-  A: { total: 0, sold: 0, paperReserved: 0, paperSold: 0, available: 0 },
-  B: { total: 0, sold: 0, paperReserved: 0, paperSold: 0, available: 0 },
-  C: { total: 0, sold: 0, paperReserved: 0, paperSold: 0, available: 0 },
-  D: { total: 0, sold: 0, paperReserved: 0, paperSold: 0, available: 0 },
-});
+const createEmptyStandInventory = (): Record<string, StandInventory> => Object.fromEntries(
+  STAND_KEYS.map((stand) => [stand, { total: 0, sold: 0, paperReserved: 0, paperSold: 0, available: 0 }])
+);
 
 export function useBookingMatch(matchId?: string) {
   const [localSoldSeats, setLocalSoldSeats] = useState<string[]>([]);
@@ -55,7 +53,7 @@ export function useBookingMatch(matchId?: string) {
         .filter((ticket) => ticket.status !== 'AVAILABLE' && !ticket.heldByCurrentUser)
         .map((ticket) => ticket.seatCode));
       setStandInventory(tickets.reduce<Record<string, StandInventory>>((acc, ticket) => {
-        const stand = ticket.seatCode.charAt(0);
+        const stand = ticket.sector || ticket.seatCode.split('-R')[0];
         if (!acc[stand]) acc[stand] = { total: 0, sold: 0, paperReserved: 0, paperSold: 0, available: 0 };
         acc[stand].total += 1;
         if (ticket.status === 'SOLD') {

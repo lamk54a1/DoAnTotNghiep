@@ -7,7 +7,7 @@ import BookingHeader from '../../../components/Booking/BookingHeader';
 import BookingOrderCard from '../../../components/Booking/BookingOrderCard';
 import PaymentConfirmModal from '../../../components/Booking/PaymentConfirmModal';
 import SeatMap from '../../../components/Booking/SeatMap';
-import StandTabs from '../../../components/Booking/StandTabs';
+import StadiumStandMap from '../../../components/Booking/StadiumStandMap';
 import { STAND_CONFIGS, StandKey } from '../../../components/Booking/standConfigs';
 import { useBookingMatch } from '../../../hooks/useBookingMatch';
 import { authApi } from '../../../api/authApi';
@@ -21,7 +21,7 @@ const BookingPage = () => {
   const { message } = AntApp.useApp(); 
   const { selectedSeats, handleToggleSeat, totalPrice, replaceHeldSeats, reset } = useBooking();
   
-  const [activeTab, setActiveTab] = useState<StandKey>('A');
+  const [activeTab, setActiveTab] = useState<StandKey>('A1');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [profile, setProfile] = useState<IUser | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -167,7 +167,13 @@ const BookingPage = () => {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-4">
           <div className="space-y-6 lg:col-span-3">
-            <StandTabs activeTab={activeTab} onChange={setActiveTab} standInventory={standInventory} />
+            <StadiumStandMap
+              activeStand={activeTab}
+              onChange={setActiveTab}
+              standInventory={standInventory}
+              standPrices={match.standPrices}
+              freeStands={match.freeStands}
+            />
 
             <SeatMap
               activeTab={activeTab}

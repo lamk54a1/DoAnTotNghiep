@@ -2,13 +2,7 @@ const pool = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLog');
 const { v4: uuidv4 } = require('uuid');
 const { releaseExpiredOrders, expirePendingOrders } = require('../utils/orderLifecycle');
-
-const STAND_CONFIGS = [
-    { prefix: 'A', rows: 80, seatsPerRow: 100, price: 100000 },
-    { prefix: 'B', rows: 60, seatsPerRow: 100, price: 50000 },
-    { prefix: 'C', rows: 30, seatsPerRow: 100, price: 20000 },
-    { prefix: 'D', rows: 30, seatsPerRow: 100, price: 20000 },
-];
+const { TICKET_ZONES: STAND_CONFIGS, DEFAULT_ZONE_PRICES } = require('../config/ticketZones');
 
 const releaseExpiredHolds = (db = pool) => db.query(`
     UPDATE tickets
@@ -156,16 +150,16 @@ const generateAllSeats = async (req, res) => {
         }
 
         const freeStands = matchResult.rows[0].free_stands || [];
-        const standPrices = { A: 100000, B: 50000, C: 20000, D: 20000, ...(matchResult.rows[0].stand_prices || {}) };
+        const standPrices = { ...DEFAULT_ZONE_PRICES, ...(matchResult.rows[0].stand_prices || {}) };
         for (const stand of STAND_CONFIGS.filter((item) => selectedStands.includes(item.prefix))) {
             await client.query(
                 `DELETE FROM tickets
                  WHERE match_id = $1
-                 AND sector LIKE $2
+                 AND sector = $2
                  AND status = 'AVAILABLE'
                  AND order_id IS NULL
                  AND (row::int > $3 OR seat_number > $4)`,
-                [matchId, `${stand.prefix}%`, stand.rows, stand.seatsPerRow]
+                [matchId, stand.prefix, stand.rows, stand.seatsPerRow]
             );
         }
 
@@ -174,8 +168,8 @@ const generateAllSeats = async (req, res) => {
             return `
                 SELECT
                     $1::int AS match_id,
-                    '${stand.prefix}' || r.r_num || '-' || CASE WHEN s.s_num < 100 THEN LPAD(s.s_num::text, 2, '0') ELSE s.s_num::text END AS seat_code,
-                    '${stand.prefix}' || r.r_num AS sector,
+                    '${stand.prefix}-R' || LPAD(r.r_num::text, 2, '0') || '-' || LPAD(s.s_num::text, 3, '0') AS seat_code,
+                    '${stand.prefix}' AS sector,
                     r.r_num::text AS row,
                     s.s_num AS seat_number,
                     ${price} AS price
@@ -205,9 +199,9 @@ const generateAllSeats = async (req, res) => {
                 `UPDATE tickets
                  SET price = $1
                  WHERE match_id = $2
-                 AND sector LIKE $3
+                 AND sector = $3
                  AND status = 'AVAILABLE'`,
-                [price, matchId, `${stand.prefix}%`]
+                [price, matchId, stand.prefix]
             );
         }
         await client.query('COMMIT');
@@ -225,7 +219,7 @@ const getTicketInventoryByMatch = async (req, res) => {
     try {
         const result = await pool.query(
             `SELECT
-                SUBSTRING(seat_code FROM 1 FOR 1) AS stand,
+                sector AS stand,
                 COUNT(*)::int AS total,
                 COUNT(*) FILTER (WHERE status = 'AVAILABLE')::int AS available,
                 COUNT(*) FILTER (WHERE status = 'SOLD')::int AS sold,
@@ -271,7 +265,7 @@ const getPublicTicketInventoryByMatch = async (req, res) => {
         await releaseExpiredHolds();
         const result = await pool.query(
             `SELECT
-                SUBSTRING(seat_code FROM 1 FOR 1) AS stand,
+                sector AS stand,
                 COUNT(*)::int AS total,
                 COUNT(*) FILTER (WHERE status = 'AVAILABLE')::int AS available,
                 COUNT(*) FILTER (WHERE status = 'SOLD')::int AS sold,
@@ -342,7 +336,7 @@ const updatePaperTickets = async (req, res) => {
                 SELECT id, ticket_qr_code
                 FROM tickets
                 WHERE match_id = $1
-                AND SUBSTRING(seat_code FROM 1 FOR 1) = $2
+                AND sector = $2
                 AND status = $3::ticket_status
                 ${releasePrintFilter}
                 ORDER BY row::int ASC, seat_number ASC
@@ -365,7 +359,7 @@ const updatePaperTickets = async (req, res) => {
             await client.query('ROLLBACK');
             return res.status(409).json({
                 message: mode === 'RESERVE'
-                    ? `Khán đài ${normalizedStand} không còn vé online khả dụng để giữ.`
+                    ? `Khu ${normalizedStand} không còn vé online khả dụng để giữ.`
                     : 'Không có vé phù hợp với thao tác này.'
             });
         }
@@ -401,9 +395,9 @@ const updatePaperTickets = async (req, res) => {
         });
 
         const messages = {
-            RESERVE: `Đã giữ ${selectedResult.rowCount} vé giấy cho khán đài ${normalizedStand}.`,
-            RELEASE: `Đã trả ${selectedResult.rowCount} vé giấy về bán online cho khán đài ${normalizedStand}.`,
-            MARK_SOLD: `Đã ghi nhận bán ${selectedResult.rowCount} vé giấy cho khán đài ${normalizedStand}.`,
+            RESERVE: `Đã giữ ${selectedResult.rowCount} vé giấy cho khu ${normalizedStand}.`,
+            RELEASE: `Đã trả ${selectedResult.rowCount} vé giấy về bán online cho khu ${normalizedStand}.`,
+            MARK_SOLD: `Đã ghi nhận bán ${selectedResult.rowCount} vé giấy cho khu ${normalizedStand}.`,
             UNMARK_SOLD: `Đã hoàn ${selectedResult.rowCount} vé giấy đã bán về trạng thái đang giữ.`,
         };
 
@@ -428,7 +422,7 @@ const getPaperTicketsByMatch = async (req, res) => {
 
     if (STAND_CONFIGS.some((item) => item.prefix === stand)) {
         values.push(stand);
-        filters.push(`SUBSTRING(t.seat_code FROM 1 FOR 1) = $${values.length}`);
+        filters.push(`t.sector = $${values.length}`);
     }
 
     if (status === 'PAPER_RESERVED' || status === 'PAPER_SOLD') {

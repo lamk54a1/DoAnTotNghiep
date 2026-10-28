@@ -11,20 +11,14 @@ import { ITicketInventory } from '../../../interfaces/ITicketInventory';
 import dayjs from 'dayjs';
 import PrintableTicket from '../../../components/Tickets/PrintableTicket';
 import { ISponsor } from '../../../interfaces/ISponsor';
+import { STAND_CONFIGS, STAND_KEYS, StandKey } from '../../../components/Booking/standConfigs';
 
-const STAND_OPTIONS = [
-  { label: 'Khán đài A - 8.000 vé', value: 'A' },
-  { label: 'Khán đài B - 6.000 vé', value: 'B' },
-  { label: 'Khán đài C - 3.000 vé', value: 'C' },
-  { label: 'Khán đài D - 3.000 vé', value: 'D' },
-];
+const STAND_OPTIONS = STAND_KEYS.map((zone) => ({
+  label: `${STAND_CONFIGS[zone].name} - ${(STAND_CONFIGS[zone].rows * STAND_CONFIGS[zone].seatsPerRow).toLocaleString('vi-VN')} vé`,
+  value: zone,
+}));
 
-const DEFAULT_STAND_PRICES = {
-  A: 100000,
-  B: 50000,
-  C: 20000,
-  D: 20000,
-};
+const DEFAULT_STAND_PRICES = Object.fromEntries(STAND_KEYS.map((zone) => [zone, STAND_CONFIGS[zone].price]));
 
 const MATCH_STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Bản nháp',
@@ -51,12 +45,10 @@ interface PaperTicket {
   printedAt?: string;
 }
 
-const EMPTY_INVENTORY: ITicketInventory = {
-  A: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  B: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  C: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  D: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-};
+const EMPTY_INVENTORY: ITicketInventory = Object.fromEntries(STAND_KEYS.map((zone) => [zone, {
+  total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0,
+  paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0,
+}]));
 
 const hasFullScore = (homeScore?: number | null, awayScore?: number | null) => (
   homeScore !== null
@@ -76,14 +68,14 @@ export default function AdminMatchesPage() {
   const [inventoryMatch, setInventoryMatch] = useState<IMatch | null>(null);
   const [inventory, setInventory] = useState<ITicketInventory>(EMPTY_INVENTORY);
   const [loadingInventory, setLoadingInventory] = useState(false);
-  const [paperStand, setPaperStand] = useState<'A' | 'B' | 'C' | 'D'>('A');
+  const [paperStand, setPaperStand] = useState<StandKey>('A1');
   const [paperQuantity, setPaperQuantity] = useState(100);
   const [updatingPaperTickets, setUpdatingPaperTickets] = useState(false);
   const [paperTickets, setPaperTickets] = useState<PaperTicket[]>([]);
   const [sponsors, setSponsors] = useState<ISponsor[]>([]);
   const [isPaperPrintOpen, setIsPaperPrintOpen] = useState(false);
   const [loadingPaperTickets, setLoadingPaperTickets] = useState(false);
-  const [selectedGenerateStands, setSelectedGenerateStands] = useState<string[]>(['A', 'B', 'C', 'D']);
+  const [selectedGenerateStands, setSelectedGenerateStands] = useState<string[]>([...STAND_KEYS]);
   const [form] = Form.useForm();
 
   const uploadImage = async (file: File, fieldName: 'opponentLogo' | 'bannerImage') => {
@@ -199,7 +191,7 @@ export default function AdminMatchesPage() {
 
   const openGenerateModal = (match: IMatch) => {
     setGeneratingMatch(match);
-    setSelectedGenerateStands(['A', 'B', 'C', 'D']);
+    setSelectedGenerateStands([...STAND_KEYS]);
     setIsGenerateModalOpen(true);
   };
 
@@ -214,7 +206,7 @@ export default function AdminMatchesPage() {
 
   const openInventoryModal = async (match: IMatch) => {
     setInventoryMatch(match);
-    setPaperStand('A');
+    setPaperStand('A1');
     setLoadingInventory(true);
     await loadInventory(match.id);
   };
@@ -394,7 +386,7 @@ export default function AdminMatchesPage() {
       width: 100,
       render: (freeStands: string[] = []) => (
         freeStands.length > 0
-          ? <Tag color="gold">Khán đài {freeStands.join(', ')}</Tag>
+          ? <Tag color="gold">Khu {freeStands.join(', ')}</Tag>
           : <span className="text-gray-400">Không</span>
       )
     },
@@ -527,11 +519,11 @@ export default function AdminMatchesPage() {
             </Row>
 
             <div className="mb-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
-              <p className="mb-3 text-xs font-black uppercase text-[#003078]">Giá vé từng khán đài</p>
+              <p className="mb-3 text-xs font-black uppercase text-[#003078]">Giá vé từng khu vực</p>
               <Row gutter={16}>
-                {(['A', 'B', 'C', 'D'] as const).map((stand) => (
-                  <Col key={stand} span={6}>
-                    <Form.Item name={['standPrices', stand]} label={`Khán đài ${stand}`} rules={[{ required: true, message: 'Nhập giá vé' }]}>
+                {STAND_KEYS.map((stand) => (
+                  <Col key={stand} xs={12} md={6}>
+                    <Form.Item name={['standPrices', stand]} label={`Khu ${stand}`} rules={[{ required: true, message: 'Nhập giá vé' }]}>
                       <InputNumber className="w-full" min={0} step={10000} />
                     </Form.Item>
                   </Col>
@@ -554,8 +546,8 @@ export default function AdminMatchesPage() {
 
             <Form.Item
               name="freeStands"
-              label="Khán đài miễn phí vé"
-              extra="Có thể để trống nếu trận này không miễn phí khán đài nào. Khi sinh vé, các ghế thuộc khán đài được chọn sẽ có giá 0đ."
+              label="Khu vực miễn phí vé"
+              extra="Có thể để trống nếu trận này không miễn phí khu nào. Khi sinh vé, các ghế thuộc khu được chọn sẽ có giá 0đ."
             >
               <Checkbox.Group options={STAND_OPTIONS} />
             </Form.Item>
@@ -570,7 +562,7 @@ export default function AdminMatchesPage() {
         </Modal>
 
         <Modal
-          title="CHỌN KHÁN ĐÀI CẦN SINH VÉ"
+          title="CHỌN KHU VỰC CẦN SINH VÉ"
           open={isGenerateModalOpen}
           onCancel={() => setIsGenerateModalOpen(false)}
           onOk={handleGenerateTickets}
@@ -590,7 +582,7 @@ export default function AdminMatchesPage() {
               className="grid grid-cols-1 gap-3"
             />
             <div className="rounded-xl bg-yellow-50 p-3 text-xs font-bold text-yellow-800">
-              Khán đài miễn phí hiện tại: {generatingMatch?.freeStands?.length ? generatingMatch.freeStands.join(', ') : 'Không có'}.
+              Khu miễn phí hiện tại: {generatingMatch?.freeStands?.length ? generatingMatch.freeStands.join(', ') : 'Không có'}.
             </div>
           </div>
         </Modal>
@@ -656,7 +648,7 @@ export default function AdminMatchesPage() {
             </div>
           </div>
           <Row gutter={[16, 16]}>
-            {(['A', 'B', 'C', 'D'] as const).map((stand) => {
+            {STAND_KEYS.map((stand) => {
               const item = inventory[stand];
               const unavailable = item.sold + item.paperReserved + item.paperSold;
               const percent = item.total ? Math.round((unavailable / item.total) * 100) : 0;
@@ -664,7 +656,7 @@ export default function AdminMatchesPage() {
                 <Col span={12} key={stand}>
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
                     <div className="mb-3 flex items-center justify-between">
-                      <span className="font-black text-[#003078]">Khán đài {stand}</span>
+                      <span className="font-black text-[#003078]">Khu {stand}</span>
                       <Tag color="blue">{percent}% không còn online</Tag>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
@@ -688,7 +680,7 @@ export default function AdminMatchesPage() {
         </Modal>
 
         <Modal
-          title={`IN VÉ GIẤY - KHÁN ĐÀI ${paperStand}`}
+          title={`IN VÉ GIẤY - KHU ${paperStand}`}
           open={isPaperPrintOpen}
           onCancel={() => setIsPaperPrintOpen(false)}
           width={520}
@@ -759,7 +751,7 @@ export default function AdminMatchesPage() {
               <div>
                 <p className="m-0 text-lg font-black text-[#003078]">SLNA Ticketing - Vé giấy</p>
                 <p className="m-0 text-xs text-gray-500">
-                  {inventoryMatch ? `SLNA vs ${inventoryMatch.opponent}` : ''} - Khán đài {paperStand}
+                  {inventoryMatch ? `SLNA vs ${inventoryMatch.opponent}` : ''} - Khu {paperStand}
                 </p>
               </div>
               <Tag color="blue">{paperTickets.length.toLocaleString('vi-VN')} vé</Tag>

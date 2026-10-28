@@ -1,21 +1,15 @@
 const pool = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLog');
-
-const STAND_PRICES = {
-  A: 100000,
-  B: 50000,
-  C: 20000,
-  D: 20000,
-};
+const { DEFAULT_ZONE_PRICES } = require('../config/ticketZones');
 
 const normalizeFreeStands = (freeStands) => {
   if (!Array.isArray(freeStands)) return [];
-  return [...new Set(freeStands.filter((stand) => Object.prototype.hasOwnProperty.call(STAND_PRICES, stand)))];
+  return [...new Set(freeStands.filter((stand) => Object.prototype.hasOwnProperty.call(DEFAULT_ZONE_PRICES, stand)))];
 };
 
 const normalizeStandPrices = (standPrices = {}) => {
   const normalized = {};
-  for (const [stand, defaultPrice] of Object.entries(STAND_PRICES)) {
+  for (const [stand, defaultPrice] of Object.entries(DEFAULT_ZONE_PRICES)) {
     const value = Number(standPrices?.[stand] ?? defaultPrice);
     normalized[stand] = Number.isFinite(value) && value >= 0 ? value : defaultPrice;
   }
@@ -40,9 +34,9 @@ const syncAvailableTicketPrices = async (matchId, freeStands, standPrices) => {
       `UPDATE tickets
        SET price = $1
        WHERE match_id = $2
-       AND sector LIKE $3
+       AND sector = $3
        AND status = 'AVAILABLE'`,
-      [freeStands.includes(stand) ? 0 : price, matchId, `${stand}%`]
+      [freeStands.includes(stand) ? 0 : price, matchId, stand]
     );
   }
 };

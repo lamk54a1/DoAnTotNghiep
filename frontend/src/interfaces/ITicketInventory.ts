@@ -11,4 +11,4 @@ export interface IStandInventory {
   paperRevenue: number;
 }
 
-export type ITicketInventory = Record<'A' | 'B' | 'C' | 'D', IStandInventory>;
+export type ITicketInventory = Record<string, IStandInventory>;

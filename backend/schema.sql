@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS matches (
   description TEXT,
   competition_name VARCHAR(120) DEFAULT 'V-League 2026',
   ticket_price_min INTEGER DEFAULT 0,
-  stand_prices JSONB DEFAULT '{"A":100000,"B":50000,"C":20000,"D":20000}'::jsonb,
+  stand_prices JSONB DEFAULT '{"A1":150000,"A2":100000,"A3":100000,"A5":80000,"B8":50000,"B9":50000,"B10":50000,"C6":30000,"C7":30000,"D11":30000,"D12":30000,"D13":30000}'::jsonb,
   banner_image TEXT,
   status VARCHAR(30) NOT NULL DEFAULT 'DRAFT',
   home_score INTEGER,

@@ -9,15 +9,12 @@ import { CalendarOutlined, EnvironmentOutlined, ShoppingCartOutlined, TrophyOutl
 import axiosClient from '../../../api/axiosClient';
 import { IMatch } from '../../../interfaces';
 import { ITicketInventory } from '../../../interfaces/ITicketInventory';
+import { STAND_CONFIGS, STAND_KEYS } from '../../../components/Booking/standConfigs';
 
-const STANDS = ['A', 'B', 'C', 'D'] as const;
-
-const emptyInventory: ITicketInventory = {
-  A: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  B: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  C: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-  D: { total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0, paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0 },
-};
+const emptyInventory: ITicketInventory = Object.fromEntries(STAND_KEYS.map((zone) => [zone, {
+  total: 0, available: 0, sold: 0, paperReserved: 0, paperSold: 0,
+  paperPrinted: 0, paperReservedPrinted: 0, scanned: 0, revenue: 0, paperRevenue: 0,
+}]));
 
 export default function MatchDetailPage() {
   const router = useRouter();
@@ -52,10 +49,10 @@ export default function MatchDetailPage() {
 
   const bannerImage = match.bannerImage || '/images/sVinh.jpg';
   const canBook = match.status === 'ON_SALE';
-  const totalTickets = STANDS.reduce((sum, stand) => sum + Number(inventory[stand]?.total || 0), 0);
-  const availableTickets = STANDS.reduce((sum, stand) => sum + Number(inventory[stand]?.available || 0), 0);
-  const paperTickets = STANDS.reduce((sum, stand) => sum + Number(inventory[stand]?.paperReserved || 0), 0);
-  const soldPaperTickets = STANDS.reduce((sum, stand) => sum + Number(inventory[stand]?.paperSold || 0), 0);
+  const totalTickets = STAND_KEYS.reduce((sum, stand) => sum + Number(inventory[stand]?.total || 0), 0);
+  const availableTickets = STAND_KEYS.reduce((sum, stand) => sum + Number(inventory[stand]?.available || 0), 0);
+  const paperTickets = STAND_KEYS.reduce((sum, stand) => sum + Number(inventory[stand]?.paperReserved || 0), 0);
+  const soldPaperTickets = STAND_KEYS.reduce((sum, stand) => sum + Number(inventory[stand]?.paperSold || 0), 0);
 
   return (
     <main className="min-h-screen bg-[#f8fafc] pb-16 font-montserrat">
@@ -79,17 +76,17 @@ export default function MatchDetailPage() {
 
       <section className="mx-auto -mt-10 grid max-w-7xl gap-6 px-6 lg:grid-cols-3">
         <Card className="rounded-[28px] border-none shadow-xl lg:col-span-2">
-          <h2 className="m-0 mb-5 text-xl font-black uppercase text-[#003078]">Tồn kho vé theo khán đài</h2>
+          <h2 className="m-0 mb-5 text-xl font-black uppercase text-[#003078]">Tồn kho vé theo khu vực</h2>
           <Row gutter={[16, 16]}>
-            {STANDS.map((stand) => {
-              const standPrice = match.freeStands?.includes(stand) ? 0 : Number(match.standPrices?.[stand] || 0);
+            {STAND_KEYS.map((stand) => {
+              const standPrice = match.freeStands?.includes(stand) ? 0 : Number(match.standPrices?.[stand] ?? STAND_CONFIGS[stand].price);
               const unavailable = (inventory[stand]?.sold || 0) + (inventory[stand]?.paperReserved || 0) + (inventory[stand]?.paperSold || 0);
               const percent = inventory[stand]?.total ? Math.round((unavailable / inventory[stand].total) * 100) : 0;
               return (
                 <Col xs={24} md={12} key={stand}>
                   <div className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
                     <div className="mb-4 flex items-center justify-between">
-                      <span className="text-lg font-black text-[#003078]">Khán đài {stand}</span>
+                      <span className="text-lg font-black text-[#003078]">Khu {stand}</span>
                       <Tag color={standPrice === 0 ? 'green' : 'gold'}>{standPrice === 0 ? 'Miễn phí' : `${standPrice.toLocaleString('vi-VN')}đ`}</Tag>
                     </div>
                     <div className="grid grid-cols-3 gap-3 text-center">

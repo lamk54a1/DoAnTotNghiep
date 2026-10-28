@@ -15,11 +15,13 @@ const initialState: BookingState = {
 };
 
 const PRICE_MAP: Record<string, number> = {
-  'A': 100000, 
-  'B': 50000, 
-  'C': 20000, 
-  'D': 20000,
+  A1: 150000, A2: 100000, A3: 100000, A5: 80000,
+  B8: 50000, B9: 50000, B10: 50000,
+  C6: 30000, C7: 30000,
+  D11: 30000, D12: 30000, D13: 30000,
 };
+
+const getZoneFromSeat = (seatId: string) => seatId.split('-R')[0];
 
 const bookingSlice = createSlice({
   name: 'booking',
@@ -30,8 +32,7 @@ const bookingSlice = createSlice({
       const seatId = typeof payload === 'string' ? payload : payload.seatId; // VD: "A1-01", "B2-10", "A1-100"
       
       // ĐÃ SỬA: Lấy chính xác ký tự chữ cái đầu tiên (A, B, C, D) để tra bảng giá
-      const standLetter = seatId.charAt(0); 
-      const fallbackPrice = PRICE_MAP[standLetter] || 0;
+      const fallbackPrice = PRICE_MAP[getZoneFromSeat(seatId)] || 0;
       const seatPrice = typeof payload === 'string' ? fallbackPrice : payload.price ?? fallbackPrice;
 
       if (state.soldSeats.includes(seatId)) return;
@@ -65,7 +66,7 @@ const bookingSlice = createSlice({
     replaceHeldSelection: (state, action: PayloadAction<{ seats: string[]; prices: Record<string, number> }>) => {
       state.selectedSeats = action.payload.seats;
       state.selectedSeatPrices = Object.fromEntries(
-        action.payload.seats.map((seatId) => [seatId, action.payload.prices[seatId] ?? PRICE_MAP[seatId.charAt(0)] ?? 0])
+        action.payload.seats.map((seatId) => [seatId, action.payload.prices[seatId] ?? PRICE_MAP[getZoneFromSeat(seatId)] ?? 0])
       );
       state.totalPrice = action.payload.seats.reduce(
         (sum, seatId) => sum + (state.selectedSeatPrices[seatId] || 0),

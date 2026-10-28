@@ -7,7 +7,7 @@ export interface IMatch {
   competitionName?: string; // Tên giải đấu do admin nhập
   description?: string;     // Thông tin thêm như: "Vòng 15 V-League"
   ticketPriceMin?: number;  // Giá vé thấp nhất để hiển thị (VD: 50000)
-  standPrices?: Record<'A' | 'B' | 'C' | 'D', number>; // Giá vé từng khán đài theo trận
+  standPrices?: Record<string, number>; // Giá vé từng khu theo sơ đồ sân
   
   bannerImage?: string;     // Ảnh nền lớn của trận đấu (hiện ở trang chủ)
   
@@ -15,5 +15,5 @@ export interface IMatch {
 
   homeScore?: number;       // Tỷ số đội nhà (SLNA) - dùng sau khi trận đấu kết thúc
   awayScore?: number;       // Tỷ số đội khách
-  freeStands?: Array<'A' | 'B' | 'C' | 'D'>; // Khán đài miễn phí vé theo từng trận
+  freeStands?: string[]; // Khu vực miễn phí vé theo từng trận
 }
