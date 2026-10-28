@@ -8,7 +8,7 @@ import { authApi } from '../../api/authApi';
 import { IUser } from '../../interfaces/IUser';
 import { saveStoredUser } from '../../utils/authSession';
 
-type ProfileValues = Pick<IUser, 'fullName' | 'phoneNumber' | 'address'>;
+type ProfileValues = Pick<IUser, 'fullName' | 'phoneNumber' | 'address'> & { email?: string };
 
 export default function CompleteProfilePage() {
   const router = useRouter();
@@ -16,6 +16,7 @@ export default function CompleteProfilePage() {
   const [form] = Form.useForm<ProfileValues>();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [emailRequired, setEmailRequired] = useState(false);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user_info');
@@ -35,7 +36,9 @@ export default function CompleteProfilePage() {
           fullName: profile.fullName,
           phoneNumber: profile.phoneNumber,
           address: profile.address,
+          email: profile.emailRequired ? '' : profile.email,
         });
+        setEmailRequired(Boolean(profile.emailRequired));
       })
       .catch(() => router.replace('/login'))
       .finally(() => setLoading(false));
@@ -48,6 +51,7 @@ export default function CompleteProfilePage() {
       const currentUser = JSON.parse(localStorage.getItem('user_info') || '{}');
       saveStoredUser({
         ...currentUser,
+        email: response.user.email,
         fullName: response.user.fullName,
         profileCompleted: true,
       });
@@ -76,6 +80,19 @@ export default function CompleteProfilePage() {
         </div>
 
         <Form form={form} layout="vertical" onFinish={submit}>
+          {emailRequired && (
+            <Form.Item
+              name="email"
+              label="Email liên hệ"
+              extra="Facebook không cung cấp email. Email này dùng để nhận thông báo và hỗ trợ tài khoản."
+              rules={[
+                { required: true, message: 'Nhập email của bạn.' },
+                { type: 'email', message: 'Email chưa đúng định dạng.' },
+              ]}
+            >
+              <Input type="email" autoComplete="email" placeholder="vidu@gmail.com" className="h-11 rounded-xl" />
+            </Form.Item>
+          )}
           <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, message: 'Nhập họ và tên.' }]}>
             <Input className="h-11 rounded-xl" />
           </Form.Item>

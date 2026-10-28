@@ -5,7 +5,14 @@ process.env.JWT_SECRET ||= 'test-secret-at-least-32-characters-long';
 
 const { hasTicketScanRole, isSuperAdminEmail } = require('../middleware/authMiddleware');
 const { isTicketAdmissionAllowed, isTicketForSelectedMatch } = require('../controllers/ticketController');
-const { isStrongPassword, oauthStart, oauthCallback, oauthProviders } = require('../controllers/authController');
+const {
+  isStrongPassword,
+  oauthStart,
+  oauthCallback,
+  oauthProviders,
+  isOAuthPlaceholderEmail,
+  buildOAuthPlaceholderEmail,
+} = require('../controllers/authController');
 const { detectImageType } = require('../routes/uploadRoutes');
 const { releaseExpiredOrders } = require('../utils/orderLifecycle');
 const pool = require('../config/db');
@@ -33,6 +40,15 @@ test('mật khẩu đăng ký phải có ít nhất 8 ký tự, chữ và số',
   assert.equal(isStrongPassword('short1'), false);
   assert.equal(isStrongPassword('onlyletters'), false);
   assert.equal(isStrongPassword('secure123'), true);
+});
+
+test('Facebook thiếu email được cấp địa chỉ nội bộ ổn định để hoàn thiện hồ sơ sau', () => {
+  const first = buildOAuthPlaceholderEmail('facebook', '123456789');
+  const second = buildOAuthPlaceholderEmail('facebook', '123456789');
+  assert.equal(first, second);
+  assert.equal(isOAuthPlaceholderEmail(first), true);
+  assert.equal(isOAuthPlaceholderEmail('user@example.com'), false);
+  assert.match(first, /^facebook\.[a-f0-9]{32}@oauth\.invalid$/);
 });
 
 test('chỉ email cấu hình mới được nhận diện là quản trị viên gốc', () => {
@@ -80,6 +96,68 @@ test('OAuth chỉ bật khi có cấu hình và ràng buộc state với cookie 
     else process.env.GOOGLE_CLIENT_ID = previous.id;
     if (previous.secret === undefined) delete process.env.GOOGLE_CLIENT_SECRET;
     else process.env.GOOGLE_CLIENT_SECRET = previous.secret;
+  }
+});
+
+test('Facebook OAuth vẫn tạo tài khoản an toàn khi Graph API không trả email', async () => {
+  const previous = {
+    id: process.env.FACEBOOK_APP_ID,
+    secret: process.env.FACEBOOK_APP_SECRET,
+    query: pool.query,
+    fetch: global.fetch,
+  };
+  process.env.FACEBOOK_APP_ID = 'facebook-test-id';
+  process.env.FACEBOOK_APP_SECRET = 'facebook-test-secret';
+  const res = {
+    cookie(name, value, options) { this.cookieData = { name, value, options }; },
+    clearCookie(name, options) { this.cleared = { name, options }; },
+    redirect(url) { this.redirectUrl = url; },
+  };
+  let insertedEmail = '';
+  try {
+    oauthStart({ params: { provider: 'facebook' }, query: { mode: 'login' } }, res);
+    const state = res.cookieData.value;
+    let fetchCount = 0;
+    global.fetch = async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) return { json: async () => ({ access_token: 'facebook-token' }) };
+      return { ok: true, json: async () => ({ id: 'fb-user-123', name: 'Người dùng Facebook' }) };
+    };
+    let queryCount = 0;
+    pool.query = async (_sql, params) => {
+      queryCount += 1;
+      if (queryCount <= 2) return { rowCount: 0, rows: [] };
+      insertedEmail = params[0];
+      return {
+        rowCount: 1,
+        rows: [{
+          id: 99,
+          email: insertedEmail,
+          full_name: 'Người dùng Facebook',
+          role: 'USER',
+          status: 'ACTIVE',
+          auth_provider: 'FACEBOOK',
+          profile_completed: false,
+        }],
+      };
+    };
+
+    await oauthCallback({
+      params: { provider: 'facebook' },
+      query: { state, code: 'facebook-code' },
+      headers: { cookie: `slna_oauth_state=${state}` },
+    }, res);
+
+    assert.equal(isOAuthPlaceholderEmail(insertedEmail), true);
+    assert.match(res.redirectUrl, /\/auth\/callback$/);
+    assert.ok(res.cleared);
+  } finally {
+    pool.query = previous.query;
+    global.fetch = previous.fetch;
+    if (previous.id === undefined) delete process.env.FACEBOOK_APP_ID;
+    else process.env.FACEBOOK_APP_ID = previous.id;
+    if (previous.secret === undefined) delete process.env.FACEBOOK_APP_SECRET;
+    else process.env.FACEBOOK_APP_SECRET = previous.secret;
   }
 });
 

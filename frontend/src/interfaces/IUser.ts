@@ -15,6 +15,7 @@ export interface IUser {
   createdAt: Date | string; // Ngày tạo tài khoản
   profileCompleted?: boolean;
   authProvider?: 'LOCAL' | 'GOOGLE' | 'FACEBOOK';
+  emailRequired?: boolean;
 }
 
 // 2. LÀM THÊM: Các kiểu dữ liệu bổ trợ cho luồng Auth (Gộp vào đây luôn)

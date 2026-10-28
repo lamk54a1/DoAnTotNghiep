@@ -12,6 +12,12 @@ const normalizeEmail = (value) => String(value || '').trim().toLowerCase();
 const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
 
 const isValidEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+const oauthPlaceholderDomain = 'oauth.invalid';
+const isOAuthPlaceholderEmail = (value) => normalizeEmail(value).endsWith(`@${oauthPlaceholderDomain}`);
+const buildOAuthPlaceholderEmail = (provider, providerId) => {
+  const digest = crypto.createHash('sha256').update(`${provider}:${providerId}`).digest('hex').slice(0, 32);
+  return `${provider}.${digest}@${oauthPlaceholderDomain}`;
+};
 const isStrongPassword = (value) => (
   String(value || '').length >= 8
   && /[A-Za-z]/.test(value)
@@ -45,7 +51,8 @@ const getProfile = async (req, res) => {
       return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
     }
 
-    res.json(result.rows[0]);
+    const user = result.rows[0];
+    res.json({ ...user, emailRequired: isOAuthPlaceholderEmail(user.email) });
   } catch (err) {
     res.status(500).json({ message: 'Không thể tải thông tin cá nhân.' });
   }
@@ -53,6 +60,7 @@ const getProfile = async (req, res) => {
 
 const updateProfile = async (req, res) => {
   const { fullName, phoneNumber, address } = req.body;
+  const requestedEmail = normalizeEmail(req.body.email);
 
   if (!String(fullName || '').trim()) {
     return res.status(400).json({ message: 'Vui lòng nhập họ và tên.' });
@@ -67,10 +75,20 @@ const updateProfile = async (req, res) => {
   }
 
   try {
+    const currentResult = await pool.query('SELECT email, auth_provider FROM users WHERE id = $1', [req.user.id]);
+    if (currentResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy tài khoản.' });
+    }
+    const currentUser = currentResult.rows[0];
+    const emailRequired = isOAuthPlaceholderEmail(currentUser.email);
+    if (emailRequired && !isValidEmail(requestedEmail)) {
+      return res.status(400).json({ message: 'Facebook chưa cung cấp email. Vui lòng nhập một email hợp lệ.' });
+    }
+    const email = emailRequired ? requestedEmail : currentUser.email;
     const result = await pool.query(
       `UPDATE users
-       SET full_name = $1, phone_number = $2, address = $3, profile_completed = true
-       WHERE id = $4
+       SET full_name = $1, phone_number = $2, address = $3, email = $4, profile_completed = true
+       WHERE id = $5
        RETURNING
         id,
         email,
@@ -86,7 +104,7 @@ const updateProfile = async (req, res) => {
         role,
         status,
         created_at AS "createdAt"`,
-      [String(fullName).trim(), phoneNumber, String(address).trim(), req.user.id]
+      [String(fullName).trim(), phoneNumber, String(address).trim(), email, req.user.id]
     );
 
     if (result.rowCount === 0) {
@@ -95,6 +113,7 @@ const updateProfile = async (req, res) => {
 
     res.json({ message: 'Đã cập nhật thông tin cá nhân.', user: result.rows[0] });
   } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ message: 'Email này đã được dùng cho tài khoản khác.' });
     res.status(500).json({ message: 'Không thể cập nhật thông tin cá nhân.' });
   }
 };
@@ -404,14 +423,14 @@ const oauthCallback = async (req, res) => {
     });
     if (!userResponse.ok) throw new Error('Không đọc được thông tin tài khoản mạng xã hội.');
     const socialUser = await userResponse.json();
-    const email = normalizeEmail(socialUser.email);
     if (!socialUser.id && !socialUser.sub) throw new Error('Không đọc được tài khoản mạng xã hội.');
-    if (!email) throw new Error('Tài khoản mạng xã hội chưa cung cấp email.');
+    const providerId = String(socialUser.sub || socialUser.id);
+    const providedEmail = normalizeEmail(socialUser.email);
+    const email = providedEmail || buildOAuthPlaceholderEmail(provider, providerId);
     if (provider === 'google' && socialUser.email_verified !== true) {
       throw new Error('Email Google chưa được xác minh.');
     }
 
-    const providerId = String(socialUser.sub || socialUser.id);
     const providerName = provider.toUpperCase();
     let userResult = await pool.query(
       'SELECT * FROM users WHERE auth_provider = $1 AND provider_id = $2',
@@ -448,4 +467,19 @@ const logout = (_req, res) => {
   res.json({ message: 'Đã đăng xuất.' });
 };
 
-module.exports = { register, login, logout, getProfile, updateProfile, updateIdentity, changePassword, changeEmail, oauthStart, oauthCallback, oauthProviders, isStrongPassword };
+module.exports = {
+  register,
+  login,
+  logout,
+  getProfile,
+  updateProfile,
+  updateIdentity,
+  changePassword,
+  changeEmail,
+  oauthStart,
+  oauthCallback,
+  oauthProviders,
+  isStrongPassword,
+  isOAuthPlaceholderEmail,
+  buildOAuthPlaceholderEmail,
+};

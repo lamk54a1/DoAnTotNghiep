@@ -20,7 +20,7 @@ export const authApi = {
     return axiosClient.get('/auth/profile');
   },
 
-  updateProfile: (data: Pick<IUser, 'fullName' | 'phoneNumber' | 'address'>): Promise<{ message: string; user: IUser }> => {
+  updateProfile: (data: Pick<IUser, 'fullName' | 'phoneNumber' | 'address'> & { email?: string }): Promise<{ message: string; user: IUser }> => {
     return axiosClient.put('/auth/profile', data);
   },
 
