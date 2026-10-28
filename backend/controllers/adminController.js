@@ -4,9 +4,19 @@ const { writeAuditLog } = require('../utils/auditLog');
 const { releaseExpiredOrders } = require('../utils/orderLifecycle');
 const { assignTicketQrCodes } = require('../utils/ticketQr');
 
+const combineDashboardSales = ({ onlineRevenue = 0, paperRevenue = 0, onlineTicketsSold = 0, paperTicketsSold = 0 }) => ({
+  totalRevenue: Number(onlineRevenue) + Number(paperRevenue),
+  onlineRevenue: Number(onlineRevenue),
+  paperRevenue: Number(paperRevenue),
+  totalTicketsSold: Number(onlineTicketsSold) + Number(paperTicketsSold),
+  onlineTicketsSold: Number(onlineTicketsSold),
+  paperTicketsSold: Number(paperTicketsSold),
+});
+
 const getDashboardStats = async (req, res) => {
   const { year, matchId } = req.query;
-  const filters = ["o.status = 'SUCCESS'"];
+  const onlineFilters = ["o.status = 'SUCCESS'"];
+  const paperFilters = ["t.status = 'PAPER_SOLD'"];
   const params = [];
 
   if (year && (!Number.isInteger(Number(year)) || Number(year) < 2000 || Number(year) > 2100)) {
@@ -18,32 +28,46 @@ const getDashboardStats = async (req, res) => {
 
   if (year) {
     params.push(Number(year));
-    filters.push(`EXTRACT(YEAR FROM o.created_at) = $${params.length}`);
+    onlineFilters.push(`EXTRACT(YEAR FROM o.created_at) = $${params.length}`);
+    paperFilters.push(`EXTRACT(YEAR FROM t.paper_sold_at) = $${params.length}`);
   }
 
   if (matchId) {
     params.push(Number(matchId));
-    filters.push(`EXISTS (SELECT 1 FROM tickets tx WHERE tx.order_id = o.id AND tx.match_id = $${params.length})`);
+    onlineFilters.push(`EXISTS (SELECT 1 FROM tickets tx WHERE tx.order_id = o.id AND tx.match_id = $${params.length})`);
+    paperFilters.push(`t.match_id = $${params.length}`);
   }
 
-  const whereClause = filters.join(' AND ');
+  const onlineWhereClause = onlineFilters.join(' AND ');
+  const paperWhereClause = paperFilters.join(' AND ');
 
   try {
-    // 1. Tính tổng doanh thu từ các đơn hàng thành công
-    const revenueResult = await pool.query(
-      `SELECT COALESCE(SUM(o.total_amount), 0) as total_revenue
+    // Doanh thu online và vé giấy được lưu riêng để đối soát, sau đó cộng vào tổng.
+    const onlineRevenueResult = await pool.query(
+      `SELECT COALESCE(SUM(o.total_amount), 0)::int AS revenue
        FROM orders o
-       WHERE ${whereClause}`,
+       WHERE ${onlineWhereClause}`,
       params
     );
-    
-    // 2. Đếm tổng số vé đã bán thành công
-    const ticketsResult = await pool.query(
-      `SELECT COUNT(t.id) as total_tickets_sold
+    const paperRevenueResult = await pool.query(
+      `SELECT COALESCE(SUM(t.price), 0)::int AS revenue
+       FROM tickets t
+       WHERE ${paperWhereClause}`,
+      params
+    );
+
+    const onlineTicketsResult = await pool.query(
+      `SELECT COUNT(t.id)::int AS count
        FROM tickets t
        JOIN orders o ON o.id = t.order_id
-       WHERE ${whereClause}
+       WHERE ${onlineWhereClause}
        ${matchId ? `AND t.match_id = $${params.length}` : ''}`,
+      params
+    );
+    const paperTicketsResult = await pool.query(
+      `SELECT COUNT(t.id)::int AS count
+       FROM tickets t
+       WHERE ${paperWhereClause}`,
       params
     );
 
@@ -57,27 +81,41 @@ const getDashboardStats = async (req, res) => {
     );
 
     const monthlyRevenueResult = await pool.query(
-      `SELECT TO_CHAR(o.created_at, 'YYYY-MM') AS month, COALESCE(SUM(o.total_amount), 0)::int AS revenue
-       FROM orders o
-       WHERE ${whereClause}
+      `SELECT month, SUM(revenue)::int AS revenue
+       FROM (
+         SELECT TO_CHAR(o.created_at, 'YYYY-MM') AS month, SUM(o.total_amount)::int AS revenue
+         FROM orders o
+         WHERE ${onlineWhereClause}
+         GROUP BY month
+         UNION ALL
+         SELECT TO_CHAR(t.paper_sold_at, 'YYYY-MM') AS month, SUM(t.price)::int AS revenue
+         FROM tickets t
+         WHERE ${paperWhereClause}
+         GROUP BY month
+       ) revenue_sources
        GROUP BY month
        ORDER BY month ASC`,
       params
     );
 
     const ticketsByMatchResult = await pool.query(
-      `SELECT m.id, m.opponent, COUNT(o.id)::int AS "ticketsSold"
+      `SELECT m.id, m.opponent, COUNT(t.id)::int AS "ticketsSold"
        FROM matches m
-       LEFT JOIN tickets t ON t.match_id = m.id AND t.status = 'SOLD'
-       LEFT JOIN orders o ON o.id = t.order_id AND o.status = 'SUCCESS'
+       LEFT JOIN tickets t ON t.match_id = m.id AND t.status IN ('SOLD', 'PAPER_SOLD')
+       LEFT JOIN orders o ON o.id = t.order_id
+       WHERE t.status = 'PAPER_SOLD' OR (t.status = 'SOLD' AND o.status = 'SUCCESS')
        GROUP BY m.id, m.opponent
        ORDER BY "ticketsSold" DESC
        LIMIT 8`
     );
 
+    const onlineRevenue = Number(onlineRevenueResult.rows[0].revenue || 0);
+    const paperRevenue = Number(paperRevenueResult.rows[0].revenue || 0);
+    const onlineTicketsSold = Number(onlineTicketsResult.rows[0].count || 0);
+    const paperTicketsSold = Number(paperTicketsResult.rows[0].count || 0);
+
     res.json({
-      totalRevenue: revenueResult.rows[0].total_revenue || 0,
-      totalTicketsSold: ticketsResult.rows[0].total_tickets_sold || 0,
+      ...combineDashboardSales({ onlineRevenue, paperRevenue, onlineTicketsSold, paperTicketsSold }),
       totalUsers: usersResult.rows[0].total_users || 0,
       pendingOrders: pendingOrdersResult.rows[0].pending_orders || 0,
       monthlyRevenue: monthlyRevenueResult.rows,
@@ -602,3 +640,5 @@ module.exports = {
   exportOrdersReport,
   getSepayReviewTransactions
 };
+
+module.exports.combineDashboardSales = combineDashboardSales;

@@ -374,7 +374,11 @@ const updatePaperTickets = async (req, res) => {
                  SET status = $1::ticket_status, ticket_qr_code = $2,
                      is_printed = CASE WHEN $1::text = 'AVAILABLE' THEN false ELSE is_printed END,
                      printed_at = CASE WHEN $1::text = 'AVAILABLE' THEN NULL ELSE printed_at END,
-                     printed_by = CASE WHEN $1::text = 'AVAILABLE' THEN NULL ELSE printed_by END
+                     printed_by = CASE WHEN $1::text = 'AVAILABLE' THEN NULL ELSE printed_by END,
+                     paper_sold_at = CASE
+                       WHEN $1::text = 'PAPER_SOLD' THEN COALESCE(paper_sold_at, NOW())
+                       ELSE NULL
+                     END
                  WHERE id = $3`,
                 [toStatus, nextQrCode, ticket.id]
             );

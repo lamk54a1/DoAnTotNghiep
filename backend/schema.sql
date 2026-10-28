@@ -83,6 +83,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   is_printed BOOLEAN DEFAULT false,
   printed_at TIMESTAMP,
   printed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  paper_sold_at TIMESTAMP,
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 

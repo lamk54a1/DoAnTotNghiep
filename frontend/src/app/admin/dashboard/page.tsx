@@ -10,7 +10,11 @@ import axios from 'axios';
 
 interface DashboardStats {
   totalRevenue: number;
+  onlineRevenue?: number;
+  paperRevenue?: number;
   totalTicketsSold: number;
+  onlineTicketsSold?: number;
+  paperTicketsSold?: number;
   totalUsers: number;
   pendingOrders: number;
   monthlyRevenue?: Array<{ month: string; revenue: number }>;
@@ -112,8 +116,22 @@ export default function AdminDashboard() {
 
         {/* PHẦN THỐNG KÊ */}
         <Row gutter={16} className="mb-8">
-          <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-blue-600 shadow-md"><Statistic title="Doanh Thu" value={stats.totalRevenue} prefix={<DollarOutlined />} suffix="VND" styles={{ content: { color: '#3f8600' } }} /></Card></Col>
-          <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-yellow-500 shadow-md"><Statistic title="Vé Đã Bán" value={stats.totalTicketsSold} prefix={<TagOutlined />} suffix="Vé" /></Card></Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card className="mb-4 border-t-4 border-blue-600 shadow-md">
+              <Statistic title="Tổng doanh thu" value={stats.totalRevenue} prefix={<DollarOutlined />} suffix="VND" styles={{ content: { color: '#3f8600' } }} />
+              <p className="mb-0 mt-2 text-xs font-semibold text-gray-500">
+                Online {Number(stats.onlineRevenue || 0).toLocaleString('vi-VN')}đ · Vé giấy {Number(stats.paperRevenue || 0).toLocaleString('vi-VN')}đ
+              </p>
+            </Card>
+          </Col>
+          <Col xs={24} md={12} xl={6}>
+            <Card className="mb-4 border-t-4 border-yellow-500 shadow-md">
+              <Statistic title="Vé đã bán" value={stats.totalTicketsSold} prefix={<TagOutlined />} suffix="Vé" />
+              <p className="mb-0 mt-2 text-xs font-semibold text-gray-500">
+                Online {Number(stats.onlineTicketsSold || 0)} · Vé giấy {Number(stats.paperTicketsSold || 0)}
+              </p>
+            </Card>
+          </Col>
           <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-green-500 shadow-md"><Statistic title="Người Dùng" value={stats.totalUsers} prefix={<UserOutlined />} suffix="User" /></Card></Col>
           <Col xs={24} md={12} xl={6}><Card className="mb-4 border-t-4 border-orange-500 shadow-md"><Statistic title="Đơn Chờ Xử Lý" value={stats.pendingOrders} prefix={<ShoppingOutlined />} suffix="Đơn" /></Card></Col>
         </Row>
