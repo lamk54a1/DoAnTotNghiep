@@ -67,7 +67,7 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
       });
 
       notification.success({
-        title: 'Đã gửi yêu cầu',
+        title: 'Xác minh thành công',
         description: res.message,
       });
     } finally {
@@ -102,10 +102,10 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
             <IdcardOutlined />
           </div>
           <div>
-            <p className="m-0 text-xs font-black uppercase tracking-widest text-gray-400">Đang chờ admin duyệt</p>
+            <p className="m-0 text-xs font-black uppercase tracking-widest text-gray-400">Hồ sơ CCCD cũ đang chờ xử lý</p>
             <p className="mb-2 mt-1 text-xl font-black tracking-wider text-[#003078]">{pendingCccd}</p>
             <p className="m-0 text-xs leading-5 text-gray-500">
-              Bạn đã gửi CCCD. Tài khoản sẽ được phép mua vé sau khi admin xác nhận.
+              Hệ thống sẽ tự xác minh nếu số CCCD không bị trùng. Vui lòng tải lại trang sau khi hệ thống cập nhật.
             </p>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
           <p className="m-0 text-xs font-black uppercase tracking-widest text-gray-400">Xác minh CCCD</p>
           <h3 className="mb-2 mt-1 text-xl font-black uppercase text-[#003078]">Upload mặt trước CCCD</h3>
           <p className="m-0 text-sm leading-6 text-gray-500">
-            Hệ thống đọc số CCCD và địa chỉ thường trú từ mã QR trên ảnh. Hãy kiểm tra địa chỉ trước khi lưu; ảnh không được tải lên máy chủ.
+            Hệ thống đọc số CCCD và địa chỉ thường trú từ mã QR trên ảnh, sau đó xác minh tự động. Hãy kiểm tra thông tin trước khi lưu; ảnh không được tải lên máy chủ.
           </p>
         </div>
       </div>
@@ -171,7 +171,7 @@ export default function CccdVerificationCard({ cccd, pendingCccd, cccdStatus, on
         onClick={handleSaveIdentity}
         className="mt-4 h-11 rounded-xl bg-[#003078] px-8 font-black uppercase"
       >
-        Lưu CCCD
+        Xác minh CCCD
       </Button>
     </Card>
   );

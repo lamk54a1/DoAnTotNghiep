@@ -168,7 +168,7 @@ const answerAccount = (question = '') => {
   '- Cập nhật họ tên, số điện thoại, địa chỉ.',
   '- Đổi email cần tự nhập mật khẩu hiện tại để xác nhận; hệ thống không hiển thị hoặc điền sẵn mật khẩu.',
   '- Tài khoản Google/Facebook quản lý email và mật khẩu tại nhà cung cấp đăng nhập.',
-  '- Gửi CCCD để admin duyệt trước khi mua vé.',
+    '- Upload mặt trước CCCD để hệ thống đọc mã QR và xác minh tự động trước khi mua vé.',
 ].join('\n');
 };
 

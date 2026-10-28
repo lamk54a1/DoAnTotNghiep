@@ -57,7 +57,7 @@ const createOrder = async (req, res) => {
         );
 
         if (userIdentityResult.rowCount === 0 || !userIdentityResult.rows[0].cccd || userIdentityResult.rows[0].cccd_status !== 'VERIFIED') {
-            return res.status(403).json({ message: 'Vui lòng xác minh CCCD và chờ admin duyệt trước khi mua vé.' });
+            return res.status(403).json({ message: 'Vui lòng upload và xác minh CCCD trước khi mua vé.' });
         }
         const buyerCccd = userIdentityResult.rows[0].cccd;
 

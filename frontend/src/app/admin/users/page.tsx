@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import dayjs from 'dayjs';
-import { App as AntApp, Button, Card, Descriptions, Popconfirm, Space, Table, Tag } from 'antd';
+import { App as AntApp, Button, Card, Descriptions, Input, Popconfirm, Select, Space, Table, Tag } from 'antd';
+import { SearchOutlined, TeamOutlined } from '@ant-design/icons';
 import AdminPageShell from '../../../components/Admin/AdminPageShell';
 import axiosClient from '../../../api/axiosClient';
 import { IUser } from '../../../interfaces/IUser';
@@ -13,37 +14,53 @@ export default function AdminUsersPage() {
   const [canManageAdmins, setCanManageAdmins] = useState(false);
   const [protectedUserId, setProtectedUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<IUser['role'] | undefined>();
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
     try {
-      const [data, capabilities] = await Promise.all([
-        axiosClient.get<IUser[]>('/admin/users'),
-        axiosClient.get<{ canManageAdmins: boolean; protectedUserId: number | null }>('/admin/capabilities'),
-      ]);
+      const params = new URLSearchParams();
+      if (debouncedSearch) params.set('search', debouncedSearch);
+      if (roleFilter) params.set('role', roleFilter);
+      const data = await axiosClient.get<IUser[]>(`/admin/users?${params.toString()}`);
       setUsers(data);
-      setCanManageAdmins(capabilities.canManageAdmins);
-      setProtectedUserId(capabilities.protectedUserId);
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, roleFilter]);
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const timer = window.setTimeout(() => setDebouncedSearch(searchTerm.trim()), 350);
+    return () => window.clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
+    void Promise.resolve().then(fetchUsers);
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    axiosClient.get<{ canManageAdmins: boolean; protectedUserId: number | null }>('/admin/capabilities')
+      .then((capabilities) => {
+        setCanManageAdmins(capabilities.canManageAdmins);
+        setProtectedUserId(capabilities.protectedUserId);
+      })
+      .catch(() => notification.error({ message: 'Không thể tải quyền quản trị.' }));
+  }, [notification]);
 
   const updateStatus = async (id: number, status: IUser['status']) => {
     await axiosClient.patch(`/admin/users/${id}/status`, { status });
     notification.success({ title: status === 'BANNED' ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.' });
     setLoading(true);
-    fetchUsers();
+    void fetchUsers();
   };
 
   const reviewIdentity = async (id: number, decision: 'APPROVE' | 'REJECT') => {
     await axiosClient.patch(`/admin/users/${id}/identity`, { decision });
     notification.success({ title: decision === 'APPROVE' ? 'Đã duyệt CCCD.' : 'Đã từ chối CCCD.' });
     setLoading(true);
-    fetchUsers();
+    void fetchUsers();
   };
 
   const updateRole = async (id: number, role: IUser['role']) => {
@@ -56,7 +73,7 @@ export default function AdminUsersPage() {
           : 'Đã thu hồi quyền đặc biệt.',
     });
     setLoading(true);
-    fetchUsers();
+    void fetchUsers();
   };
 
   const roleLabel = (role: IUser['role']) => ({ USER: 'Người dùng', ADMIN: 'Quản trị viên', SCANNER: 'Nhân viên soát vé' }[role]);
@@ -114,6 +131,35 @@ export default function AdminUsersPage() {
 
   return (
     <AdminPageShell title="Quản lý người dùng" subtitle="Theo dõi tài khoản và khóa hoặc mở khóa người dùng khi cần.">
+      <Card className="mb-4 rounded-2xl border-gray-100 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center">
+          <Input
+            allowClear
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            prefix={<SearchOutlined className="text-gray-400" />}
+            placeholder="Nhập họ tên hoặc số điện thoại..."
+            className="h-11 flex-1 rounded-xl"
+            aria-label="Tìm người dùng theo tên hoặc số điện thoại"
+          />
+          <Select<IUser['role']>
+            allowClear
+            value={roleFilter}
+            onChange={setRoleFilter}
+            placeholder="Tất cả vai trò"
+            suffixIcon={<TeamOutlined />}
+            className="h-11 w-full md:w-64"
+            options={[
+              { value: 'USER', label: 'Người dùng' },
+              { value: 'ADMIN', label: 'Quản trị viên' },
+              { value: 'SCANNER', label: 'Nhân viên soát vé' },
+            ]}
+          />
+        </div>
+        <p className="mb-0 mt-3 text-xs font-semibold text-gray-400">
+          {loading ? 'Đang tìm kiếm...' : `Tìm thấy ${users.length.toLocaleString('vi-VN')} tài khoản`}
+        </p>
+      </Card>
       <div className="space-y-3 md:hidden" aria-busy={loading}>
         {users.map((user) => (
           <Card

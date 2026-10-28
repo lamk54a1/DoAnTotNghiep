@@ -61,7 +61,7 @@ const holdSeats = async (req, res) => {
         }
         if (!eligibility.rows[0].cccd || eligibility.rows[0].cccdStatus !== 'VERIFIED') {
             await client.query('ROLLBACK');
-            return res.status(403).json({ message: 'Bạn cần được duyệt CCCD trước khi giữ ghế.' });
+            return res.status(403).json({ message: 'Bạn cần upload và xác minh CCCD trước khi giữ ghế.' });
         }
         if (eligibility.rows[0].matchStatus !== 'ON_SALE') {
             await client.query('ROLLBACK');

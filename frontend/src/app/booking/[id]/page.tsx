@@ -121,7 +121,7 @@ const BookingPage = () => {
           <Result
             status="info"
             title="Xác minh CCCD trước khi mua vé"
-            subTitle="Bạn chỉ cần upload mặt trước CCCD một lần. Sau khi admin duyệt, tài khoản sẽ được phép mua vé."
+            subTitle="Bạn chỉ cần upload mặt trước CCCD một lần. Hệ thống sẽ đọc mã QR và xác minh tự động để bạn có thể mua vé ngay."
           />
           <CccdVerificationCard
             cccd={profile?.cccd}

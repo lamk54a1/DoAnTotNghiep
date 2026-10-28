@@ -155,7 +155,11 @@ const updateIdentity = async (req, res) => {
 
     const result = await pool.query(
       `UPDATE users
-       SET pending_cccd = $1, cccd_status = 'PENDING', address = COALESCE($2, address)
+       SET cccd = $1,
+           pending_cccd = NULL,
+           cccd_status = 'VERIFIED',
+           cccd_verified_at = NOW(),
+           address = COALESCE($2, address)
        WHERE id = $3 AND cccd IS NULL
        RETURNING
         id,
@@ -177,8 +181,8 @@ const updateIdentity = async (req, res) => {
       return res.status(409).json({ message: 'Tài khoản này đã cập nhật CCCD. Không thể cập nhật lại.' });
     }
 
-    await writeAuditLog({ userId: req.user.id, action: 'CCCD_SUBMITTED', entityType: 'user', entityId: req.user.id, metadata: { cccdLastFour: cccd.slice(-4) } });
-    res.json({ message: 'Đã gửi CCCD cho admin duyệt.', user: result.rows[0] });
+    await writeAuditLog({ userId: req.user.id, action: 'CCCD_AUTO_VERIFIED', entityType: 'user', entityId: req.user.id, metadata: { cccdLastFour: cccd.slice(-4) } });
+    res.json({ message: 'CCCD đã được xác minh tự động. Bạn có thể mua vé ngay.', user: result.rows[0] });
   } catch (err) {
     if (err.code === '23505') {
       return res.status(400).json({ message: 'CCCD này đã được dùng cho tài khoản khác.' });

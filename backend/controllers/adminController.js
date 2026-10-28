@@ -315,8 +315,36 @@ const getSepayReviewTransactions = async (_req, res) => {
   }
 };
 
+const buildUserFilters = ({ search, role }) => {
+  const filters = [];
+  const params = [];
+  const normalizedSearch = String(search || '').trim().slice(0, 100);
+  const normalizedRole = String(role || '').trim().toUpperCase();
+
+  if (normalizedRole && !['USER', 'ADMIN', 'SCANNER'].includes(normalizedRole)) {
+    const error = new Error('Vai trò tìm kiếm không hợp lệ.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (normalizedSearch) {
+    params.push(`%${normalizedSearch}%`);
+    filters.push(`(full_name ILIKE $${params.length} OR phone_number ILIKE $${params.length})`);
+  }
+  if (normalizedRole) {
+    params.push(normalizedRole);
+    filters.push(`role = $${params.length}`);
+  }
+
+  return {
+    whereClause: filters.length ? `WHERE ${filters.join(' AND ')}` : '',
+    params,
+  };
+};
+
 const getUsers = async (req, res) => {
   try {
+    const { whereClause, params } = buildUserFilters(req.query || {});
     const result = await pool.query(`
       SELECT
         id,
@@ -332,11 +360,12 @@ const getUsers = async (req, res) => {
         status,
         created_at AS "createdAt"
       FROM users
+      ${whereClause}
       ORDER BY created_at DESC
-    `);
+    `, params);
     res.json(result.rows);
   } catch (err) {
-    res.status(500).json({ message: 'Không thể tải danh sách người dùng.' });
+    res.status(err.statusCode || 500).json({ message: err.statusCode ? err.message : 'Không thể tải danh sách người dùng.' });
   }
 };
 
@@ -642,3 +671,4 @@ module.exports = {
 };
 
 module.exports.combineDashboardSales = combineDashboardSales;
+module.exports.buildUserFilters = buildUserFilters;
