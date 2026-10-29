@@ -138,7 +138,7 @@ const Header = () => {
 
         {/* ACTIONS: GIỎ HÀNG & PROFILE */}
         <div className="flex items-center gap-3 sm:gap-5">
-          <Link href={selectedSeats.length > 0 ? '/checkout' : '/matches'} aria-label={`Giỏ vé, ${selectedSeats.length} ghế đã chọn`}>
+          <Link href="/checkout" aria-label={`Giỏ vé, ${selectedSeats.length} ghế đã chọn`}>
             <Badge count={selectedSeats?.length || 0} offset={[5, 0]} color="#edbb00" size="small">
               <ShoppingCartOutlined className="cursor-pointer text-2xl text-white transition-colors hover:text-[#edbb00]" />
             </Badge>
