@@ -22,7 +22,7 @@ Kiểm tra cấu trúc không thay thế kiểm tra dàn trang trực quan.
 - SEPAY duy nhất; SOLD khi tạo đơn nhưng QR chỉ sinh sau SUCCESS.
 - Đối soát giao dịch lệch, chống lặp; scanner đúng trận và chống dùng lại.
 - Gemini, nguồn chính thức, schema và giới hạn kiểm thử.
-- Bộ backend 49/49 test; không suy rộng thành kiểm thử tải hay E2E.
+- Bộ backend 56/56 test và bộ tích hợp/E2E trọng yếu T01-T16 đạt 16/16; không suy rộng thành kiểm thử tải hay pentest.
 
 ## Hoàn thiện trước khi nộp
 

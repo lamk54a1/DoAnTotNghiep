@@ -431,7 +431,7 @@ def build_document():
     configure_header_page_number(front)
     set_page_number_format(front, "lowerRoman", 1)
     add_major_heading(doc, "TÓM TẮT ĐỒ ÁN", page_break=False)
-    add_body(doc, "Đồ án xây dựng hệ thống bán vé trực tuyến cho Câu lạc bộ Sông Lam Nghệ An trên nền tảng web. Giải pháp gồm giao diện Next.js, dịch vụ REST API Express.js và cơ sở dữ liệu PostgreSQL; hỗ trợ tài khoản LOCAL/OAuth, quên mật khẩu qua email, xác minh CCCD, lịch thi đấu, giữ ghế 10 phút, thanh toán SePay bằng VietQR, phát hành vé QR tự động, vé giấy, soát vé trên điện thoại, nhà tài trợ và chatbot Gemini có truy xuất nguồn chính thức. Hệ thống áp dụng cookie HttpOnly, bcrypt, phân quyền USER/ADMIN/SCANNER, quản trị viên gốc cấu hình bằng biến môi trường, webhook HMAC-SHA256 và cơ chế tự giải phóng đơn quá hạn. Bộ kiểm thử backend hiện đạt 49/49 trường hợp; lint và production build cần chạy lại trước nghiệm thu. Sản phẩm đáp ứng các nghiệp vụ cốt lõi của một hệ thống bán vé bóng đá ở mức đồ án có thể triển khai thử nghiệm có kiểm soát và tiếp tục mở rộng.")
+    add_body(doc, "Đồ án xây dựng hệ thống bán vé trực tuyến cho Câu lạc bộ Sông Lam Nghệ An trên nền tảng web. Giải pháp gồm giao diện Next.js, dịch vụ REST API Express.js và cơ sở dữ liệu PostgreSQL; hỗ trợ tài khoản LOCAL/OAuth, quên mật khẩu qua email, xác minh CCCD, lịch thi đấu, giữ ghế 10 phút, thanh toán SePay bằng VietQR, phát hành vé QR tự động, vé giấy, soát vé trên điện thoại, nhà tài trợ và chatbot Gemini có truy xuất nguồn chính thức. Hệ thống áp dụng cookie HttpOnly, bcrypt, phân quyền USER/ADMIN/SCANNER, quản trị viên gốc cấu hình bằng biến môi trường, webhook HMAC-SHA256 và cơ chế tự giải phóng đơn quá hạn. Bộ kiểm thử backend đạt 56/56 trường hợp; bộ kiểm thử tích hợp/E2E trọng yếu T01-T16 đạt 16/16; frontend lint và production build đều hoàn thành thành công. Sản phẩm đáp ứng các nghiệp vụ cốt lõi của một hệ thống bán vé bóng đá ở mức đồ án có thể triển khai thử nghiệm có kiểm soát và tiếp tục mở rộng.")
 
     add_major_heading(doc, "LỜI CAM ĐOAN")
     add_body(doc, "Tôi cam đoan báo cáo đồ án tốt nghiệp này là kết quả của quá trình khảo sát, phân tích, thiết kế, xây dựng và kiểm thử hệ thống bán vé trực tuyến cho Câu lạc bộ Sông Lam Nghệ An. Các mô tả về kiến trúc, cơ sở dữ liệu, thuật toán nghiệp vụ và kết quả kiểm thử được đối chiếu với mã nguồn tại thời điểm hoàn thiện báo cáo. Các khái niệm, tiêu chuẩn và tài liệu kỹ thuật của bên thứ ba đều được chú dẫn theo chuẩn IEEE. Tôi chịu trách nhiệm về tính trung thực của nội dung, số liệu và kết quả trình bày trong báo cáo.")
@@ -878,24 +878,26 @@ def build_document():
     add_topic(doc, "5.1", "Chiến lược kiểm thử", [
         "Kiểm thử tập trung vào rủi ro. Unit test bao phủ hàm/nhánh nghiệp vụ có thể cô lập; kiểm thử API kiểm tra middleware, validation và trạng thái; lint/build phát hiện lỗi cú pháp, type và đóng gói frontend. Rà soát schema đối chiếu constraint với yêu cầu. Kiểm thử thủ công đi qua các luồng người dùng và quản trị trên trình duyệt.",
         "Dữ liệu kiểm thử phải gồm cả đường thành công và thất bại: user chưa xác minh, ghế đã giữ, đơn hết hạn, email trùng, mật khẩu hiện tại sai, QR đã quét và nguồn ngoài timeout. Với thao tác transaction, kiểm tra sau lỗi rằng không có cập nhật một phần. Với quyền, thử public, USER và ADMIN thay vì chỉ tài khoản hợp lệ.",
-        "Kết quả được ghi trung thực theo phạm vi thực thi. Bộ test tự động hiện có 31 trường hợp và đều đạt; lint/build chưa được chạy lại trong đợt cập nhật tài liệu. Các test bao phủ Gemini, nguồn tin, phân quyền, OAuth state, ảnh, vòng đời đơn và SePay. Kết quả này chứng minh baseline kỹ thuật, chưa chứng minh khả năng chịu tải, độ an toàn tuyệt đối hoặc tương thích mọi thiết bị."
+        "Kết quả được ghi trung thực theo phạm vi thực thi. Bộ kiểm thử backend có 56 trường hợp và đều đạt. Bộ kiểm thử tích hợp/E2E trọng yếu T01-T16 chạy trên frontend, backend và PostgreSQL local đạt 16/16. Frontend lint và production build đều thành công. Kết quả này chứng minh baseline kỹ thuật và các luồng nghiệp vụ trọng yếu, chưa chứng minh khả năng chịu tải, độ an toàn tuyệt đối hoặc tương thích mọi thiết bị."
     ])
     add_table_caption(doc, "5.1", "Ma trận kiểm thử chức năng trọng yếu")
     add_table(doc, ["Mã", "Kịch bản", "Kỳ vọng", "Kết quả"], [
-        ("T01", "Đăng nhập đúng/sai mật khẩu.", "Tạo cookie hoặc trả 401; không lộ nguyên nhân chi tiết.", "Cần nghiệm thu API/E2E"),
-        ("T02", "Đổi email không nhập/sai mật khẩu hiện tại.", "Từ chối; email không đổi; không hiển thị mật khẩu cũ.", "Cần nghiệm thu API/E2E"),
-        ("T03", "USER gọi endpoint admin.", "403; dữ liệu không thay đổi.", "Cần nghiệm thu API/E2E"),
-        ("T04", "Hai request giữ cùng ghế.", "Chỉ một request thành công.", "Cần kiểm thử cạnh tranh"),
-        ("T05", "Tạo đơn với giá client sửa.", "Server tính lại tổng tiền.", "Cần nghiệm thu API/E2E"),
-        ("T06", "SePay khớp đơn đang chờ.", "Order SUCCESS, QR duy nhất.", "Đạt trong test giả lập"),
-        ("T07", "Hủy/đơn hết hạn.", "CANCELLED và ghế khả dụng trở lại nếu hợp lệ.", "Cần nghiệm thu API/E2E"),
-        ("T08", "Quét QR hai lần.", "Lần đầu hợp lệ; lần sau báo đã quét.", "Cần nghiệm thu API/E2E"),
-        ("T09", "Upload file giả ảnh/quá 5 MB.", "Từ chối trước khi ghi file.", "Cần nghiệm thu API/E2E"),
-        ("T10", "Chatbot có/không có bằng chứng.", "Kèm nguồn chính thức hoặc nêu chưa tìm thấy.", "Cần đánh giá E2E"),
-        ("T11", "Webhook SePay sai chữ ký/timestamp.", "Từ chối; không ghi giao dịch hoặc phát hành vé.", "Cần nghiệm thu API/E2E"),
-        ("T12", "SePay đúng mã, tiền, tài khoản và còn hạn.", "Order SUCCESS; ticket SOLD; sinh QR một lần.", "Cần nghiệm thu API/E2E"),
-        ("T13", "Nhận diện email quản trị viên gốc.", "Email chuẩn hóa khớp cấu hình.", "Đạt trong unit test"),
-        ("T14", "Tách nền logo có vùng trắng bên trong.", "Chỉ nền sáng nối mép thành trong suốt.", "Cần nghiệm thu API/E2E"),
+        ("T01", "Đăng nhập đúng/sai mật khẩu.", "Tạo cookie hoặc từ chối; không lộ nguyên nhân chi tiết.", "Đạt E2E local"),
+        ("T02", "Đổi email không nhập/sai mật khẩu hiện tại.", "Từ chối; email không đổi; không hiển thị mật khẩu cũ.", "Đạt E2E local"),
+        ("T03", "USER gọi endpoint admin.", "403; dữ liệu không thay đổi.", "Đạt E2E local"),
+        ("T04", "Hai request giữ cùng ghế.", "Chỉ một request thành công.", "Đạt E2E local"),
+        ("T05", "Tạo đơn với giá client sửa.", "Server tính lại tổng tiền.", "Đạt E2E local"),
+        ("T06", "SePay khớp đơn đang chờ.", "Order SUCCESS, QR duy nhất.", "Đạt E2E local"),
+        ("T07", "Hủy/đơn hết hạn.", "CANCELLED và ghế khả dụng trở lại nếu hợp lệ.", "Đạt E2E local"),
+        ("T08", "Quét QR hai lần.", "Lần đầu hợp lệ; lần sau báo đã quét.", "Đạt E2E local"),
+        ("T09", "Upload file giả ảnh/quá 5 MB.", "Từ chối trước khi ghi file.", "Đạt E2E local"),
+        ("T10", "Chatbot có/không có bằng chứng.", "Kèm nguồn chính thức hoặc nêu chưa tìm thấy.", "Đạt E2E local"),
+        ("T11", "Webhook SePay sai chữ ký/timestamp.", "Từ chối; không ghi giao dịch hoặc phát hành vé.", "Đạt E2E local"),
+        ("T12", "SePay đúng mã, tiền, tài khoản và còn hạn.", "Order SUCCESS; ticket SOLD; sinh QR một lần.", "Đạt E2E local"),
+        ("T13", "Nhận diện email quản trị viên gốc.", "Email chuẩn hóa khớp cấu hình.", "Đạt E2E local"),
+        ("T14", "Tách nền logo có vùng trắng bên trong.", "Chỉ nền sáng nối mép thành trong suốt.", "Đạt E2E local"),
+        ("T15", "Tải CCCD có QR hợp lệ.", "Tài khoản chuyển ngay sang VERIFIED; ảnh không lưu trên server.", "Đạt E2E local"),
+        ("T16", "CCCD sai độ dài hoặc đã được tài khoản khác sử dụng.", "API từ chối và không thay đổi tài khoản.", "Đạt E2E local"),
     ], [700, 2600, 3500, 1704], 10.2)
 
     add_topic(doc, "5.2", "Kiểm thử bảo mật", [
@@ -940,16 +942,16 @@ def build_document():
     ])
 
     add_topic(doc, "5.6", "Kết quả công cụ và chất lượng mã", [
-        "Bộ kiểm thử backend đã được chạy bằng npm test và đạt 49/49 trường hợp, không có ca thất bại hoặc bỏ qua. Phần lớn là kiểm thử hàm và nhánh xử lý với dữ liệu hoặc phụ thuộc giả lập. Kết quả không thay thế kiểm thử tích hợp PostgreSQL, kiểm thử trình duyệt hay đo tải trên hạ tầng triển khai. Không đưa biến môi trường bí mật vào báo cáo.",
+        "Bộ kiểm thử backend đã được chạy bằng npm test và đạt 56/56 trường hợp, không có ca thất bại hoặc bỏ qua. Bộ Playwright tích hợp/E2E T01-T16 chạy với frontend, backend và PostgreSQL local đạt 16/16. Dữ liệu kiểm thử được tạo riêng và dọn sau phiên. Kết quả chưa thay thế đo tải hoặc pentest trên hạ tầng production. Không đưa biến môi trường bí mật vào báo cáo.",
         "Rà soát thủ công tập trung vào chênh lệch giữa frontend, backend và schema. Các điểm đã chuẩn hóa gồm thời hạn giữ 10 phút, trạng thái SUCCESS, QR sau thanh toán, mật khẩu hiện tại khi đổi email, cookie HttpOnly, ảnh upload và chatbot nguồn chính thức. Migration giúp database cũ theo kịp code mới.",
-        "Số lượng test còn khiêm tốn so với phạm vi. Ưu tiên tiếp theo là integration test với PostgreSQL test container, test transaction cạnh tranh, Playwright cho luồng chính và security scan dependency. Coverage nên dùng để tìm vùng chưa kiểm tra, không dùng như chỉ số duy nhất."
+        "Bộ Playwright đã bao phủ đăng nhập, phân quyền, cạnh tranh giữ ghế, chống sửa giá, vòng đời SePay, đơn hết hạn, quét QR, upload, chatbot, quản trị viên gốc và CCCD. Ưu tiên tiếp theo là test container độc lập, đo tải, accessibility audit và security scan dependency. Coverage nên dùng để tìm vùng chưa kiểm tra, không dùng như chỉ số duy nhất."
     ])
     add_table_caption(doc, "5.4", "Tổng hợp kiểm tra kỹ thuật")
     add_table(doc, ["Hạng mục", "Kết quả", "Ý nghĩa/Giới hạn"], [
-        ("Backend tests", "49/49 đạt", "Baseline nghiệp vụ được kiểm tra; cần tăng integration/concurrency."),
-        ("Backend lint", "Chưa chạy lại", "Không có lỗi lint trong phạm vi cấu hình."),
-        ("Frontend lint", "Chưa chạy lại", "Quy tắc mã frontend thỏa tại thời điểm chạy."),
-        ("Frontend production build", "Chưa chạy lại", "Type/bundle tạo được; không thay benchmark runtime."),
+        ("Backend tests", "56/56 đạt", "Baseline nghiệp vụ được kiểm tra tự động."),
+        ("Playwright integration/E2E", "16/16 đạt", "T01-T16 chạy với PostgreSQL local; chưa phải kiểm thử tải."),
+        ("Frontend lint", "Đạt", "ESLint hoàn thành không có lỗi."),
+        ("Frontend production build", "Đạt", "Type/bundle và 34 route được tạo thành công; không thay benchmark runtime."),
         ("Rà soát schema/migration", "Đạt phạm vi đồ án", "Constraint/index nhất quán; cần rehearsal production."),
         ("Load/pentest/accessibility audit", "Chưa đầy đủ", "Không đưa ra tuyên bố chưa được đo."),
     ], [2500, 1600, 4404])
@@ -1030,7 +1032,7 @@ def build_document():
         ("Tài khoản an toàn", "Bcrypt, cookie HttpOnly, token_version, current password.", "Hoàn thành baseline"),
         ("Quản trị nội dung", "Trận, user, CCCD, sponsor, ảnh, audit, báo cáo.", "Hoàn thành"),
         ("Chatbot đáng tin cậy", "RAG nguồn SLNAFC/VPF, citation, allowlist.", "Hoàn thành prototype"),
-        ("Production quy mô lớn", "Chưa đo tải, pentest, E2E và vận hành dài hạn.", "Cần tiếp tục đánh giá"),
+        ("Production quy mô lớn", "Chưa đo tải, pentest, E2E trên production và vận hành dài hạn.", "Cần tiếp tục đánh giá"),
     ], [2700, 3800, 2004], 10.5)
 
     add_topic(doc, "6.2", "Hạn chế", [
@@ -1068,7 +1070,7 @@ def build_document():
     add_major_heading(doc, "Kết luận")
     add_body(doc, "Đồ án đã phân tích, thiết kế và cài đặt hệ thống quản lý bán vé bóng đá cho bối cảnh SLNA với frontend Next.js, backend Express và PostgreSQL. Sản phẩm bao phủ vòng đời online và vé giấy, quản trị trận/đơn/người dùng/sponsor, QR scanner, audit và chatbot. Các yêu cầu nhạy cảm được xử lý ở server/database: mật khẩu băm và không hiển thị; đổi email cần mật khẩu hiện tại; phiên dùng HttpOnly cookie; ghế được giữ 10 phút; QR chỉ phát hành sau đơn SUCCESS; quét lặp bị chặn.")
     add_body(doc, "Đóng góp chính của đồ án là mô hình tích hợp có thể kiểm tra từ yêu cầu tới schema, API, giao diện và test. Chatbot được thiết kế theo RAG từ nguồn chính thức SLNAFC/VPF, có allowlist và citation, giúp tăng thông tin mà không tùy tiện lấy nguồn. Ảnh hiện lưu ở backend/uploads cho môi trường local và đã có đề xuất object storage/CDN cho production.")
-    add_body(doc, "Bộ kiểm thử backend đạt 49/49 trường hợp và xác nhận các nhánh đã kiểm tra về AI, nguồn tin, bảo mật, SePay và vòng đời đơn. Để mở rộng vận hành, cần bổ sung storage bền vững, kiểm thử tích hợp/E2E/tải và giám sát hệ thống. Những kết quả chưa đo được trình bày dưới dạng kế hoạch kiểm chứng.")
+    add_body(doc, "Bộ kiểm thử backend đạt 56/56 trường hợp; bộ Playwright tích hợp/E2E trọng yếu T01-T16 đạt 16/16 trên môi trường local có PostgreSQL. Kết quả xác nhận các nhánh đã kiểm tra về xác thực, phân quyền, cạnh tranh giữ ghế, AI, nguồn tin, upload, SePay, CCCD và vòng đời đơn. Để mở rộng vận hành, cần bổ sung storage bền vững, kiểm thử tải, pentest và giám sát hệ thống. Những kết quả chưa đo được trình bày dưới dạng kế hoạch kiểm chứng.")
 
     add_major_heading(doc, "Tài liệu tham khảo")
     references = [

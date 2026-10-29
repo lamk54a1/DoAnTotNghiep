@@ -14,7 +14,7 @@ def check():
                      [c.text for t in doc.tables for r in t.rows for c in r.cells])
     for stale in ('giữ ghế 15 phút', 'ghế được giữ 15 phút', 'HELD 15 phút', '8/8'):
         assert stale not in text, f'Stale claim: {stale}'
-    for required in ('10 phút', '15 phút', 'SCANNER', 'SePay', 'Gemini', '49/49'):
+    for required in ('10 phút', '15 phút', 'SCANNER', 'SePay', 'Gemini', '56/56', '16/16'):
         assert required in text, f'Missing topic: {required}'
     captions = [p.text for p in doc.paragraphs if p.style.name == 'Caption Figure']
     assert len(captions) == len(doc.inline_shapes) == 21, 'Figure/caption mismatch'
