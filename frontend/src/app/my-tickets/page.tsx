@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import dayjs from 'dayjs';
 import { Alert, Button, Card, Empty, Modal, QRCode, Spin, Tag } from 'antd';
-import { FilePdfOutlined } from '@ant-design/icons';
+import { CopyOutlined, FilePdfOutlined, QrcodeOutlined, ReloadOutlined } from '@ant-design/icons';
 import axiosClient from '../../api/axiosClient';
 import PrintableTicket, { PrintableTicketData } from '../../components/Tickets/PrintableTicket';
 import { ISponsor } from '../../interfaces/ISponsor';
@@ -31,12 +31,19 @@ export default function MyTicketsPage() {
   const [error, setError] = useState(false);
   const [sponsors, setSponsors] = useState<ISponsor[]>([]);
   const [printing, setPrinting] = useState<{ ticket: MyTicket; orderQrCode: string } | null>(null);
+  const [paymentOrder, setPaymentOrder] = useState<MyOrder | null>(null);
 
   const loadOrders = () => {
     setLoading(true);
     setError(false);
     void axiosClient.get<MyOrder[]>('/orders/my')
-      .then(setOrders)
+      .then((data) => {
+        setOrders(data);
+        setPaymentOrder((current) => {
+          if (!current) return null;
+          return data.find((order) => order.id === current.id && order.status === 'PENDING') || null;
+        });
+      })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   };
@@ -101,6 +108,14 @@ export default function MyTicketsPage() {
                   <p className="font-black">Đơn đang chờ thanh toán/xác nhận</p>
                   <p>Nội dung chuyển khoản: <b>{order.paymentMethod === 'SEPAY' ? order.orderQrCode : `THANH TOAN VE ${order.orderQrCode}`}</b></p>
                   {order.expiresAt && <p>Hết hạn: <b>{dayjs(order.expiresAt).format('DD/MM/YYYY HH:mm')}</b></p>}
+                  <Button
+                    type="primary"
+                    icon={<QrcodeOutlined />}
+                    className="mt-3 bg-[#003078] font-bold"
+                    onClick={() => setPaymentOrder(order)}
+                  >
+                    Thanh toán ngay
+                  </Button>
                 </div>
               </div>
             )}
@@ -138,6 +153,61 @@ export default function MyTicketsPage() {
           <Empty description="Bạn chưa có vé nào" />
         )}
       </section>
+
+      <Modal
+        title="Thanh toán vé bằng VietQR"
+        open={Boolean(paymentOrder)}
+        onCancel={() => setPaymentOrder(null)}
+        width={520}
+        footer={[
+          <Button key="refresh" icon={<ReloadOutlined />} onClick={loadOrders}>Kiểm tra thanh toán</Button>,
+          <Button key="close" type="primary" onClick={() => setPaymentOrder(null)}>Đóng</Button>,
+        ]}
+        destroyOnHidden
+      >
+        {paymentOrder && (
+          <div className="flex flex-col items-center gap-4 py-3 text-center">
+            {paymentOrder.paymentQrCode && (
+              <Image
+                src={paymentOrder.paymentQrCode}
+                alt={`QR thanh toán đơn ${paymentOrder.orderQrCode}`}
+                width={280}
+                height={280}
+                unoptimized
+                className="h-[280px] w-[280px] rounded-2xl border bg-white object-contain p-2"
+              />
+            )}
+            <Alert
+              showIcon
+              type="warning"
+              className="w-full text-left"
+              message={`Chuyển đúng ${Number(paymentOrder.totalAmount).toLocaleString('vi-VN')}đ`}
+              description="Mở ứng dụng ngân hàng, quét mã VietQR và giữ nguyên nội dung chuyển khoản. Vé chỉ được phát hành sau khi SePay xác nhận tiền vào thành công."
+            />
+            <div className="w-full rounded-xl bg-gray-50 p-4 text-left">
+              <div className="text-xs font-bold uppercase text-gray-500">Nội dung chuyển khoản</div>
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                <b className="break-all text-base text-[#003078]">{paymentOrder.orderQrCode}</b>
+                <Button
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={() => void navigator.clipboard.writeText(paymentOrder.orderQrCode)}
+                >
+                  Sao chép
+                </Button>
+              </div>
+              {paymentOrder.expiresAt && (
+                <div className="mt-3 text-sm text-red-600">
+                  Thanh toán trước <b>{dayjs(paymentOrder.expiresAt).format('DD/MM/YYYY HH:mm')}</b>
+                </div>
+              )}
+            </div>
+            <p className="m-0 text-xs leading-5 text-gray-500">
+              Nếu đang xem trên điện thoại, hãy chụp hoặc lưu mã QR rồi chọn ảnh QR trong ứng dụng ngân hàng.
+            </p>
+          </div>
+        )}
+      </Modal>
 
       <Modal
         title="Xem trước vé điện tử"
