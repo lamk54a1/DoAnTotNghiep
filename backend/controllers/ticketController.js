@@ -421,6 +421,7 @@ const getPaperTicketsByMatch = async (req, res) => {
     const { matchId } = req.params;
     const stand = String(req.query.stand || '').toUpperCase();
     const status = String(req.query.status || '').toUpperCase();
+    const printed = String(req.query.printed || '').toLowerCase();
     const values = [matchId];
     const filters = ['t.match_id = $1', "t.status IN ('PAPER_RESERVED', 'PAPER_SOLD')"];
 
@@ -432,6 +433,11 @@ const getPaperTicketsByMatch = async (req, res) => {
     if (status === 'PAPER_RESERVED' || status === 'PAPER_SOLD') {
         values.push(status);
         filters.push(`t.status = $${values.length}`);
+    }
+
+    if (printed === 'true' || printed === 'false') {
+        values.push(printed === 'true');
+        filters.push(`COALESCE(t.is_printed, false) = $${values.length}`);
     }
 
     try {

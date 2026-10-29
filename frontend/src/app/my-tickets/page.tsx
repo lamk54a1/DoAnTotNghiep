@@ -9,6 +9,7 @@ import { CopyOutlined, FilePdfOutlined, QrcodeOutlined, ReloadOutlined } from '@
 import axiosClient from '../../api/axiosClient';
 import PrintableTicket, { PrintableTicketData } from '../../components/Tickets/PrintableTicket';
 import { ISponsor } from '../../interfaces/ISponsor';
+import { printDocumentWhenReady } from '../../utils/printDocument';
 
 type MyTicket = PrintableTicketData;
 
@@ -123,7 +124,7 @@ export default function MyTicketsPage() {
               {order.tickets.map((ticket) => (
                 <div key={ticket.id} className="flex flex-col gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4 sm:flex-row">
                   {order.status === 'SUCCESS' && ticket.ticketQrCode ? (
-                    <div className="self-center rounded-xl bg-white p-1 shadow-sm"><QRCode value={ticket.ticketQrCode} size={112} color="#003078" bordered={false} /></div>
+                    <div className="self-center rounded-xl bg-white p-1 shadow-sm"><QRCode type="svg" value={ticket.ticketQrCode} size={112} color="#003078" bordered={false} /></div>
                   ) : (
                     <div className="flex h-[112px] w-[112px] self-center items-center justify-center rounded-lg bg-amber-50 p-2 text-center text-[10px] font-bold text-amber-700">
                       {order.status === 'PENDING' ? 'Chờ xác nhận thanh toán' : 'Vé không còn hiệu lực'}
@@ -216,7 +217,7 @@ export default function MyTicketsPage() {
         width={470}
         footer={[
           <Button key="close" onClick={() => setPrinting(null)}>Đóng</Button>,
-          <Button key="print" type="primary" icon={<FilePdfOutlined />} onClick={() => window.print()}>
+          <Button key="print" type="primary" icon={<FilePdfOutlined />} onClick={() => void printDocumentWhenReady('.ticket-print-area')}>
             In / Lưu PDF
           </Button>,
         ]}
@@ -228,6 +229,13 @@ export default function MyTicketsPage() {
             margin: 0;
           }
           @media print {
+            html,
+            body {
+              width: 105mm !important;
+              height: 210mm !important;
+              margin: 0 !important;
+              overflow: hidden !important;
+            }
             body * {
               visibility: hidden !important;
             }
@@ -236,12 +244,13 @@ export default function MyTicketsPage() {
               visibility: visible !important;
             }
             .ticket-print-area {
-              position: absolute;
+              position: fixed;
               inset: 0;
               width: 105mm;
-              min-height: 210mm;
+              height: 210mm;
               margin: 0;
               padding: 4mm;
+              overflow: hidden;
               background: white;
             }
             .ticket-print-area .slna-print-ticket {

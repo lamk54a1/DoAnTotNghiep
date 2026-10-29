@@ -85,7 +85,7 @@ export default function PrintableTicket({ ticket, fallbackQrCode, sponsors }: Pr
             <strong className="text-3xl text-[#003078]">{stand}</strong>
           </div>
           <div className="text-center">
-            <QRCode value={ticket.ticketQrCode || fallbackQrCode} size={170} color="#111827" bordered={false} />
+            <QRCode type="svg" value={ticket.ticketQrCode || fallbackQrCode} size={170} color="#111827" bordered={false} />
             <p className="m-0 break-all text-[8px] font-bold text-gray-400">{ticket.ticketQrCode || fallbackQrCode}</p>
           </div>
           <div className="text-center">

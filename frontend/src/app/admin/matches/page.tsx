@@ -12,6 +12,7 @@ import dayjs from 'dayjs';
 import PrintableTicket from '../../../components/Tickets/PrintableTicket';
 import { ISponsor } from '../../../interfaces/ISponsor';
 import { STAND_CONFIGS, STAND_KEYS, StandKey } from '../../../components/Booking/standConfigs';
+import { printDocumentWhenReady } from '../../../utils/printDocument';
 
 const STAND_OPTIONS = STAND_KEYS.map((zone) => ({
   label: `${STAND_CONFIGS[zone].name} - ${(STAND_CONFIGS[zone].rows * STAND_CONFIGS[zone].seatsPerRow).toLocaleString('vi-VN')} vé`,
@@ -247,7 +248,7 @@ export default function AdminMatchesPage() {
       setLoadingPaperTickets(true);
       setIsPaperPrintOpen(true);
       const [ticketData, sponsorData] = await Promise.all([
-        axiosClient.get<PaperTicket[]>(`/tickets/paper/${inventoryMatch.id}?stand=${paperStand}`),
+        axiosClient.get<PaperTicket[]>(`/tickets/paper/${inventoryMatch.id}?stand=${paperStand}&printed=false`),
         axiosClient.get<ISponsor[]>('/sponsors'),
       ]);
       setPaperTickets(ticketData);
@@ -276,7 +277,8 @@ export default function AdminMatchesPage() {
         description: response.message,
         duration: 6,
       });
-      window.setTimeout(() => window.print(), 100);
+      await printDocumentWhenReady('.paper-print-area');
+      setPaperTickets([]);
     } catch (error) {
       notification.error({
         title: 'Không thể in vé PDF',
@@ -708,6 +710,13 @@ export default function AdminMatchesPage() {
               margin: 0;
             }
             @media print {
+              html,
+              body {
+                width: 105mm !important;
+                height: auto !important;
+                margin: 0 !important;
+                overflow: visible !important;
+              }
               body * {
                 visibility: hidden !important;
               }
@@ -716,17 +725,22 @@ export default function AdminMatchesPage() {
               }
               .paper-print-area {
                 position: absolute;
-                inset: 0;
+                top: 0;
+                left: 0;
                 width: 105mm;
                 padding: 0;
                 background: white;
               }
               .paper-ticket-page {
                 width: 105mm;
-                min-height: 210mm;
+                height: 210mm;
                 padding: 4mm;
+                margin: 0 !important;
+                overflow: hidden;
+                box-sizing: border-box;
                 break-inside: avoid;
                 page-break-inside: avoid;
+                break-after: page;
                 page-break-after: always;
               }
               .paper-ticket-page:last-child {
@@ -734,6 +748,7 @@ export default function AdminMatchesPage() {
               }
               .paper-ticket-page .slna-print-ticket {
                 width: 97mm !important;
+                max-height: 202mm !important;
                 border-radius: 0 !important;
                 box-shadow: none !important;
               }
@@ -744,7 +759,7 @@ export default function AdminMatchesPage() {
             }
           `}</style>
           <div className="mb-4 rounded-xl border border-red-100 bg-red-50 p-3 text-xs font-bold leading-5 text-red-700">
-            Khi bấm “Khóa và In PDF”, toàn bộ vé đang hiển thị sẽ được đánh dấu đã in và không thể trả về bán online.
+            Danh sách chỉ gồm các vé chưa từng in. Khi bấm “Khóa và In PDF”, đúng {paperTickets.length.toLocaleString('vi-VN')} vé đang hiển thị sẽ được đánh dấu đã in và không thể trả về bán online.
           </div>
           <div className="paper-print-area bg-gray-100 py-4">
             <div className="paper-print-summary mb-4 flex items-center justify-between">
