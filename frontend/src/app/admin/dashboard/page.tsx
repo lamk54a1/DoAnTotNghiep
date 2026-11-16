@@ -118,9 +118,9 @@ export default function AdminDashboard() {
         <Row gutter={16} className="mb-8">
           <Col xs={24} md={12} xl={6}>
             <Card className="mb-4 border-t-4 border-blue-600 shadow-md">
-              <Statistic title="Tổng doanh thu" value={stats.totalRevenue} prefix={<DollarOutlined />} suffix="VND" styles={{ content: { color: '#3f8600' } }} />
+              <Statistic title="Tổng doanh thu" value={stats.totalRevenue} prefix={<DollarOutlined />} suffix="₫" styles={{ content: { color: '#3f8600' } }} />
               <p className="mb-0 mt-2 text-xs font-semibold text-gray-500">
-                Online {Number(stats.onlineRevenue || 0).toLocaleString('vi-VN')}đ · Vé giấy {Number(stats.paperRevenue || 0).toLocaleString('vi-VN')}đ
+                Online {Number(stats.onlineRevenue || 0).toLocaleString('vi-VN')}₫ · Vé giấy {Number(stats.paperRevenue || 0).toLocaleString('vi-VN')}₫
               </p>
             </Card>
           </Col>
@@ -146,7 +146,7 @@ export default function AdminDashboard() {
                     <div key={item.month}>
                       <div className="mb-1 flex justify-between text-xs font-bold text-gray-500">
                         <span>{item.month}</span>
-                        <span>{Number(item.revenue).toLocaleString('vi-VN')}đ</span>
+                        <span>{Number(item.revenue).toLocaleString('vi-VN')}₫</span>
                       </div>
                       <div className="h-3 overflow-hidden rounded-full bg-gray-100">
                         <div className="h-full rounded-full bg-[#003078]" style={{ width: `${Math.max(4, (Number(item.revenue) / maxRevenue) * 100)}%` }} />
