@@ -143,10 +143,14 @@ const generateAllSeats = async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
-        const matchResult = await client.query('SELECT id, free_stands, stand_prices FROM matches WHERE id = $1', [matchId]);
+        const matchResult = await client.query('SELECT id, status, free_stands, stand_prices FROM matches WHERE id = $1 FOR UPDATE', [matchId]);
         if (matchResult.rowCount === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ message: 'Không tìm thấy trận đấu.' });
+        }
+        if (matchResult.rows[0].status === 'FINISHED') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Trận đấu đã kết thúc, không thể sinh thêm vé.' });
         }
 
         const freeStands = matchResult.rows[0].free_stands || [];
@@ -328,6 +332,15 @@ const updatePaperTickets = async (req, res) => {
         const { from: fromStatus, to: toStatus } = statusTransitions[mode];
 
         await client.query('BEGIN');
+        const matchResult = await client.query('SELECT status FROM matches WHERE id = $1 FOR UPDATE', [matchId]);
+        if (matchResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Không tìm thấy trận đấu.' });
+        }
+        if (matchResult.rows[0].status === 'FINISHED') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Trận đấu đã kết thúc, không thể thay đổi vé giấy.' });
+        }
         const releasePrintFilter = mode === 'RELEASE'
             ? 'AND COALESCE(is_printed, false) = false'
             : '';
@@ -500,6 +513,15 @@ const markPaperTicketsPrinted = async (req, res) => {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
+        const matchResult = await client.query('SELECT status FROM matches WHERE id = $1 FOR UPDATE', [matchId]);
+        if (matchResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ message: 'Không tìm thấy trận đấu.' });
+        }
+        if (matchResult.rows[0].status === 'FINISHED') {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ message: 'Trận đấu đã kết thúc, không thể in thêm vé giấy.' });
+        }
         const result = await client.query(
             `UPDATE tickets
              SET is_printed = true,

@@ -18,6 +18,7 @@ const CheckoutPage = () => {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isFreeOrder, setIsFreeOrder] = useState(false);
   const [ticketCode, setTicketCode] = useState('');
   const [confirmedSeats, setConfirmedSeats] = useState<string[]>([]);
   const [pendingOrder, setPendingOrder] = useState<IOrderResponse | null>(null);
@@ -36,10 +37,16 @@ const CheckoutPage = () => {
     selectedSeats,
     onOrderCreated: (order, seatsSnapshot) => {
       setPendingOrder(order);
-      setOrderStatus('PENDING');
+      setOrderStatus(order.status);
       setTicketCode(order.orderQrCode);
       setConfirmedSeats(seatsSnapshot);
-      setCurrentStep(2);
+      if (order.status === 'SUCCESS') {
+        confirmPayment();
+        setIsFreeOrder(order.paymentMethod === 'FREE');
+        setIsSuccess(true);
+      } else {
+        setCurrentStep(2);
+      }
     },
   });
 
@@ -78,7 +85,7 @@ const CheckoutPage = () => {
   };
 
   if (isSuccess) {
-    return <PaymentSuccess ticketCode={ticketCode} confirmedSeats={confirmedSeats} paid />;
+    return <PaymentSuccess ticketCode={ticketCode} confirmedSeats={confirmedSeats} paid free={isFreeOrder} />;
   }
 
   if (selectedSeats.length === 0) {

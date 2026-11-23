@@ -305,13 +305,59 @@ const getSepayReviewTransactions = async (_req, res) => {
     const result = await pool.query(
       `SELECT transaction_id AS "transactionId", order_id AS "orderId",
               payment_code AS "paymentCode", account_number AS "accountNumber",
-              amount, status, received_at AS "receivedAt"
-       FROM sepay_transactions WHERE status <> 'MATCHED'
+              amount, status, refund_status AS "refundStatus",
+              refund_note AS "refundNote", refunded_at AS "refundedAt",
+              received_at AS "receivedAt"
+       FROM sepay_transactions
+       WHERE status <> 'MATCHED' OR refund_status <> 'NOT_REQUIRED'
        ORDER BY received_at DESC LIMIT 100`
     );
     return res.json(result.rows);
   } catch {
     return res.status(500).json({ message: 'Không thể tải giao dịch cần đối soát.' });
+  }
+};
+
+const updateSepayRefund = async (req, res) => {
+  const transactionId = String(req.params.transactionId || '').trim();
+  const refundStatus = String(req.body.refundStatus || '').trim().toUpperCase();
+  const refundNote = String(req.body.refundNote || '').trim().slice(0, 500);
+
+  if (!/^\d+$/.test(transactionId)) {
+    return res.status(400).json({ message: 'Mã giao dịch SePay không hợp lệ.' });
+  }
+  if (!['REQUIRED', 'PROCESSING', 'REFUNDED'].includes(refundStatus)) {
+    return res.status(400).json({ message: 'Trạng thái hoàn tiền không hợp lệ.' });
+  }
+  if (refundStatus === 'REFUNDED' && refundNote.length < 3) {
+    return res.status(400).json({ message: 'Vui lòng nhập ghi chú hoặc mã tham chiếu hoàn tiền.' });
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE sepay_transactions
+       SET refund_status = $1,
+           refund_note = NULLIF($2, ''),
+           refunded_at = CASE WHEN $1 = 'REFUNDED' THEN NOW() ELSE NULL END,
+           refunded_by = CASE WHEN $1 = 'REFUNDED' THEN $3 ELSE NULL END
+       WHERE transaction_id = $4
+         AND status <> 'MATCHED'
+       RETURNING transaction_id AS "transactionId", refund_status AS "refundStatus",
+                 refund_note AS "refundNote", refunded_at AS "refundedAt"`,
+      [refundStatus, refundNote, req.user.id, transactionId]
+    );
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Không tìm thấy giao dịch cần hoàn hoặc giao dịch đã khớp thành công.' });
+    }
+    await writeAuditLog({
+      userId: req.user.id,
+      action: 'SEPAY_REFUND_STATUS_UPDATED',
+      entityType: 'sepay_transaction',
+      metadata: { transactionId, refundStatus, refundNote }
+    });
+    return res.json({ message: refundStatus === 'REFUNDED' ? 'Đã ghi nhận hoàn tiền.' : 'Đã cập nhật tiến độ hoàn tiền.', ...result.rows[0] });
+  } catch (err) {
+    return res.status(500).json({ message: 'Không thể cập nhật trạng thái hoàn tiền.' });
   }
 };
 
@@ -667,7 +713,8 @@ module.exports = {
   updateUserRole,
   getAuditLogs,
   exportOrdersReport,
-  getSepayReviewTransactions
+  getSepayReviewTransactions,
+  updateSepayRefund
 };
 
 module.exports.combineDashboardSales = combineDashboardSales;

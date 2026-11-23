@@ -11,6 +11,7 @@ const {
   getAuditLogs,
   exportOrdersReport,
   getSepayReviewTransactions,
+  updateSepayRefund,
   getAdminCapabilities,
   updateUserRole
 } = require('../controllers/adminController');
@@ -21,6 +22,7 @@ router.get('/stats', getDashboardStats);
 router.get('/reports/orders.xlsx', exportOrdersReport);
 router.get('/orders', getOrders);
 router.get('/payments/sepay/review', getSepayReviewTransactions);
+router.patch('/payments/sepay/:transactionId/refund', updateSepayRefund);
 router.patch('/orders/bulk/status', bulkUpdateOrderStatus);
 router.patch('/orders/:id/status', updateOrderStatus);
 router.get('/users', getUsers);

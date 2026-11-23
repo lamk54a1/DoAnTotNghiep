@@ -23,6 +23,7 @@ export default function PaymentMethodPanel({
   onFinish,
 }: PaymentMethodPanelProps) {
   const expiryText = order?.expiresAt ? new Date(order.expiresAt).toLocaleString('vi-VN') : '';
+  const isFree = totalPrice === 0;
 
   return (
     <Card className="rounded-3xl border-none shadow-sm" title={<span className="font-black italic uppercase text-[#003078]">Thanh toán đơn vé</span>}>
@@ -30,26 +31,28 @@ export default function PaymentMethodPanel({
         <div className="flex items-start gap-3">
           <span className="text-lg text-[#003078]">{sepayPaymentOption.icon}</span>
           <div>
-            <div className="font-black text-[#003078]">{sepayPaymentOption.title}</div>
-            <p className="mt-2 text-xs font-medium leading-5 text-gray-500">{sepayPaymentOption.description}</p>
+            <div className="font-black text-[#003078]">{isFree ? 'Vé miễn phí' : sepayPaymentOption.title}</div>
+            <p className="mt-2 text-xs font-medium leading-5 text-gray-500">{isFree ? 'Không cần chuyển khoản. Vé điện tử được phát hành ngay sau khi xác nhận.' : sepayPaymentOption.description}</p>
           </div>
         </div>
       </div>
 
-      {!sepayAvailable && !order && <Alert showIcon type="warning" className="mt-5" message="SePay hiện chưa sẵn sàng. Vui lòng thử lại sau." />}
+      {!isFree && !sepayAvailable && !order && <Alert showIcon type="warning" className="mt-5" message="SePay hiện chưa sẵn sàng. Vui lòng thử lại sau." />}
 
       {!order ? (
         <div className="mt-6 rounded-[32px] border border-dashed border-gray-200 bg-white p-8 text-center">
           <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-[#003078] text-3xl text-[#edbb00]">
             {sepayPaymentOption.icon}
           </div>
-          <h3 className="text-xl font-black uppercase text-[#003078]">{sepayPaymentOption.title}</h3>
+          <h3 className="text-xl font-black uppercase text-[#003078]">{isFree ? 'Nhận vé miễn phí' : sepayPaymentOption.title}</h3>
           <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-gray-500">
-            Hệ thống sẽ tạo mã đơn trước, khóa ghế trong 15 phút và dùng chính mã đơn để đối soát thanh toán.
+            {isFree
+              ? 'Vé này không yêu cầu thanh toán. Sau khi xác nhận, mã QR vào sân sẽ có ngay trong mục Vé của tôi.'
+              : 'Hệ thống sẽ tạo mã đơn trước, khóa ghế trong 15 phút và dùng chính mã đơn để đối soát thanh toán.'}
           </p>
-          <p className="mt-5 text-3xl font-black italic text-[#003078]">{totalPrice.toLocaleString()}đ</p>
-          <Button type="primary" size="large" disabled={!sepayAvailable} loading={isCreatingOrder} className="mt-4 h-14 rounded-2xl px-10 font-black uppercase" onClick={onCreateOrder}>
-            Tạo đơn và khóa ghế
+          <p className="mt-5 text-3xl font-black italic text-[#003078]">{isFree ? 'MIỄN PHÍ' : `${totalPrice.toLocaleString('vi-VN')}₫`}</p>
+          <Button type="primary" size="large" disabled={!isFree && !sepayAvailable} loading={isCreatingOrder} className="mt-4 h-14 rounded-2xl px-10 font-black uppercase" onClick={onCreateOrder}>
+            {isFree ? 'Nhận vé miễn phí' : 'Tạo đơn và khóa ghế'}
           </Button>
         </div>
       ) : (

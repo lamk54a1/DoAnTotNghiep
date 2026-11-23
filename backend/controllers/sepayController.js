@@ -22,6 +22,7 @@ const processSepayTransfer = async (payload, client) => {
 
   let status = 'REVIEW_CODE';
   let orderId = null;
+  let refundStatus = 'NOT_REQUIRED';
   if (transfer.transferType !== 'in') status = 'IGNORED_OUTGOING';
   else if (transfer.accountNumber !== String(process.env.BANK_ACCOUNT_NO || '').trim()) status = 'REVIEW_ACCOUNT';
   else if (/^SLNA[A-F0-9]{12}$/.test(transfer.paymentCode)) {
@@ -35,8 +36,14 @@ const processSepayTransfer = async (payload, client) => {
     else {
       const order = result.rows[0];
       orderId = order.id;
-      if (order.status !== 'PENDING' || !order.is_within_deadline) status = 'REVIEW_EXPIRED';
-      else if (Number(order.total_amount) !== transfer.amount) status = 'REVIEW_AMOUNT';
+      if (order.status !== 'PENDING' || !order.is_within_deadline) {
+        status = 'REVIEW_EXPIRED';
+        refundStatus = 'REQUIRED';
+      }
+      else if (Number(order.total_amount) !== transfer.amount) {
+        status = 'REVIEW_AMOUNT';
+        refundStatus = 'REQUIRED';
+      }
       else {
         await client.query(
           "UPDATE orders SET status = 'SUCCESS', transaction_id = $1, updated_at = NOW() WHERE id = $2 AND status = 'PENDING'",
@@ -50,8 +57,8 @@ const processSepayTransfer = async (payload, client) => {
   }
 
   await client.query(
-    'UPDATE sepay_transactions SET order_id = $1, status = $2 WHERE transaction_id = $3',
-    [orderId, status, transfer.transactionId]
+    'UPDATE sepay_transactions SET order_id = $1, status = $2, refund_status = $3 WHERE transaction_id = $4',
+    [orderId, status, refundStatus, transfer.transactionId]
   );
   await client.query('COMMIT');
   return { status, orderId };

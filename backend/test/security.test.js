@@ -14,7 +14,7 @@ const {
   buildOAuthPlaceholderEmail,
 } = require('../controllers/authController');
 const { detectImageType } = require('../routes/uploadRoutes');
-const { releaseExpiredOrders } = require('../utils/orderLifecycle');
+const { releaseExpiredOrders, cancelPendingOrdersForMatch } = require('../utils/orderLifecycle');
 const pool = require('../config/db');
 const ExcelJS = require('exceljs');
 const sharp = require('sharp');
@@ -204,6 +204,23 @@ test('đơn hết hạn được hủy và vé được hoàn về kho', async (
   assert.equal(await releaseExpiredOrders(db), 1);
   assert.match(calls[1].sql, /SET status = 'AVAILABLE'/);
   assert.deepEqual(calls[1].params, [[42]]);
+  assert.match(calls[2].sql, /SET status = 'CANCELLED'/);
+});
+
+test('kết thúc trận hủy toàn bộ đơn chờ và hoàn ghế về kho', async () => {
+  const calls = [];
+  const db = {
+    query: async (sql, params) => {
+      calls.push({ sql, params });
+      if (sql.includes('FROM orders o')) return { rowCount: 2, rows: [{ id: 51 }, { id: 52 }] };
+      return { rowCount: 2, rows: [] };
+    },
+  };
+
+  assert.deepEqual(await cancelPendingOrdersForMatch(db, 7), [51, 52]);
+  assert.deepEqual(calls[0].params, [7]);
+  assert.match(calls[1].sql, /SET status = 'AVAILABLE'/);
+  assert.deepEqual(calls[1].params, [[51, 52]]);
   assert.match(calls[2].sql, /SET status = 'CANCELLED'/);
 });
 

@@ -165,6 +165,7 @@ test('SePay chỉ phát hành vé khi đúng mã, tài khoản, số tiền và 
 
     const late = fakeClient({ order: { id: 5, total_amount: 50000, status: 'PENDING', is_within_deadline: false } });
     assert.equal((await processSepayTransfer(transfer, late)).status, 'REVIEW_EXPIRED');
+    assert.equal(late.calls.some(({ sql, params }) => sql.includes('refund_status') && params?.includes('REQUIRED')), true);
 
     const wrongAccount = fakeClient({});
     assert.equal((await processSepayTransfer({ ...transfer, accountNumber: '999999999' }, wrongAccount)).status, 'REVIEW_ACCOUNT');

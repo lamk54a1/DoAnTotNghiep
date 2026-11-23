@@ -18,7 +18,7 @@ interface MyOrder {
   totalAmount: number;
   status: 'PENDING' | 'SUCCESS' | 'CANCELLED';
   orderQrCode: string;
-  paymentMethod?: 'BANK_TRANSFER' | 'SEPAY' | 'CASH';
+  paymentMethod?: 'BANK_TRANSFER' | 'SEPAY' | 'FREE' | 'CASH';
   paymentQrCode?: string | null;
   expiresAt?: string | null;
   createdAt: string;

@@ -5,15 +5,16 @@ interface PaymentSuccessProps {
   ticketCode: string;
   confirmedSeats: string[];
   paid?: boolean;
+  free?: boolean;
 }
 
-export default function PaymentSuccess({ ticketCode, confirmedSeats, paid = false }: PaymentSuccessProps) {
+export default function PaymentSuccess({ ticketCode, confirmedSeats, paid = false, free = false }: PaymentSuccessProps) {
   return (
     <div className="flex min-h-screen flex-col items-center bg-white px-6 pb-20 pt-28 font-montserrat">
       <div className="w-full max-w-2xl">
         <Result
           status={paid ? 'success' : 'info'}
-          title={<span className="text-3xl font-black italic uppercase text-[#003078]">{paid ? 'Thanh toán thành công' : 'Đơn đang chờ xác nhận'}</span>}
+          title={<span className="text-3xl font-black italic uppercase text-[#003078]">{free ? 'Nhận vé miễn phí thành công' : paid ? 'Thanh toán thành công' : 'Đơn đang chờ xác nhận'}</span>}
           subTitle={`Mã đối soát của bạn là ${ticketCode}`}
         />
         <Card className="mb-8 rounded-[40px] border-none bg-gray-50 shadow-2xl">

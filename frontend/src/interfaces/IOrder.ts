@@ -1,6 +1,6 @@
 import { ITicket } from './ITicket';
 
-export type PaymentMethod = 'SEPAY' | 'CASH' | 'BANK_TRANSFER';
+export type PaymentMethod = 'SEPAY' | 'FREE' | 'CASH' | 'BANK_TRANSFER';
 
 export interface IOrderResponse {
   id: number;
@@ -8,7 +8,7 @@ export interface IOrderResponse {
   paymentQrCode: string | null;
   expiresAt: string;
   totalAmount: number;
-  status: 'PENDING';
+  status: 'PENDING' | 'SUCCESS' | 'CANCELLED';
   paymentMethod: PaymentMethod;
 }
 

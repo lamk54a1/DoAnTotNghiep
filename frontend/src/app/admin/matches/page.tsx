@@ -403,9 +403,11 @@ export default function AdminMatchesPage() {
             <Button aria-label="Sửa trận đấu" type="primary" icon={<EditOutlined />} onClick={() => openModal(record)} />
           </Tooltip>
 
-          <Tooltip title="Sinh vé">
-            <Button aria-label="Sinh vé" icon={<RetweetOutlined />} onClick={() => openGenerateModal(record)} className="border-green-600 font-bold text-green-600 hover:bg-green-50" />
-          </Tooltip>
+          {record.status !== 'FINISHED' && (
+            <Tooltip title="Sinh vé">
+              <Button aria-label="Sinh vé" icon={<RetweetOutlined />} onClick={() => openGenerateModal(record)} className="border-green-600 font-bold text-green-600 hover:bg-green-50" />
+            </Tooltip>
+          )}
           <Button onClick={() => openInventoryModal(record)}>
             Tồn kho
           </Button>
@@ -597,6 +599,11 @@ export default function AdminMatchesPage() {
           width={820}
           loading={loadingInventory}
         >
+          {inventoryMatch?.status === 'FINISHED' ? (
+            <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm font-semibold text-blue-800">
+              Trận đấu đã kết thúc. Bạn chỉ có thể xem tồn kho và số liệu vé; các thao tác sinh, bán hoặc in thêm vé đã bị khóa.
+            </div>
+          ) : (
           <div className="mb-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
             <div className="mb-3 text-xs font-black uppercase text-[#003078]">Quản lý vé giấy</div>
             <Space wrap>
@@ -649,6 +656,7 @@ export default function AdminMatchesPage() {
               Vé giấy sẽ bị trừ khỏi số vé khách có thể mua trên web. Khi bán tại quầy, bấm Đã bán giấy để hệ thống ghi nhận tồn kho và doanh thu riêng.
             </div>
           </div>
+          )}
           <Row gutter={[16, 16]}>
             {STAND_KEYS.map((stand) => {
               const item = inventory[stand];

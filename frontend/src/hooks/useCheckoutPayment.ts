@@ -39,7 +39,9 @@ export function useCheckoutPayment({
       const resData = await axiosClient.post<IOrderResponse>('/orders', payload);
 
       onOrderCreated(resData, seatsSnapshot);
-      message.success('Đã tạo đơn và khóa ghế trong 15 phút.');
+      message.success(resData.paymentMethod === 'FREE'
+        ? 'Vé miễn phí đã được phát hành.'
+        : 'Đã tạo đơn và khóa ghế trong 15 phút.');
     } catch (error: unknown) {
       console.error(error);
       message.error(axios.isAxiosError(error) && error.response?.data?.message

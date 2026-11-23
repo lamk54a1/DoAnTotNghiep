@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const crypto = require('node:crypto');
 const { writeAuditLog } = require('../utils/auditLog');
+const { assignTicketQrCodes } = require('../utils/ticketQr');
 const { ORDER_EXPIRY_MINUTES, releaseExpiredOrders, expirePendingOrders } = require('../utils/orderLifecycle');
 const { isSepayCheckoutEnabled } = require('../services/sepayService');
 
@@ -42,12 +43,6 @@ const createOrder = async (req, res) => {
     if (normalizedPaymentMethod !== 'SEPAY') {
         return res.status(400).json({ message: 'Hiện chỉ hỗ trợ thanh toán qua SePay.' });
     }
-    try {
-        if (!await isSepayReady()) return res.status(503).json({ message: 'SePay chưa sẵn sàng. Vui lòng thử lại sau.' });
-    } catch {
-        return res.status(503).json({ message: 'SePay chưa sẵn sàng. Vui lòng thử lại sau.' });
-    }
-
     const client = await pool.connect();
 
     try {
@@ -132,14 +127,25 @@ const createOrder = async (req, res) => {
         }
 
         const totalAmount = ticketPrices.rows.reduce((sum, ticket) => sum + Number(ticket.price), 0);
-        if (!Number.isSafeInteger(totalAmount) || totalAmount < 1000) {
-            throw Object.assign(new Error('Đơn thanh toán SePay phải từ 1.000đ.'), { statusCode: 400 });
+        if (!Number.isSafeInteger(totalAmount) || totalAmount < 0) {
+            throw Object.assign(new Error('Tổng tiền đơn hàng không hợp lệ.'), { statusCode: 400 });
+        }
+        const isFreeOrder = totalAmount === 0;
+        if (!isFreeOrder) {
+            try {
+                if (!await isSepayReady()) throw new Error('SEPAY_NOT_READY');
+            } catch {
+                throw Object.assign(new Error('SePay chưa sẵn sàng. Vui lòng thử lại sau.'), { statusCode: 503 });
+            }
+            if (totalAmount < 1000) {
+                throw Object.assign(new Error('Đơn thanh toán SePay phải từ 1.000đ.'), { statusCode: 400 });
+            }
         }
         // Mã này chỉ dùng để đối soát đơn, không phải QR vào sân.
         const orderQrCode = `SLNA${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
-        const paymentQrCode = buildPaymentQrCode({ totalAmount, orderQrCode });
+        const paymentQrCode = isFreeOrder ? null : buildPaymentQrCode({ totalAmount, orderQrCode });
 
-        if (!paymentQrCode) {
+        if (!isFreeOrder && !paymentQrCode) {
             throw Object.assign(new Error('Máy chủ chưa cấu hình tài khoản nhận chuyển khoản.'), { statusCode: 503 });
         }
 
@@ -147,9 +153,10 @@ const createOrder = async (req, res) => {
         const orderRes = await client.query(
             `INSERT INTO orders (
                 user_id, total_amount, status, payment_method, order_qr_code, payment_qr_code, expires_at
-             ) VALUES ($1, $2, 'PENDING', $3, $4, $5, NOW() + ($6 * INTERVAL '1 minute'))
+             ) VALUES ($1, $2, $3::order_status, $4, $5, $6,
+                       CASE WHEN $3 = 'PENDING' THEN NOW() + ($7 * INTERVAL '1 minute') ELSE NULL END)
              RETURNING *`,
-            [userId, totalAmount, normalizedPaymentMethod, orderQrCode, paymentQrCode, ORDER_EXPIRY_MINUTES]
+            [userId, totalAmount, isFreeOrder ? 'SUCCESS' : 'PENDING', isFreeOrder ? 'FREE' : normalizedPaymentMethod, orderQrCode, paymentQrCode, ORDER_EXPIRY_MINUTES]
         );
         const newOrder = orderRes.rows[0];
 
@@ -175,8 +182,12 @@ const createOrder = async (req, res) => {
             updatedTickets.push(tRes.rows[0]);
         }
 
+        if (isFreeOrder) {
+            await assignTicketQrCodes(client, [newOrder.id]);
+        }
+
         await client.query('COMMIT');
-        await writeAuditLog({ userId, action: 'ORDER_CREATED', entityType: 'order', entityId: newOrder.id, metadata: { matchId, ticketCount: uniqueTickets.length, totalAmount } });
+        await writeAuditLog({ userId, action: isFreeOrder ? 'FREE_TICKETS_ISSUED' : 'ORDER_CREATED', entityType: 'order', entityId: newOrder.id, metadata: { matchId, ticketCount: uniqueTickets.length, totalAmount } });
         
         res.status(201).json({
             id: newOrder.id,

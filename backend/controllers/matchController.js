@@ -1,6 +1,7 @@
 const pool = require('../config/db');
 const { writeAuditLog } = require('../utils/auditLog');
 const { DEFAULT_ZONE_PRICES } = require('../config/ticketZones');
+const { cancelPendingOrdersForMatch } = require('../utils/orderLifecycle');
 
 const normalizeFreeStands = (freeStands) => {
   if (!Array.isArray(freeStands)) return [];
@@ -28,9 +29,9 @@ const hasFullScore = (homeScore, awayScore) => (
   && awayScore !== undefined
 );
 
-const syncAvailableTicketPrices = async (matchId, freeStands, standPrices) => {
+const syncAvailableTicketPrices = async (matchId, freeStands, standPrices, db = pool) => {
   for (const [stand, price] of Object.entries(standPrices)) {
-    await pool.query(
+    await db.query(
       `UPDATE tickets
        SET price = $1
        WHERE match_id = $2
@@ -129,7 +130,9 @@ const createMatch = async (req, res) => {
 const updateMatch = async (req, res) => {
   const { id } = req.params;
   const { opponent, opponentLogo, matchDate, stadium, description, bannerImage, status, homeScore, awayScore, freeStands, standPrices, competitionName } = req.body;
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const normalizedFreeStands = normalizeFreeStands(freeStands);
     const normalizedStandPrices = normalizeStandPrices(standPrices);
     const ticketPriceMin = getTicketPriceMin(normalizedStandPrices, normalizedFreeStands);
@@ -153,18 +156,35 @@ const updateMatch = async (req, res) => {
       WHERE id = $14
       RETURNING id, opponent, opponent_logo AS "opponentLogo", match_date AS "matchDate", stadium, description, competition_name AS "competitionName", ticket_price_min AS "ticketPriceMin", stand_prices AS "standPrices", banner_image AS "bannerImage", status, home_score AS "homeScore", away_score AS "awayScore", free_stands AS "freeStands"
     `;
-    const result = await pool.query(query, [
+    const result = await client.query(query, [
       opponent, opponentLogo || null, matchDate, stadium, description || null, competitionName || 'V-League 2026', ticketPriceMin, normalizedStandPrices, bannerImage || null, finalStatus, homeScore ?? null, awayScore ?? null, normalizedFreeStands, id
     ]);
     
     if (result.rowCount === 0) {
+      await client.query('ROLLBACK');
       return res.status(404).json({ message: 'Không tìm thấy trận đấu cần sửa!' });
     }
-    await syncAvailableTicketPrices(id, normalizedFreeStands, normalizedStandPrices);
+    await syncAvailableTicketPrices(id, normalizedFreeStands, normalizedStandPrices, client);
+    const cancelledOrderIds = finalStatus === 'FINISHED'
+      ? await cancelPendingOrdersForMatch(client, Number(id))
+      : [];
+    await client.query('COMMIT');
     await writeAuditLog({ userId: req.user.id, action: 'MATCH_UPDATED', entityType: 'match', entityId: id, metadata: { opponent, competitionName } });
-    res.json(result.rows[0]);
+    if (cancelledOrderIds.length > 0) {
+      await writeAuditLog({
+        userId: req.user.id,
+        action: 'MATCH_FINISHED_PENDING_ORDERS_CANCELLED',
+        entityType: 'match',
+        entityId: id,
+        metadata: { orderIds: cancelledOrderIds, count: cancelledOrderIds.length }
+      });
+    }
+    res.json({ ...result.rows[0], cancelledPendingOrders: cancelledOrderIds.length });
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     res.status(500).json({ message: 'Không thể cập nhật trận đấu.' });
+  } finally {
+    client.release();
   }
 };
 

@@ -103,12 +103,18 @@ CREATE TABLE IF NOT EXISTS sepay_transactions (
   account_number VARCHAR(80) NOT NULL,
   amount INTEGER NOT NULL,
   status VARCHAR(32) NOT NULL,
+  refund_status VARCHAR(20) NOT NULL DEFAULT 'NOT_REQUIRED',
+  refund_note TEXT,
+  refunded_at TIMESTAMP,
+  refunded_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
   payload JSONB NOT NULL,
   received_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS sepay_transactions_review_idx
   ON sepay_transactions (received_at DESC) WHERE status <> 'MATCHED';
+CREATE INDEX IF NOT EXISTS sepay_transactions_refund_idx
+  ON sepay_transactions (refund_status, received_at DESC) WHERE refund_status <> 'NOT_REQUIRED';
 
 CREATE TABLE IF NOT EXISTS sponsors (
   id SERIAL PRIMARY KEY,

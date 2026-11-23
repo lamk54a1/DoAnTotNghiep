@@ -196,11 +196,13 @@ export default function AdminDashboard() {
               { title: 'Ngày', dataIndex: 'matchDate', render: (d) => dayjs(d).format('DD/MM/YYYY') },
               { title: 'Hành động', width: 90, align: 'center' as const, render: (_, record: IMatch) => (
                 <Space>
-                  <Popconfirm title="Sinh vé cho trận này?" onConfirm={() => handleGenerateTickets(record.id)}>
-                    <Tooltip title="Sinh vé">
-                      <Button aria-label="Sinh vé" icon={<RetweetOutlined />} size="small" />
-                    </Tooltip>
-                  </Popconfirm>
+                  {record.status !== 'FINISHED' && (
+                    <Popconfirm title="Sinh vé cho trận này?" onConfirm={() => handleGenerateTickets(record.id)}>
+                      <Tooltip title="Sinh vé">
+                        <Button aria-label="Sinh vé" icon={<RetweetOutlined />} size="small" />
+                      </Tooltip>
+                    </Popconfirm>
+                  )}
                 </Space>
               )}
             ]}
