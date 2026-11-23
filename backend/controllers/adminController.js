@@ -336,11 +336,11 @@ const updateSepayRefund = async (req, res) => {
   try {
     const result = await pool.query(
       `UPDATE sepay_transactions
-       SET refund_status = $1,
-           refund_note = NULLIF($2, ''),
-           refunded_at = CASE WHEN $1 = 'REFUNDED' THEN NOW() ELSE NULL END,
-           refunded_by = CASE WHEN $1 = 'REFUNDED' THEN $3 ELSE NULL END
-       WHERE transaction_id = $4
+       SET refund_status = $1::varchar,
+           refund_note = NULLIF($2::text, ''),
+           refunded_at = CASE WHEN $1::varchar = 'REFUNDED' THEN NOW() ELSE NULL END,
+           refunded_by = CASE WHEN $1::varchar = 'REFUNDED' THEN $3::integer ELSE NULL END
+       WHERE transaction_id = $4::bigint
          AND status <> 'MATCHED'
        RETURNING transaction_id AS "transactionId", refund_status AS "refundStatus",
                  refund_note AS "refundNote", refunded_at AS "refundedAt"`,
