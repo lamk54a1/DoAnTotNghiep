@@ -357,7 +357,24 @@ const updateSepayRefund = async (req, res) => {
     });
     return res.json({ message: refundStatus === 'REFUNDED' ? 'Đã ghi nhận hoàn tiền.' : 'Đã cập nhật tiến độ hoàn tiền.', ...result.rows[0] });
   } catch (err) {
-    return res.status(500).json({ message: 'Không thể cập nhật trạng thái hoàn tiền.' });
+    console.error('Không thể cập nhật trạng thái hoàn tiền:', {
+      transactionId,
+      refundStatus,
+      code: err.code,
+      message: err.message
+    });
+
+    if (err.code === '42703') {
+      return res.status(503).json({
+        message: 'Cơ sở dữ liệu chưa được cập nhật chức năng hoàn tiền. Hãy chạy npm run migrate trên VPS.'
+      });
+    }
+    if (err.code === '23503') {
+      return res.status(409).json({
+        message: 'Tài khoản quản trị không còn hợp lệ để ghi nhận người hoàn tiền. Hãy đăng nhập lại.'
+      });
+    }
+    return res.status(500).json({ message: 'Không thể cập nhật trạng thái hoàn tiền. Vui lòng kiểm tra nhật ký máy chủ.' });
   }
 };
 

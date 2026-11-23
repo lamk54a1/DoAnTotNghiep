@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { Alert, App, Button, Input, Modal, Space, Table, Tag } from 'antd';
+import axios from 'axios';
 import AdminPageShell from '../../../components/Admin/AdminPageShell';
 import axiosClient from '../../../api/axiosClient';
 
@@ -55,8 +56,11 @@ export default function AdminPaymentReviewsPage() {
       setRefundItem(null);
       setRefundNote('');
       await refresh();
-    } catch {
-      message.error('Không thể cập nhật trạng thái hoàn tiền.');
+    } catch (error) {
+      const apiMessage = axios.isAxiosError<{ message?: string }>(error)
+        ? error.response?.data?.message
+        : undefined;
+      message.error(apiMessage || 'Không thể cập nhật trạng thái hoàn tiền.');
     } finally {
       setSavingRefund(false);
     }
