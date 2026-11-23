@@ -27,6 +27,17 @@ const REFUND_LABELS = {
   REFUNDED: 'Đã hoàn tiền',
 };
 
+const REVIEW_REASON_LABELS: Record<string, string> = {
+  RECEIVED: 'Đã tiếp nhận giao dịch',
+  REVIEW_ACCOUNT: 'Sai tài khoản nhận',
+  REVIEW_AMOUNT: 'Sai số tiền thanh toán',
+  REVIEW_CODE: 'Sai hoặc thiếu mã thanh toán',
+  REVIEW_EXPIRED: 'Thanh toán sau khi đơn hết hạn',
+  REVIEW_NO_ORDER: 'Không tìm thấy đơn hàng',
+  IGNORED_OUTGOING: 'Giao dịch chuyển tiền ra',
+  MATCHED: 'Đã khớp đơn hàng',
+};
+
 export default function AdminPaymentReviewsPage() {
   const { message } = App.useApp();
   const [items, setItems] = useState<ReviewTransaction[]>([]);
@@ -89,7 +100,7 @@ export default function AdminPaymentReviewsPage() {
           { title: 'Mã chuyển khoản', dataIndex: 'paymentCode', render: (value: string | null) => value || '-' },
           { title: 'Tài khoản nhận', dataIndex: 'accountNumber' },
           { title: 'Số tiền', dataIndex: 'amount', render: (value: number) => `${Number(value).toLocaleString('vi-VN')}đ` },
-          { title: 'Lý do', dataIndex: 'status', render: (value: string) => <Tag color="orange">{value}</Tag> },
+          { title: 'Lý do', dataIndex: 'status', render: (value: string) => <Tag color="orange">{REVIEW_REASON_LABELS[value] || value}</Tag> },
           {
             title: 'Hoàn tiền', dataIndex: 'refundStatus',
             render: (value: ReviewTransaction['refundStatus']) => (

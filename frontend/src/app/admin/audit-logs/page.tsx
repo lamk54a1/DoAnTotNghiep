@@ -16,6 +16,34 @@ interface AuditLog {
   createdAt: string;
 }
 
+const ACTION_LABELS: Record<string, string> = {
+  ADMIN_ROLE_GRANTED: 'Cấp quyền quản trị viên',
+  ADMIN_ROLE_REVOKED: 'Thu hồi quyền quản trị viên',
+  CCCD_APPROVED: 'Duyệt hồ sơ CCCD',
+  CCCD_AUTO_VERIFIED: 'Tự động xác minh CCCD',
+  CCCD_REJECTED: 'Từ chối hồ sơ CCCD',
+  FREE_TICKETS_ISSUED: 'Phát hành vé miễn phí',
+  MATCH_CREATED: 'Tạo trận đấu',
+  MATCH_FINISHED_PENDING_ORDERS_CANCELLED: 'Hủy đơn chờ khi trận kết thúc',
+  MATCH_UPDATED: 'Cập nhật trận đấu',
+  ORDERS_REPORT_EXPORTED: 'Xuất báo cáo đơn hàng',
+  ORDER_BULK_STATUS_UPDATED: 'Cập nhật hàng loạt đơn hàng',
+  ORDER_CREATED: 'Tạo đơn hàng',
+  ORDER_PAID_SEPAY: 'Xác nhận thanh toán SePay',
+  ORDER_STATUS_UPDATED: 'Cập nhật trạng thái đơn hàng',
+  PAPER_TICKETS_PRINTED: 'In vé giấy',
+  PAPER_TICKETS_RELEASED: 'Trả vé giấy về bán online',
+  PAPER_TICKETS_RESERVED: 'Giữ vé để bán giấy',
+  PAPER_TICKETS_SOLD: 'Ghi nhận bán vé giấy',
+  PAPER_TICKETS_UNSOLD: 'Hủy ghi nhận bán vé giấy',
+  SCANNER_ROLE_GRANTED: 'Cấp quyền soát vé',
+  SCANNER_ROLE_REVOKED: 'Thu hồi quyền soát vé',
+  SEPAY_REFUND_STATUS_UPDATED: 'Cập nhật trạng thái hoàn tiền',
+  TICKET_SCANNED: 'Soát vé vào sân',
+};
+
+const getActionLabel = (action: string) => ACTION_LABELS[action] || action;
+
 export default function AdminAuditLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +62,7 @@ export default function AdminAuditLogsPage() {
             key={log.id}
             size="small"
             className="overflow-hidden rounded-xl shadow-sm"
-            title={<Tag color="blue" className="m-0 max-w-full whitespace-normal break-words">{log.action}</Tag>}
+            title={<Tag color="blue" className="m-0 max-w-full whitespace-normal break-words">{getActionLabel(log.action)}</Tag>}
             extra={<span className="text-xs text-gray-500">#{log.id}</span>}
           >
             <Descriptions column={1} size="small" colon={false} className="admin-mobile-details">
@@ -61,7 +89,7 @@ export default function AdminAuditLogsPage() {
         columns={[
           { title: 'Thời gian', dataIndex: 'createdAt', render: (value: string) => dayjs(value).format('DD/MM/YYYY HH:mm:ss') },
           { title: 'Người thao tác', dataIndex: 'userEmail', render: (value) => value || 'Hệ thống' },
-          { title: 'Hành động', dataIndex: 'action', render: (value: string) => <Tag color="blue">{value}</Tag> },
+          { title: 'Hành động', dataIndex: 'action', render: (value: string) => <Tag color="blue">{getActionLabel(value)}</Tag> },
           { title: 'Đối tượng', render: (_, record) => `${record.entityType || '-'} #${record.entityId || '-'}` },
           { title: 'Dữ liệu', dataIndex: 'metadata', render: (value) => <pre className="m-0 max-w-md whitespace-pre-wrap break-all text-xs">{JSON.stringify(value || {}, null, 2)}</pre> },
         ]}
